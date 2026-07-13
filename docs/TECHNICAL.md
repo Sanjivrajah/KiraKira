@@ -48,6 +48,28 @@ The API owns authorization and state transitions. Vendor responses may propose a
 
 ## Integrations
 
+### Modality ownership
+
+Each vendor has one explicit responsibility. Inputs converge only after extraction into the versioned **Field Assertion** contract.
+
+| Input or responsibility | Implementation |
+| --- | --- |
+| Receipt and invoice images | OpenAI vision with structured output |
+| Spoken business updates | ElevenLabs Scribe speech-to-text |
+| CSV and database rows | Deterministic Python parsing and saved column mappings |
+| Bank CSV reconciliation | Deterministic normalization plus model-assisted match suggestions |
+| Arithmetic and required-field checks | Deterministic application rules |
+| Evidence lineage, evaluation and analytical projections | Databricks |
+| Operational state and owner approvals | PostgreSQL through the application API |
+
+ElevenLabs does not process receipt images. OpenAI vision proposes fields from images; it does not confirm transactions or perform authoritative arithmetic. Databricks records and evaluates the evidence-to-assertion pipeline, while PostgreSQL remains the operational source of truth.
+
+### OpenAI vision
+
+Send a receipt or supplier-invoice image together with a versioned structured-output schema. The response may propose the document type, supplier, invoice number, date, line items, subtotal, tax, total and missing fields. It must be converted into source-linked **Field Assertions**, not written directly to a verified transaction.
+
+After extraction, the application recalculates quantities, line totals, subtotal and tax deterministically. A mismatch becomes a blocking conflict for owner review. Low-resolution images, unreadable text and absent fields must remain explicit rather than being filled with plausible values.
+
 ### ElevenLabs
 
 Use Scribe speech-to-text for short code-switched voice notes. Preserve audio, transcript and timestamps, and require confirmation for critical amounts, dates and entities. Do not add voice cloning or text-to-speech to the MVP.
