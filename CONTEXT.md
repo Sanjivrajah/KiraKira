@@ -84,6 +84,60 @@ _Avoid_: Loan qualification, loan approval, guaranteed financing
 - The review experience should optimize for trust: show what was heard, what was proposed, what is uncertain, and what the **Business Owner** must confirm
 - Business-facing labels may use simple words such as Draft and Confirmed, while the domain model keeps **Candidate Transaction** and **Verified Transaction** precise
 
+## Product promise
+
+**KiraKira** helps a **Business Owner** say what happened in the business, then turns that informal update into records they can review, correct and confirm. The product should feel like an assistant doing back-office work with the owner, not like software asking the owner to become a bookkeeper.
+
+The core promise is not that AI knows the truth. The core promise is that every proposed record is source-linked, reviewable and safe to correct before it becomes part of the business history.
+
+The primary value sequence is:
+
+1. Capture informal evidence
+2. Organize it into draft records
+3. Ask for clarification where needed
+4. Prepare e-Invoice-ready information
+5. Build financing evidence from the same confirmed history
+
+## First-release flow
+
+1. A **Business Owner** gives a spoken Bahasa Malaysia and English update, such as daily sales, purchases, customer credit and payments received.
+2. **KiraKira** transcribes the spoken update and keeps the audio as an **Evidence Item**.
+3. **KiraKira** proposes source-linked **Field Assertions** for each business event it detects.
+4. The proposed events appear as **Candidate Transactions** with owner-facing statuses such as Draft, Needs clarification or Missing e-Invoice fields.
+5. If a payment or field is ambiguous, **KiraKira** asks a **Clarification Prompt** before treating it as confirmed.
+6. The **Business Owner** reviews and confirms the draft records.
+7. Confirmed records become **Verified Transactions** and may produce readable **E-Invoice Drafts**.
+8. The same confirmed records can be exported into a **Financing Evidence Pack** with **Financing Evidence Completeness**.
+
+## Assistant cockpit
+
+The assistant cockpit should prioritize review and trust over dashboard density. A useful cockpit shows the transcript, the proposed records, the exact evidence behind each proposed value, the uncertainty that still needs owner input and the outputs that are ready to generate.
+
+The first successful product moment is a good clarification, not silent automation. For example, if a spoken update says "DuitNow from Siti RM120, not sure invoice mana," the assistant should ask whether the payment is for an existing invoice, a new sale or a deposit.
+
+## Financing evidence completeness
+
+**Financing Evidence Completeness** should measure the availability of reviewable evidence, not the quality of the business or the likelihood of approval.
+
+Useful completeness dimensions include:
+
+- Revenue evidence
+- Expense evidence
+- Payment evidence
+- Customer records
+- Supplier records
+- Monthly coverage
+
+The product may explain what evidence is missing and what the **Business Owner** can capture next. It should not claim that the business qualifies for financing, predict approval or estimate a financing amount unless a financing provider has made that decision.
+
+## First-release non-goals
+
+- Do not build a general accounting dashboard before the voice-first review flow works
+- Do not submit to MyInvois automatically before the **Business Owner** has confirmed the underlying **Verified Transactions**
+- Do not present a **Financing Evidence Completeness** measure as a credit score or approval probability
+- Do not make supplier discovery, flood recovery, marketplace dispute evidence, food-batch traceability or factory supply disruption part of the first release
+- Do not require the **Business Owner** to manually key in every transaction as the main interaction pattern
+
 ## Example dialogue
 
 > **Dev:** "Are we designing the first release for every Malaysian micro-business?"
