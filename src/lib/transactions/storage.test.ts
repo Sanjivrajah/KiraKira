@@ -4,6 +4,7 @@ import {
   deleteTransaction,
   getTransactionById,
   getTransactions,
+  initializeTransactions,
   saveTransaction,
   TRANSACTIONS_STORAGE_KEY,
   updateTransaction,
@@ -31,6 +32,14 @@ describe("transaction storage", () => {
     expect(getTransactions()).toEqual([]);
     localStorage.setItem(TRANSACTIONS_STORAGE_KEY, "not-json");
     expect(getTransactions()).toEqual([]);
+  });
+
+  it("seeds fallback transactions only when storage has never been created", () => {
+    expect(initializeTransactions([sample])).toEqual([sample]);
+    expect(getTransactions()).toEqual([sample]);
+    clearTransactions();
+    localStorage.setItem(TRANSACTIONS_STORAGE_KEY, "[]");
+    expect(initializeTransactions([sample])).toEqual([]);
   });
 
   it("saves, reads, updates, and deletes a transaction", () => {

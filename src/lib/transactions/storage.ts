@@ -43,6 +43,18 @@ function writeTransactions(transactions: Transaction[]): boolean {
   }
 }
 
+export function initializeTransactions(fallback: Transaction[]): Transaction[] {
+  const storage = getStorage();
+  if (!storage) return fallback;
+
+  try {
+    if (storage.getItem(TRANSACTIONS_STORAGE_KEY) !== null) return getTransactions();
+    return writeTransactions(fallback) ? fallback : [];
+  } catch {
+    return [];
+  }
+}
+
 export function getTransactions(): Transaction[] {
   const storage = getStorage();
   if (!storage) return [];

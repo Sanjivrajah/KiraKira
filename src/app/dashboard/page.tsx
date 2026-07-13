@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { AuthGate } from "@/components/auth/auth-gate";
@@ -19,13 +20,33 @@ import {
   quickActions,
 } from "@/data/mock-dashboard";
 import { mockTransactions } from "@/data/mock-transactions";
+import { calculateMonthlyMetrics } from "@/lib/transactions/query";
+import { initializeTransactions } from "@/lib/transactions/storage";
 import { useNiagaStore } from "@/store/use-niaga-store";
+import type { Transaction } from "@/types/finance";
 
 function DashboardContent() {
   const user = useNiagaStore((state) => state.user);
   const business = useNiagaStore((state) => state.business);
   const firstName = user?.name.split(" ")[0] || "there";
   const businessName = business?.name || "your business";
+  const [transactions] = useState<Transaction[]>(() => initializeTransactions(mockTransactions));
+  const metrics = useMemo(() => {
+    const totals = calculateMonthlyMetrics(transactions);
+    return dashboardMetrics.map((metric) => {
+      if (metric.id === "revenue") return { ...metric, value: totals.revenue, trend: "From recorded income this month" };
+      if (metric.id === "expenses") return { ...metric, value: totals.expenses, trend: "From recorded expenses this month" };
+      if (metric.id === "profit") return { ...metric, value: totals.profit, trend: totals.revenue ? `${Math.round((totals.profit / totals.revenue) * 100)}% estimated margin` : "Add income to calculate margin" };
+      return metric;
+    });
+  }, [transactions]);
+  const reviewCount = transactions.filter((item) => item.status === "needs_review").length;
+  const insights = dashboardInsights.map((insight) => insight.id === "review" ? {
+    ...insight,
+    title: reviewCount ? `${reviewCount} transaction${reviewCount === 1 ? "" : "s"} need review` : "All transactions reviewed",
+    description: reviewCount ? insight.description : "Your transaction records are up to date.",
+    tone: reviewCount ? insight.tone : "brand" as const,
+  } : insight);
 
   return (
     <AppShell>
@@ -37,7 +58,7 @@ function DashboardContent() {
       />
 
       <section className="metrics-grid" aria-label="Financial summary">
-        {dashboardMetrics.map((metric) => <MetricCard key={metric.id} {...metric} />)}
+        {metrics.map((metric) => <MetricCard key={metric.id} {...metric} />)}
       </section>
 
       <QuickActions actions={quickActions} />
@@ -48,11 +69,11 @@ function DashboardContent() {
       </div>
 
       <div className="dashboard-secondary-grid">
-        <RecentTransactions transactions={mockTransactions} />
-        <InsightsPanel insights={dashboardInsights} />
+        <RecentTransactions transactions={transactions} />
+        <InsightsPanel insights={insights} />
       </div>
 
-      <p className="foundation-note">Demo data only · No bank account is connected.</p>
+      <p className="foundation-note">Stored on this device · No bank account is connected.</p>
     </AppShell>
   );
 }

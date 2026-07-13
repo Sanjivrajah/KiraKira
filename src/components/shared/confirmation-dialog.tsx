@@ -8,6 +8,7 @@ interface ConfirmationDialogProps {
   description: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  danger?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -18,6 +19,7 @@ export function ConfirmationDialog({
   description,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
+  danger = false,
   onConfirm,
   onCancel,
 }: ConfirmationDialogProps) {
@@ -56,7 +58,7 @@ export function ConfirmationDialog({
           >
             {cancelLabel}
           </button>
-          <button className="button button-primary" onClick={onConfirm} type="button">
+          <button className={`button ${danger ? "button-danger" : "button-primary"}`} onClick={onConfirm} type="button">
             {confirmLabel}
           </button>
         </div>
