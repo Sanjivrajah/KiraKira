@@ -7,6 +7,8 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { useNiagaStore } from "@/store/use-niaga-store";
 import { businessTypeLabels } from "@/components/onboarding/business-preview";
 import { clearTransactions } from "@/lib/transactions/storage";
+import { clearInvoices } from "@/lib/invoices/storage";
+import { clearReminders } from "@/lib/reminders/storage";
 import { MobileNav } from "./mobile-nav";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
@@ -28,6 +30,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     } else if (dialog === "reset") {
       resetDemo();
       clearTransactions();
+      clearInvoices();
+      clearReminders();
       router.replace("/");
     }
     setDialog(null);
@@ -50,7 +54,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <ConfirmationDialog
         confirmLabel={dialog === "reset" ? "Reset demo" : "Sign out"}
         description={dialog === "reset"
-          ? "This removes the demo user, business profile, and onboarding progress stored on this device. This cannot be undone."
+          ? "This removes the demo user, business profile, transactions, invoices, and reminder history stored on this device. This cannot be undone."
           : "This ends the active session, but keeps the business profile on this demo device for your next sign-in."}
         onCancel={() => setDialog(null)}
         onConfirm={confirm}

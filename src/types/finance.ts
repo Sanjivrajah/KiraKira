@@ -24,3 +24,37 @@ export interface Transaction {
   status: TransactionStatus;
   createdAt: string;
 }
+
+export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue";
+
+export interface InvoiceItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  customerName: string;
+  customerEmail?: string;
+  buyerTin?: string;
+  issueDate: string;
+  dueDate: string;
+  status: InvoiceStatus;
+  items: InvoiceItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  notes?: string;
+  paymentTerms?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InvoiceReminder {
+  invoiceId: string;
+  remindedAt: string;
+}

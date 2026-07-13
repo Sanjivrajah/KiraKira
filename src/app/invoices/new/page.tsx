@@ -1,5 +1,7 @@
-import { FeaturePlaceholder } from "@/components/shared/feature-placeholder";
+import { AuthGate } from "@/components/auth/auth-gate";
+import { InvoiceBuilder } from "@/components/invoices/invoice-builder";
+import { AppShell } from "@/components/layout/app-shell";
 
 export default function NewInvoicePage() {
-  return <FeaturePlaceholder title="Create invoice" description="Prepare a clear payment request for your customer." emptyTitle="Invoice creation is coming soon" emptyDescription="The invoice builder will be added in Session 5. This placeholder keeps the dashboard action connected to its intended route." />;
+  return <AuthGate gate="dashboard"><AppShell><InvoiceBuilder /></AppShell></AuthGate>;
 }

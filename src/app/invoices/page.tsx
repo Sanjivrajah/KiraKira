@@ -1,5 +1,13 @@
-import { FeaturePlaceholder } from "@/components/shared/feature-placeholder";
+import { AuthGate } from "@/components/auth/auth-gate";
+import { InvoiceList } from "@/components/invoices/invoice-list";
+import { AppShell } from "@/components/layout/app-shell";
 
-export default function InvoicesPage() {
-  return <FeaturePlaceholder title="Invoices" description="Create invoices and keep track of what customers owe." emptyTitle="No invoices yet" emptyDescription="Saved draft, sent, paid, and overdue invoices will appear here when the invoice builder is added." />;
+export default async function InvoicesPage({ searchParams }: PageProps<"/invoices">) {
+  const query = await searchParams;
+  const initialMessage = query.created === "1"
+    ? "Invoice saved to this browser."
+    : query.deleted === "1"
+      ? "Invoice deleted successfully."
+      : "";
+  return <AuthGate gate="dashboard"><AppShell><InvoiceList initialMessage={initialMessage} /></AppShell></AuthGate>;
 }
