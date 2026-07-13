@@ -233,6 +233,7 @@ button:disabled {
   font-weight: 690;
   cursor: pointer;
   transition: transform 160ms ease, background 160ms ease;
+  text-decoration: none;
 }
 
 .button:hover {
@@ -929,6 +930,7 @@ button:disabled {
   font-weight: 680;
   white-space: nowrap;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .activity-row {
@@ -1074,7 +1076,7 @@ button:disabled {
 }
 
 .mobile-nav a,
-.mobile-add {
+.mobile-more-trigger {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1085,15 +1087,13 @@ button:disabled {
   text-decoration: none;
 }
 
-.mobile-nav a.active {
+.mobile-nav a.active,
+.mobile-more-trigger.active {
   color: var(--brand-700);
 }
 
 .mobile-add {
   transform: translateY(-13px);
-  border: 0;
-  background: transparent;
-  cursor: pointer;
 }
 
 .mobile-add span {
@@ -1106,6 +1106,94 @@ button:disabled {
   background: var(--brand-700);
   color: white;
   box-shadow: 0 9px 24px rgba(23, 107, 74, 0.28);
+}
+
+.mobile-more-trigger {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mobile-more-backdrop {
+  position: fixed;
+  z-index: 45;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  padding: 18px 18px 98px;
+  background: rgba(21, 32, 28, 0.5);
+}
+
+.mobile-more-menu {
+  width: 100%;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: white;
+  box-shadow: 0 24px 70px rgba(21, 32, 28, 0.24);
+}
+
+.mobile-more-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.mobile-more-heading span,
+.mobile-more-heading strong {
+  display: block;
+}
+
+.mobile-more-heading span {
+  margin-bottom: 3px;
+  color: var(--ink-500);
+  font-size: 10px;
+  font-weight: 720;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.mobile-more-heading strong {
+  font-size: 19px;
+}
+
+.mobile-more-heading button {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: white;
+  color: var(--ink-700);
+  cursor: pointer;
+}
+
+.mobile-more-menu nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mobile-more-menu nav a {
+  display: flex;
+  min-height: 60px;
+  align-items: center;
+  gap: 11px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--ink-700);
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.mobile-more-menu nav a.active {
+  border-color: var(--brand-100);
+  background: var(--brand-100);
+  color: var(--brand-700);
 }
 
 .state-card {
@@ -1343,7 +1431,8 @@ button:disabled {
   }
 
   .mobile-brand,
-  .mobile-nav {
+  .mobile-nav,
+  .mobile-more-backdrop {
     display: none;
   }
 
