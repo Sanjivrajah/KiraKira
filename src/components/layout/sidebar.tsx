@@ -11,27 +11,27 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { label: "Dashboard", href: "/", icon: Gauge, active: true },
-  { label: "Transactions", href: "/", icon: ReceiptText },
-  { label: "Invoices", href: "/", icon: FileText },
-  { label: "Payments", href: "/", icon: HandCoins },
-  { label: "Inventory", href: "/", icon: Boxes },
-  { label: "Reports", href: "/", icon: FileChartColumn },
-  { label: "Loan readiness", href: "/", icon: Landmark },
-  { label: "Settings", href: "/", icon: Settings },
+  { label: "Dashboard", href: "/dashboard", icon: Gauge, active: true },
+  { label: "Transactions", href: "/dashboard", icon: ReceiptText },
+  { label: "Invoices", href: "/dashboard", icon: FileText },
+  { label: "Payments", href: "/dashboard", icon: HandCoins },
+  { label: "Inventory", href: "/dashboard", icon: Boxes },
+  { label: "Reports", href: "/dashboard", icon: FileChartColumn },
+  { label: "Loan readiness", href: "/dashboard", icon: Landmark },
+  { label: "Settings", href: "/dashboard", icon: Settings },
 ];
 
-export function Sidebar() {
+export function Sidebar({ businessName = "Your business", businessType = "Local business" }: { businessName?: string; businessType?: string }) {
   return (
     <aside className="sidebar" aria-label="Main navigation">
-      <Link className="brand-lockup" href="/">
+      <Link className="brand-lockup" href="/dashboard">
         <span className="brand-mark">N</span>
         NiagaAI
       </Link>
 
       <div className="sidebar-business">
-        <strong>Warung Kak Lina</strong>
-        <span>Food & beverage · MYR</span>
+        <strong>{businessName}</strong>
+        <span>{businessType} · MYR</span>
       </div>
 
       <nav className="sidebar-nav">

@@ -4,11 +4,11 @@ import { FileText, Gauge, Menu, Plus, ReceiptText } from "lucide-react";
 export function MobileNav() {
   return (
     <nav className="mobile-nav" aria-label="Mobile navigation">
-      <Link className="active" href="/" aria-current="page">
+      <Link className="active" href="/dashboard" aria-current="page">
         <Gauge aria-hidden="true" size={20} />
         Home
       </Link>
-      <Link href="/">
+      <Link href="/dashboard">
         <ReceiptText aria-hidden="true" size={20} />
         Records
       </Link>
@@ -16,11 +16,11 @@ export function MobileNav() {
         <span><Plus aria-hidden="true" size={23} /></span>
         Add
       </button>
-      <Link href="/">
+      <Link href="/dashboard">
         <FileText aria-hidden="true" size={20} />
         Invoices
       </Link>
-      <Link href="/">
+      <Link href="/dashboard">
         <Menu aria-hidden="true" size={20} />
         More
       </Link>
