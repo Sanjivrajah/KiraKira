@@ -1,0 +1,3 @@
+# Build an evidence-first PWA
+
+KiraKira will be a mobile-first React PWA whose central state transition is **Evidence Item** → **Candidate Transaction** → owner-approved **Verified Transaction**. This keeps camera and voice capture convenient while retaining desktop review and one deployable codebase; native mobile and WhatsApp-first alternatives add approval, distribution and integration risk without a decisive MVP capability. PostgreSQL remains the operational source of truth, while Databricks handles governed extraction, lineage and analytical projections so AI output cannot silently become an approved financial record.
