@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { useNiagaStore } from "@/store/use-niaga-store";
 import { businessTypeLabels } from "@/components/onboarding/business-preview";
+import { clearTransactions } from "@/lib/transactions/storage";
 import { MobileNav } from "./mobile-nav";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
@@ -26,6 +27,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       router.replace("/login");
     } else if (dialog === "reset") {
       resetDemo();
+      clearTransactions();
       router.replace("/");
     }
     setDialog(null);

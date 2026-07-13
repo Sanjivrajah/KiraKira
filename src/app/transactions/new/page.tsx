@@ -1,5 +1,21 @@
-import { FeaturePlaceholder } from "@/components/shared/feature-placeholder";
+import { AuthGate } from "@/components/auth/auth-gate";
+import { AppShell } from "@/components/layout/app-shell";
+import { TransactionCaptureFlow } from "@/components/transactions/transaction-capture-flow";
+import type { TransactionSource } from "@/types/finance";
 
-export default function NewTransactionPage() {
-  return <FeaturePlaceholder title="Add transaction" description="Choose how you want to record money in or money out." emptyTitle="Transaction capture is coming next" emptyDescription="Receipt, voice, manual, CSV, bank statement, and WhatsApp demo inputs will be built here in Session 3." />;
+const sources = new Set<TransactionSource>(["receipt", "voice", "manual", "csv", "bank_statement", "whatsapp"]);
+
+export default async function NewTransactionPage({ searchParams }: PageProps<"/transactions/new">) {
+  const query = await searchParams;
+  const requestedMethod = typeof query.method === "string" && sources.has(query.method as TransactionSource)
+    ? query.method as TransactionSource
+    : undefined;
+
+  return (
+    <AuthGate gate="dashboard">
+      <AppShell>
+        <TransactionCaptureFlow initialMethod={requestedMethod} />
+      </AppShell>
+    </AuthGate>
+  );
 }

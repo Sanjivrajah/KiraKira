@@ -6,6 +6,12 @@ NiagaAI is a mobile-first financial workspace concept for Malaysian micro-busine
 Welcome → Sign in or Sign up → Business onboarding → Dashboard
 ```
 
+It also includes the frontend roadmap’s Session 3 transaction-capture journey:
+
+```text
+Choose a source → Provide a demo input → Simulated processing → Review → Save locally
+```
+
 ## Current Scope
 
 Phase 0 through Phase 2 of `plan_frontend_first.md` are complete.
@@ -18,6 +24,9 @@ Phase 0 through Phase 2 of `plan_frontend_first.md` are complete.
 - Dashboard identity populated from the saved demo profile
 - Confirmed sign-out and full demo-reset actions
 - Focused validation, store, and component tests
+- Receipt, voice, manual, CSV, bank statement, and WhatsApp capture options
+- Editable transaction review with clearly labelled sample extraction states
+- Resilient browser-local transaction storage and completion actions
 
 This phase makes no authentication, database, or external API calls. AI, OCR, MyInvois submission, and real financial records remain out of scope.
 
@@ -34,12 +43,12 @@ The password only demonstrates form validation. It is never compared with a serv
 
 ## Local Persistence and Security
 
-The sanitized demo session is stored only in the current browser under the local-storage key `niagaai-demo-session`.
+The sanitized demo session is stored only in the current browser under `niagaai-demo-session`. Reviewed transactions use the separate `niagaai_transactions` key.
 
 - Refreshing preserves sign-in and onboarding progress after client hydration.
 - Another browser or device starts with its own separate demo session.
 - **Sign out** clears the active user session but retains the local business profile.
-- **Reset demo** removes the local user, business profile, and onboarding progress.
+- **Reset demo** removes the local user, business profile, onboarding progress, and saved transactions.
 - Clearing browser site data has the same effect as resetting the demo.
 
 The route guards improve demo navigation only. Browser-local state is not a security boundary and does not provide real authentication or authorization.
@@ -74,6 +83,7 @@ npm run build
 | `/signup` | Local demo account creation |
 | `/onboarding` | Hydration-gated business setup and review |
 | `/dashboard` | Hydration-gated Phase 1 application preview |
+| `/transactions/new` | Simulated multi-source transaction capture, review, and local save |
 
 ## Project Structure
 
@@ -85,9 +95,10 @@ src/
 │   ├── forms/           # Accessible shared form controls
 │   ├── onboarding/      # Details, review, progress, and success
 │   ├── dashboard/
+│   ├── transactions/    # Capture sources, processing, review, and success
 │   ├── layout/
 │   └── shared/
-├── lib/validation/      # Reusable Zod schemas
+├── lib/                 # Validation and browser-local transaction storage
 ├── store/               # Persisted Zustand demo session
 └── types/               # Auth and business contracts
 ```
