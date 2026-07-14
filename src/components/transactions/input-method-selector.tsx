@@ -18,7 +18,7 @@ interface Method {
 }
 
 const methods: Method[] = [
-  { source: "receipt", name: "Receipt photo", description: "Upload or drop an image and review sample extracted details.", icon: Camera, flow: "Interactive" },
+  { source: "receipt", name: "Receipt photos", description: "Upload up to 10 images, extract them with AI, and review each draft.", icon: Camera, flow: "Interactive" },
   { source: "voice", name: "Voice note", description: "Record a demo note or upload audio to create a transaction.", icon: Mic, flow: "Interactive" },
   { source: "manual", name: "Manual entry", description: "Enter a sale or expense directly with no extraction step.", icon: FilePenLine, flow: "Interactive" },
   { source: "csv", name: "CSV import", description: "Choose a spreadsheet file and preview representative data.", icon: FileSpreadsheet, flow: "Demo extraction" },

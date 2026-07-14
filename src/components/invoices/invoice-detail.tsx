@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, FileText, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { BrandMark } from "@/components/shared/brand-mark";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { MoneyDisplay } from "@/components/shared/money-display";
@@ -71,7 +72,7 @@ export function InvoiceDetail({ id }: { id: string }) {
 
       <div className="invoice-detail-layout">
         <article className="panel saved-invoice" aria-labelledby="saved-invoice-title">
-          <div className="saved-invoice-brand"><div><span className="brand-mark">N</span><div><strong>{business?.name || "Your business"}</strong><small>{business?.registrationNumber ? `Registration: ${business.registrationNumber}` : "Business registration not provided"}</small><small>{business?.tin ? `TIN: ${business.tin}` : "Seller TIN not provided"}</small></div></div><div><FileText aria-hidden="true" size={22} /><span>Invoice</span></div></div>
+          <div className="saved-invoice-brand"><div><BrandMark /><div><strong>{business?.name || "Your business"}</strong><small>{business?.registrationNumber ? `Registration: ${business.registrationNumber}` : "Business registration not provided"}</small><small>{business?.tin ? `TIN: ${business.tin}` : "Seller TIN not provided"}</small></div></div><div><FileText aria-hidden="true" size={22} /><span>Invoice</span></div></div>
 
           <div className="saved-invoice-parties"><section><span>Bill to</span><h2 id="saved-invoice-title">{invoice.customerName}</h2><p>{invoice.customerEmail || "Customer email not provided"}</p><p>{invoice.buyerTin ? `TIN: ${invoice.buyerTin}` : "Buyer TIN not provided"}</p></section><dl><div><dt>Invoice number</dt><dd>{invoice.invoiceNumber}</dd></div><div><dt>Issue date</dt><dd>{dateFormatter.format(parseLocalDate(invoice.issueDate))}</dd></div><div><dt>Due date</dt><dd>{dateFormatter.format(parseLocalDate(invoice.dueDate))}</dd></div><div><dt>Status</dt><dd><span className={`status-badge ${effectiveStatus}`}>{invoiceStatusLabels[effectiveStatus]}</span></dd></div></dl></div>
 

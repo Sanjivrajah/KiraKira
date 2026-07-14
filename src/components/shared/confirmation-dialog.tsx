@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback } from "react";
+import { useDialogFocus } from "@/hooks/use-dialog-focus";
 
 interface ConfirmationDialogProps {
   open: boolean;
@@ -25,17 +26,8 @@ export function ConfirmationDialog({
   onConfirm,
   onCancel,
 }: ConfirmationDialogProps) {
-  const cancelRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    cancelRef.current?.focus();
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onCancel();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onCancel]);
+  const close = useCallback(() => onCancel(), [onCancel]);
+  const dialogRef = useDialogFocus<HTMLElement>(open, close);
 
   if (!open) return null;
 
@@ -47,7 +39,9 @@ export function ConfirmationDialog({
         aria-modal="true"
         className="dialog-panel"
         onMouseDown={(event) => event.stopPropagation()}
+        ref={dialogRef}
         role="dialog"
+        tabIndex={-1}
       >
         <h2 id="confirmation-title">{title}</h2>
         <p id="confirmation-description">{description}</p>
@@ -56,7 +50,6 @@ export function ConfirmationDialog({
             className="button button-secondary"
             disabled={pending}
             onClick={onCancel}
-            ref={cancelRef}
             type="button"
           >
             {cancelLabel}

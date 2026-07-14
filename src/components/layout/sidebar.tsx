@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BrandWordmark } from "@/components/shared/brand-mark";
 import { usePathname } from "next/navigation";
 import { isNavigationItemActive, primaryNavigation } from "./navigation";
 
@@ -10,8 +11,7 @@ export function Sidebar({ businessName = "Your business", businessType = "Local 
   return (
     <aside className="sidebar" aria-label="Main navigation">
       <Link className="brand-lockup" href="/dashboard">
-        <span className="brand-mark">N</span>
-        NiagaAI
+        <BrandWordmark />
       </Link>
 
       <div className="sidebar-business">

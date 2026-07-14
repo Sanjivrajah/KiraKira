@@ -34,6 +34,7 @@ export function SignInForm() {
         autoComplete="email"
         error={errors.email?.message}
         label="Email address"
+        maxLength={254}
         placeholder="you@example.com"
         type="email"
         {...register("email")}
@@ -42,6 +43,7 @@ export function SignInForm() {
         autoComplete="current-password"
         error={errors.password?.message}
         label="Password"
+        maxLength={128}
         {...register("password")}
       />
       {message ? <p className={`form-message ${message.tone}`} aria-live="polite">{message.text}</p> : null}

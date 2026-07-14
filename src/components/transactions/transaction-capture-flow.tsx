@@ -2,9 +2,10 @@
 
 import { ArrowLeft, LockKeyhole } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { useCreateTransaction } from "@/hooks/use-transactions";
+import type { ReceiptExtraction } from "@/lib/openai/receipt-schema";
 import { useBusiness } from "@/hooks/use-business";
 import { useAuth } from "@/components/auth/auth-provider";
 import type { ValidTransactionFormValues } from "@/lib/validation/transaction";
@@ -12,7 +13,7 @@ import type { Transaction, TransactionSourceType } from "@/types";
 import { DemoSourceInput } from "./demo-source-input";
 import { InputMethodSelector } from "./input-method-selector";
 import { ProcessingState } from "./processing-state";
-import { ReceiptUploader } from "./receipt-uploader";
+import { ReceiptUploader, type ReceiptBatchResult } from "./receipt-uploader";
 import { TransactionReviewForm, type TransactionDraft } from "./transaction-review-form";
 import { TransactionSuccessState } from "./transaction-success-state";
 import { VoiceRecorderDemo } from "./voice-recorder-demo";
@@ -61,6 +62,13 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
   const [draft, setDraft] = useState<TransactionDraft>(() => makeDraft(initialMethod ?? "manual"));
   const [saved, setSaved] = useState<Transaction | null>(null);
   const [saveError, setSaveError] = useState("");
+  const [receiptExtractions, setReceiptExtractions] = useState<ReceiptExtraction[]>([]);
+  const [receiptIndex, setReceiptIndex] = useState(0);
+  const [batchFailureCount, setBatchFailureCount] = useState(0);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [stage]);
 
   const selectSource = (nextSource: TransactionSourceType) => {
     setSource(nextSource);
@@ -73,28 +81,65 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
     setSource(null);
     setSaved(null);
     setSaveError("");
+    setReceiptExtractions([]);
+    setReceiptIndex(0);
+    setBatchFailureCount(0);
     setStage("select");
+  };
+
+  const makeReceiptDraft = (extraction: ReceiptExtraction): TransactionDraft => {
+    const descriptions = extraction.lineItems.map((item) => item.description).filter(Boolean);
+    return {
+      type: "expense",
+      date: extraction.documentDate.value || localDate(),
+      amount: extraction.total.value ?? undefined,
+      category: extraction.category.value || "Uncategorised",
+      description: descriptions.join(", ").slice(0, 160) || `Receipt from ${extraction.merchantName.value || "unknown merchant"}`,
+      counterpartyName: extraction.merchantName.value || "",
+      paymentMethod: extraction.paymentMethod.value || "",
+      source: "receipt",
+    };
+  };
+
+  const reviewReceiptExtractions = ({ extractions, failures }: ReceiptBatchResult) => {
+    setReceiptExtractions(extractions);
+    setReceiptIndex(0);
+    setBatchFailureCount(failures.length);
+    setDraft(makeReceiptDraft(extractions[0]));
+    setStage("review");
+  };
+
+  const reviewNextReceipt = () => {
+    const nextIndex = receiptIndex + 1;
+    if (nextIndex >= receiptExtractions.length) {
+      restart();
+      return;
+    }
+    setReceiptIndex(nextIndex);
+    setSaved(null);
+    setDraft(makeReceiptDraft(receiptExtractions[nextIndex]));
+    setStage("review");
   };
 
   const confirm = async (values: ValidTransactionFormValues) => {
     setSaveError("");
     try {
       const transaction = await createTransaction.mutateAsync({
-      businessId,
-      createdBy: userId,
-      type: values.type,
-      subtotal: values.amount,
-      tax: 0,
-      total: values.amount,
-      currency: "MYR",
-      date: values.date,
-      category: values.category,
-      description: values.description,
-      counterpartyName: values.counterpartyName,
-      paymentMethod: values.paymentMethod || null,
-      sourceType: values.source,
-      status: "confirmed",
-      items: [],
+        businessId,
+        createdBy: userId,
+        type: values.type,
+        subtotal: values.amount,
+        tax: 0,
+        total: values.amount,
+        currency: "MYR",
+        date: values.date,
+        category: values.category,
+        description: values.description,
+        counterpartyName: values.counterpartyName,
+        paymentMethod: values.paymentMethod || null,
+        sourceType: values.source,
+        status: "confirmed",
+        items: [],
       });
       setSaved(transaction);
       setStage("success");
@@ -112,16 +157,16 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
         action={<Link className="button button-secondary" href="/dashboard"><ArrowLeft aria-hidden="true" size={18} />Dashboard</Link>}
       />
 
-      <div className="capture-demo-banner"><LockKeyhole aria-hidden="true" size={17} /><span><strong>Frontend demo:</strong> files remain on this device and all extraction results are representative.</span></div>
+      <div className="capture-demo-banner"><LockKeyhole aria-hidden="true" size={17} /><span>{source === "receipt" ? <><strong>AI extraction:</strong> receipt images are sent securely to OpenAI and remain drafts until you confirm them.</> : <><strong>Frontend demo:</strong> non-receipt extraction results are representative and stored on this device.</>}</span></div>
 
       <div className="capture-workspace">
         {stage === "select" ? <InputMethodSelector onSelect={selectSource} /> : null}
-        {stage === "input" && source === "receipt" ? <ReceiptUploader onBack={restart} onContinue={() => setStage("processing")} /> : null}
+        {stage === "input" && source === "receipt" ? <ReceiptUploader onBack={restart} onExtracted={reviewReceiptExtractions} /> : null}
         {stage === "input" && source === "voice" ? <VoiceRecorderDemo onBack={restart} onContinue={() => setStage("processing")} /> : null}
         {stage === "input" && (source === "csv" || source === "bank_statement" || source === "whatsapp") ? <DemoSourceInput onBack={restart} onContinue={() => setStage("processing")} source={source} /> : null}
         {stage === "processing" ? <ProcessingState onCancel={restart} onComplete={() => setStage("review")} /> : null}
-        {stage === "review" ? <TransactionReviewForm draft={draft} onBack={restart} onConfirm={confirm} saveError={saveError} saving={createTransaction.isPending} /> : null}
-        {stage === "success" && saved ? <TransactionSuccessState onAddAnother={restart} transaction={saved} /> : null}
+        {stage === "review" ? <TransactionReviewForm batchNotice={batchFailureCount ? `${batchFailureCount} receipt${batchFailureCount === 1 ? "" : "s"} could not be extracted.` : undefined} batchProgress={source === "receipt" && receiptExtractions.length > 1 ? { current: receiptIndex + 1, total: receiptExtractions.length } : undefined} draft={draft} onBack={restart} onConfirm={confirm} saveError={saveError} saving={createTransaction.isPending} /> : null}
+        {stage === "success" && saved ? <TransactionSuccessState onAddAnother={restart} onNextReceipt={reviewNextReceipt} remainingReceipts={Math.max(0, receiptExtractions.length - receiptIndex - 1)} transaction={saved} /> : null}
       </div>
     </>
   );

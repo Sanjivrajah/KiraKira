@@ -16,7 +16,7 @@ export const invoiceFormSchema = z.object({
   issueDate: z.string().min(1, "Choose an issue date."),
   dueDate: z.string().min(1, "Choose a due date."),
   status: z.enum(["draft", "sent"]),
-  items: z.array(invoiceItemSchema).min(1, "Add at least one line item."),
+  items: z.array(invoiceItemSchema).min(1, "Add at least one line item.").max(50, "Keep invoices to 50 line items or fewer."),
   notes: z.string().trim().max(500, "Keep notes under 500 characters."),
   paymentTerms: z.string().trim().max(240, "Keep payment terms under 240 characters."),
 }).refine((values) => !values.issueDate || !values.dueDate || values.dueDate >= values.issueDate, {

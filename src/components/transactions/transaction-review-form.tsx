@@ -30,12 +30,14 @@ const sourceOptions = [
   { label: "WhatsApp order", value: "whatsapp" },
 ];
 
-export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, saving = false }: {
+export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, saving = false, batchProgress, batchNotice }: {
   draft: TransactionDraft;
   onBack: () => void;
   onConfirm: (values: ValidTransactionFormValues) => void;
   saveError?: string;
   saving?: boolean;
+  batchProgress?: { current: number; total: number };
+  batchNotice?: string;
 }) {
   const { control, register, handleSubmit, formState: { errors, isSubmitting } } = useForm<TransactionFormValues, unknown, ValidTransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
@@ -55,17 +57,20 @@ export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, sav
         <span className="status-badge needs_review"><AlertCircle aria-hidden="true" size={14} />Needs review</span>
       </div>
 
-      <div className="demo-disclosure"><ShieldCheck aria-hidden="true" size={18} /><p><strong>Sample extraction</strong><span>No real AI service processed your input.</span></p></div>
+      {batchProgress ? <p className="batch-review-progress">Reviewing receipt {batchProgress.current} of {batchProgress.total}</p> : null}
+      {batchNotice ? <div className="form-alert" role="alert"><AlertCircle aria-hidden="true" size={18} /><span>{batchNotice} You can upload those files again after finishing this batch.</span></div> : null}
+
+      <div className="demo-disclosure"><ShieldCheck aria-hidden="true" size={18} /><p><strong>{draft.source === "receipt" ? "AI-proposed extraction" : "Sample extraction"}</strong><span>{draft.source === "receipt" ? "OpenAI processed the image. Check every value before confirming." : "No real AI service processed your input."}</span></p></div>
 
       <form noValidate onSubmit={handleSubmit(onConfirm)}>
         <div className="review-form-grid">
           <SelectField error={errors.type?.message} label="Transaction type" options={typeOptions} {...register("type")} />
           <FormField error={errors.date?.message} label="Date" type="date" {...register("date")} />
           <FormField error={errors.amount?.message} hint="Enter the value in Malaysian ringgit." inputMode="decimal" label="Amount (RM)" min="0.01" step="0.01" type="number" {...register("amount", { valueAsNumber: true })} />
-          <FormField error={errors.category?.message} label="Category" placeholder={type === "income" ? "e.g. Sales" : "e.g. Inventory"} {...register("category")} />
-          <TextareaField className="review-wide" error={errors.description?.message} label="Description" rows={3} {...register("description")} />
-          <FormField error={errors.counterpartyName?.message} label={type === "income" ? "Customer name (optional)" : "Merchant name (optional)"} {...register("counterpartyName")} />
-          <FormField error={errors.paymentMethod?.message} label="Payment method (optional)" placeholder="e.g. Cash or DuitNow QR" {...register("paymentMethod")} />
+          <FormField error={errors.category?.message} label="Category" maxLength={60} placeholder={type === "income" ? "e.g. Sales" : "e.g. Inventory"} {...register("category")} />
+          <TextareaField className="review-wide" error={errors.description?.message} label="Description" maxLength={160} rows={3} {...register("description")} />
+          <FormField error={errors.counterpartyName?.message} label={type === "income" ? "Customer name (optional)" : "Merchant name (optional)"} maxLength={100} {...register("counterpartyName")} />
+          <FormField error={errors.paymentMethod?.message} label="Payment method (optional)" maxLength={60} placeholder="e.g. Cash or DuitNow QR" {...register("paymentMethod")} />
           <SelectField error={errors.source?.message} hint="You can correct the source if needed." label="Source" options={sourceOptions} {...register("source")} />
           <div className="review-status-field">
             <span>Review status</span>

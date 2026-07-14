@@ -3,7 +3,12 @@ import Link from "next/link";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import type { Transaction } from "@/types";
 
-export function TransactionSuccessState({ transaction, onAddAnother }: { transaction: Transaction; onAddAnother: () => void }) {
+export function TransactionSuccessState({ transaction, onAddAnother, onNextReceipt, remainingReceipts = 0 }: {
+  transaction: Transaction;
+  onAddAnother: () => void;
+  onNextReceipt?: () => void;
+  remainingReceipts?: number;
+}) {
   return (
     <section className="transaction-success-card" aria-labelledby="transaction-success-title">
       <span className="success-mark"><Check aria-hidden="true" size={30} /></span>
@@ -17,7 +22,11 @@ export function TransactionSuccessState({ transaction, onAddAnother }: { transac
       <div className="success-actions">
         <Link className="button button-primary" href="/transactions"><ListChecks aria-hidden="true" size={18} />View all transactions<ArrowRight aria-hidden="true" size={16} /></Link>
         <Link className="button button-secondary" href="/dashboard"><LayoutDashboard aria-hidden="true" size={18} />Back to dashboard</Link>
-        <button className="text-button" onClick={onAddAnother} type="button"><Plus aria-hidden="true" size={17} />Add another transaction</button>
+        {remainingReceipts > 0 && onNextReceipt ? (
+          <button className="text-button" onClick={onNextReceipt} type="button"><Plus aria-hidden="true" size={17} />Review next receipt ({remainingReceipts} remaining)</button>
+        ) : (
+          <button className="text-button" onClick={onAddAnother} type="button"><Plus aria-hidden="true" size={17} />Add another transaction</button>
+        )}
       </div>
     </section>
   );
