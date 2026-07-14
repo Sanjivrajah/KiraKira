@@ -10,6 +10,7 @@
   --brand-700: #176b4a;
   --brand-600: #1d8059;
   --brand-100: #dff2e9;
+  --brand-gold: #d8a328;
   --lime: #dff36b;
   --warning: #9c5d12;
   --warning-bg: #fff2d9;
@@ -140,16 +141,21 @@ button:disabled {
 .brand-wordmark {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .brand-wordmark-text {
   color: var(--ink-950);
-  font-size: 19px;
-  font-weight: 650;
-  letter-spacing: -0.035em;
+  font-family: var(--font-plus-jakarta-sans), sans-serif;
+  font-size: 20px;
+  font-weight: 550;
+  letter-spacing: 0;
   line-height: 1;
   white-space: nowrap;
+}
+
+.brand-wordmark-dot {
+  color: var(--brand-gold);
 }
 
 .topbar-actions {

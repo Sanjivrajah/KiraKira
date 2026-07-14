@@ -12,7 +12,9 @@ export function BrandWordmark() {
   return (
     <span aria-label="niaga" className="brand-wordmark">
       <BrandMark size={30} />
-      <span aria-hidden="true" className="brand-wordmark-text">niaga</span>
+      <span aria-hidden="true" className="brand-wordmark-text">
+        niaga<span className="brand-wordmark-dot">.</span>
+      </span>
     </span>
   );
 }
