@@ -1525,7 +1525,8 @@ legend {
   margin-left: 58px;
 }
 
-.status-badge.reviewed {
+.status-badge.reviewed,
+.status-badge.confirmed {
   background: var(--brand-100);
   color: var(--brand-700);
 }
@@ -2723,6 +2724,14 @@ legend {
   .transaction-source,
   .status-badge {
     margin: 0;
+  }
+
+  .transaction-source {
+    grid-area: source;
+  }
+
+  .status-badge {
+    grid-area: status;
   }
 
   .skeleton-metrics {
