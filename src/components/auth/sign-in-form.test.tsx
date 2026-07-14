@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render } from "@/test/render";
 import { initialSession, useNiagaStore } from "@/store/use-niaga-store";
 import { SignInForm } from "./sign-in-form";
 

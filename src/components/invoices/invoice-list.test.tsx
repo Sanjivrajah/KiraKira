@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { repositories } from "@/repositories";
+import { render } from "@/test/render";
 import { InvoiceList } from "./invoice-list";
 
 describe("InvoiceList", () => {

@@ -4,8 +4,8 @@ import { ArrowLeft, LockKeyhole } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
+import { useCreateTransaction } from "@/hooks/use-transactions";
 import type { ValidTransactionFormValues } from "@/lib/validation/transaction";
-import { services } from "@/services";
 import { useNiagaStore } from "@/store/use-niaga-store";
 import type { Transaction, TransactionSourceType } from "@/types";
 import { DemoSourceInput } from "./demo-source-input";
@@ -52,6 +52,7 @@ function makeDraft(source: TransactionSourceType): TransactionDraft {
 }
 
 export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: TransactionSourceType }) {
+  const createTransaction = useCreateTransaction();
   const businessId = useNiagaStore((state) => state.business?.id) || "business_demo";
   const userId = useNiagaStore((state) => state.user?.id) || "user_demo";
   const [source, setSource] = useState<TransactionSourceType | null>(initialMethod ?? null);
@@ -75,8 +76,9 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
   };
 
   const confirm = async (values: ValidTransactionFormValues) => {
+    setSaveError("");
     try {
-      const transaction = await services.transactions.create({
+      const transaction = await createTransaction.mutateAsync({
       businessId,
       createdBy: userId,
       type: values.type,
@@ -117,7 +119,7 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
         {stage === "input" && source === "voice" ? <VoiceRecorderDemo onBack={restart} onContinue={() => setStage("processing")} /> : null}
         {stage === "input" && (source === "csv" || source === "bank_statement" || source === "whatsapp") ? <DemoSourceInput onBack={restart} onContinue={() => setStage("processing")} source={source} /> : null}
         {stage === "processing" ? <ProcessingState onCancel={restart} onComplete={() => setStage("review")} /> : null}
-        {stage === "review" ? <TransactionReviewForm draft={draft} onBack={restart} onConfirm={confirm} saveError={saveError} /> : null}
+        {stage === "review" ? <TransactionReviewForm draft={draft} onBack={restart} onConfirm={confirm} saveError={saveError} saving={createTransaction.isPending} /> : null}
         {stage === "success" && saved ? <TransactionSuccessState onAddAnother={restart} transaction={saved} /> : null}
       </div>
     </>

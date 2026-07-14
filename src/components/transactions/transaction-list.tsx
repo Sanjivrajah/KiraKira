@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, ChevronRight, FilterX, Plus, Search } from "lucide-react";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { PageHeader } from "@/components/shared/page-header";
+import { ErrorState } from "@/components/shared/error-state";
+import { LoadingState } from "@/components/shared/loading-state";
+import { useTransactions, useUpdateTransaction } from "@/hooks/use-transactions";
 import { emptyTransactionFilters, filterAndSortTransactions, type TransactionFilters, type TransactionSort } from "@/lib/transactions/query";
-import { services } from "@/services";
 import { useNiagaStore } from "@/store/use-niaga-store";
 import type { Transaction, TransactionSourceType, TransactionStatus } from "@/types";
 
@@ -18,6 +20,7 @@ export const statusLabels: Record<TransactionStatus, string> = {
   draft: "Draft", needs_review: "Needs review", confirmed: "Reviewed", failed: "Failed",
 };
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { day: "numeric", month: "short", year: "numeric" });
+const noTransactions: Transaction[] = [];
 
 function displayDate(date: string) {
   return dateFormatter.format(new Date(`${date}T00:00:00`));
@@ -29,7 +32,9 @@ function Counterparty({ transaction }: { transaction: Transaction }) {
 
 export function TransactionList() {
   const businessId = useNiagaStore((state) => state.business?.id) || "business_demo";
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const transactionsQuery = useTransactions(businessId);
+  const updateTransaction = useUpdateTransaction();
+  const transactions = transactionsQuery.data ?? noTransactions;
   const [filters, setFilters] = useState<TransactionFilters>(emptyTransactionFilters);
   const [sort, setSort] = useState<TransactionSort>("newest");
   const [message, setMessage] = useState(() => {
@@ -37,14 +42,7 @@ export function TransactionList() {
     window.history.replaceState(null, "", "/transactions");
     return "Transaction deleted successfully.";
   });
-  useEffect(() => {
-    let active = true;
-    services.transactions.initializeDemo(businessId)
-      .then((items) => { if (active) setTransactions(items); })
-      .catch(() => { if (active) setMessage("We could not load your transactions from this device."); });
-    return () => { active = false; };
-  }, [businessId]);
-
+  const [mutationError, setMutationError] = useState("");
   const categories = useMemo(() => [...new Set(transactions.map((item) => item.category))].sort(), [transactions]);
   const visible = useMemo(() => filterAndSortTransactions(transactions, filters, sort), [transactions, filters, sort]);
   const reviewCount = transactions.filter((item) => item.status === "needs_review").length;
@@ -54,12 +52,13 @@ export function TransactionList() {
 
   const markReviewed = async (transaction: Transaction) => {
     const updated = { ...transaction, status: "confirmed" as const, updatedAt: new Date().toISOString() };
+    setMessage("");
+    setMutationError("");
     try {
-      const persisted = await services.transactions.update(updated);
-      setTransactions((current) => current.map((item) => item.id === transaction.id ? persisted : item));
+      await updateTransaction.mutateAsync(updated);
       setMessage(`“${transaction.description}” marked as reviewed.`);
     } catch {
-      setMessage("We could not save that change. Please try again.");
+      setMutationError("We could not save that change. Please try again.");
     }
   };
 
@@ -67,9 +66,13 @@ export function TransactionList() {
     <>
       <PageHeader eyebrow="Money in and out" title="Transactions" description="Search, review, and manage every business record in one place." action={<Link className="button button-primary" href="/transactions/new"><Plus aria-hidden="true" size={18} />Add transaction</Link>} />
 
-      {message ? <div className="inline-success" role="status"><CheckCircle2 aria-hidden="true" size={18} />{message}<button aria-label="Dismiss message" onClick={() => setMessage("")} type="button">×</button></div> : null}
+      {transactionsQuery.isPending ? <LoadingState label="Loading transactions" /> : null}
+      {transactionsQuery.isError ? <><ErrorState title="We could not load your transactions" description="Your records are still on this device. Try loading them again." /><button className="button button-secondary" onClick={() => transactionsQuery.refetch()} type="button">Try again</button></> : null}
 
-      <section className="transaction-toolbar" aria-label="Transaction filters">
+      {!transactionsQuery.isError && message ? <div className="inline-success" role="status"><CheckCircle2 aria-hidden="true" size={18} />{message}<button aria-label="Dismiss message" onClick={() => setMessage("")} type="button">×</button></div> : null}
+      {mutationError ? <div className="form-alert" role="alert">{mutationError}</div> : null}
+
+      {transactionsQuery.isSuccess ? <><section className="transaction-toolbar" aria-label="Transaction filters">
         <div className="review-tabs" role="group" aria-label="Review view">
           <button className={filters.status === "all" ? "active" : ""} onClick={() => setFilter("status", "all")} type="button">All <span>{transactions.length}</span></button>
           <button className={filters.status === "needs_review" ? "active" : ""} onClick={() => setFilter("status", "needs_review")} type="button">Needs review <span>{reviewCount}</span></button>
@@ -94,11 +97,11 @@ export function TransactionList() {
       ) : <>
         <div className="transaction-table-wrap panel">
           <table className="transaction-table"><thead><tr><th>Date</th><th>Description</th><th>Merchant / customer</th><th>Category</th><th>Source</th><th>Status</th><th>Amount</th><th><span className="sr-only">Actions</span></th></tr></thead>
-            <tbody>{visible.map((transaction) => <tr key={transaction.id}><td>{displayDate(transaction.date)}</td><td><Link href={`/transactions/${transaction.id}`}><strong>{transaction.description}</strong><span className={`type-label ${transaction.type}`}>{transaction.type}</span></Link></td><td><Counterparty transaction={transaction} /></td><td>{transaction.category}</td><td>{sourceLabels[transaction.sourceType]}</td><td><span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span></td><td><MoneyDisplay amount={transaction.total} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} /></td><td>{transaction.status === "needs_review" ? <button className="review-button" onClick={() => markReviewed(transaction)} type="button">Mark reviewed</button> : <Link className="row-link" href={`/transactions/${transaction.id}`} aria-label={`View ${transaction.description}`}><ChevronRight aria-hidden="true" size={18} /></Link>}</td></tr>)}</tbody>
+            <tbody>{visible.map((transaction) => <tr key={transaction.id}><td>{displayDate(transaction.date)}</td><td><Link href={`/transactions/${transaction.id}`}><strong>{transaction.description}</strong><span className={`type-label ${transaction.type}`}>{transaction.type}</span></Link></td><td><Counterparty transaction={transaction} /></td><td>{transaction.category}</td><td>{sourceLabels[transaction.sourceType]}</td><td><span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span></td><td><MoneyDisplay amount={transaction.total} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} /></td><td>{transaction.status === "needs_review" ? <button className="review-button" disabled={updateTransaction.isPending} onClick={() => markReviewed(transaction)} type="button">Mark reviewed</button> : <Link className="row-link" href={`/transactions/${transaction.id}`} aria-label={`View ${transaction.description}`}><ChevronRight aria-hidden="true" size={18} /></Link>}</td></tr>)}</tbody>
           </table>
         </div>
-        <div className="transaction-cards">{visible.map((transaction) => <article className="transaction-card" key={transaction.id}><Link className="transaction-card-link" href={`/transactions/${transaction.id}`}><div className="transaction-card-top"><span className={`type-label ${transaction.type}`}>{transaction.type}</span><MoneyDisplay amount={transaction.total} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} /></div><h2>{transaction.description}</h2><p>{displayDate(transaction.date)} · <Counterparty transaction={transaction} /></p><div className="transaction-card-meta"><span>{transaction.category}</span><span>{sourceLabels[transaction.sourceType]}</span><span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span></div></Link>{transaction.status === "needs_review" ? <button className="review-button" onClick={() => markReviewed(transaction)} type="button"><CheckCircle2 aria-hidden="true" size={16} />Mark reviewed</button> : null}</article>)}</div>
-      </>}
+        <div className="transaction-cards">{visible.map((transaction) => <article className="transaction-card" key={transaction.id}><Link className="transaction-card-link" href={`/transactions/${transaction.id}`}><div className="transaction-card-top"><span className={`type-label ${transaction.type}`}>{transaction.type}</span><MoneyDisplay amount={transaction.total} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} /></div><h2>{transaction.description}</h2><p>{displayDate(transaction.date)} · <Counterparty transaction={transaction} /></p><div className="transaction-card-meta"><span>{transaction.category}</span><span>{sourceLabels[transaction.sourceType]}</span><span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span></div></Link>{transaction.status === "needs_review" ? <button className="review-button" disabled={updateTransaction.isPending} onClick={() => markReviewed(transaction)} type="button"><CheckCircle2 aria-hidden="true" size={16} />Mark reviewed</button> : null}</article>)}</div>
+      </>}</> : null}
     </>
   );
 }

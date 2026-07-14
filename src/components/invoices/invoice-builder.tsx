@@ -9,9 +9,9 @@ import { SelectField } from "@/components/forms/select-field";
 import { TextareaField } from "@/components/forms/textarea-field";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { PageHeader } from "@/components/shared/page-header";
+import { useCreateInvoice } from "@/hooks/use-invoices";
 import { calculateInvoiceTotals, getInvoiceReadinessChecks, parseLocalDate } from "@/lib/invoices/calculations";
 import { invoiceFormSchema, type InvoiceFormValues, type ValidInvoiceFormValues } from "@/lib/validation/invoice";
-import { services } from "@/services";
 import { useNiagaStore } from "@/store/use-niaga-store";
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { day: "numeric", month: "long", year: "numeric" });
@@ -23,6 +23,7 @@ function makeItemId() {
 }
 
 export function InvoiceBuilder() {
+  const createInvoice = useCreateInvoice();
   const router = useRouter();
   const business = useNiagaStore((state) => state.business);
   const today = new Date();
@@ -46,7 +47,7 @@ export function InvoiceBuilder() {
 
   const submit = async (values: ValidInvoiceFormValues) => {
     try {
-      await services.invoices.create({
+      await createInvoice.mutateAsync({
       ...values,
       businessId: business?.id || "business_demo",
       customerId: null,
@@ -71,7 +72,7 @@ export function InvoiceBuilder() {
 
           <section className="panel invoice-form-section"><p className="section-kicker">Final details</p><h2>Notes and terms</h2><div className="invoice-notes-grid"><TextareaField error={errors.notes?.message} label="Notes (optional)" rows={4} {...register("notes")} /><TextareaField error={errors.paymentTerms?.message} label="Payment terms (optional)" rows={4} {...register("paymentTerms")} /></div></section>
           {errors.root?.message ? <div className="form-alert" role="alert"><AlertCircle aria-hidden="true" size={18} />{errors.root.message}</div> : null}
-          <div className="invoice-save-actions"><button className="button button-secondary" onClick={() => router.push("/invoices")} type="button">Cancel</button><button className="button button-primary" disabled={isSubmitting} type="submit"><Save aria-hidden="true" size={18} />Save invoice</button></div>
+          <div className="invoice-save-actions"><button className="button button-secondary" disabled={createInvoice.isPending} onClick={() => router.push("/invoices")} type="button">Cancel</button><button className="button button-primary" disabled={isSubmitting || createInvoice.isPending} type="submit"><Save aria-hidden="true" size={18} />Save invoice</button></div>
         </div>
 
         <aside className="invoice-preview-column">

@@ -30,11 +30,12 @@ const sourceOptions = [
   { label: "WhatsApp order", value: "whatsapp" },
 ];
 
-export function TransactionReviewForm({ draft, onBack, onConfirm, saveError }: {
+export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, saving = false }: {
   draft: TransactionDraft;
   onBack: () => void;
   onConfirm: (values: ValidTransactionFormValues) => void;
   saveError?: string;
+  saving?: boolean;
 }) {
   const { control, register, handleSubmit, formState: { errors, isSubmitting } } = useForm<TransactionFormValues, unknown, ValidTransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
@@ -74,8 +75,8 @@ export function TransactionReviewForm({ draft, onBack, onConfirm, saveError }: {
 
         {saveError ? <div className="form-alert" role="alert"><AlertCircle aria-hidden="true" size={18} /><span>{saveError}</span></div> : null}
         <div className="capture-actions review-actions">
-          <button className="button button-secondary" onClick={onBack} type="button">Back to methods</button>
-          <button className="button button-primary" disabled={isSubmitting} type="submit"><CheckCircle2 aria-hidden="true" size={18} />Confirm and save</button>
+          <button className="button button-secondary" disabled={saving} onClick={onBack} type="button">Back to methods</button>
+          <button className="button button-primary" disabled={isSubmitting || saving} type="submit"><CheckCircle2 aria-hidden="true" size={18} />Confirm and save</button>
         </div>
       </form>
     </section>

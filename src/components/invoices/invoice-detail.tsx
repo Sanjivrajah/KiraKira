@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, FileText, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { ErrorState } from "@/components/shared/error-state";
+import { LoadingState } from "@/components/shared/loading-state";
 import { MoneyDisplay } from "@/components/shared/money-display";
+import { useDeleteInvoice, useInvoice, useUpdateInvoice } from "@/hooks/use-invoices";
 import { getEffectiveInvoiceStatus, parseLocalDate } from "@/lib/invoices/calculations";
-import { services } from "@/services";
 import { useNiagaStore } from "@/store/use-niaga-store";
-import type { Invoice, InvoiceStatus } from "@/types";
+import type { InvoiceStatus } from "@/types";
 import { invoiceStatusLabels } from "./invoice-list";
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "long" });
@@ -20,30 +21,27 @@ export function InvoiceDetail({ id }: { id: string }) {
   const router = useRouter();
   const business = useNiagaStore((state) => state.business);
   const businessId = business?.id || "business_demo";
-  const [invoice, setInvoice] = useState<Invoice | null>();
+  const invoiceQuery = useInvoice(businessId, id);
+  const updateInvoice = useUpdateInvoice();
+  const deleteInvoice = useDeleteInvoice();
+  const invoice = invoiceQuery.data;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    let active = true;
-    services.invoices.initializeDemo(businessId)
-      .then((items) => { if (active) setInvoice(items.find((item) => item.id === id) ?? null); })
-      .catch(() => { if (active) setInvoice(null); });
-    return () => { active = false; };
-  }, [businessId, id]);
-
-  if (invoice === undefined) return null;
-  if (invoice === null) {
+  if (invoiceQuery.isPending) return <LoadingState label="Loading invoice" />;
+  if (invoiceQuery.isError) return <><Link className="back-link" href="/invoices"><ArrowLeft aria-hidden="true" size={17} />Back to invoices</Link><ErrorState title="We could not load this invoice" description="Your invoice is still on this device. Try loading it again." /><button className="button button-secondary" onClick={() => invoiceQuery.refetch()} type="button">Try again</button></>;
+  if (!invoice) {
     return <><Link className="back-link" href="/invoices"><ArrowLeft aria-hidden="true" size={17} />Back to invoices</Link><ErrorState title="Invoice not found" description="This invoice may have been deleted, or the link is no longer valid." /></>;
   }
 
   const effectiveStatus = getEffectiveInvoiceStatus(invoice);
   const changeStatus = async (status: InvoiceStatus) => {
     const updated = { ...invoice, status, updatedAt: new Date().toISOString() };
+    setMessage("");
+    setError("");
     try {
-      const persisted = await services.invoices.update(updated);
-      setInvoice(persisted);
+      await updateInvoice.mutateAsync(updated);
       setError("");
       setMessage(`${invoice.invoiceNumber} marked as ${invoiceStatusLabels[status].toLowerCase()}.`);
     } catch {
@@ -52,8 +50,10 @@ export function InvoiceDetail({ id }: { id: string }) {
   };
 
   const remove = async () => {
+    setMessage("");
+    setError("");
     try {
-      await services.invoices.remove(invoice.businessId, invoice.id);
+      await deleteInvoice.mutateAsync({ businessId: invoice.businessId, invoiceId: invoice.id });
       router.push("/invoices?deleted=1");
     } catch {
       setConfirmDelete(false);
@@ -82,12 +82,12 @@ export function InvoiceDetail({ id }: { id: string }) {
         </article>
 
         <aside className="invoice-detail-sidebar">
-          <section className="panel invoice-status-panel"><p className="section-kicker">Payment tracking</p><h2>Invoice status</h2><label htmlFor="invoice-detail-status">Update status</label><select className={`invoice-status-select ${effectiveStatus}`} id="invoice-detail-status" onChange={(event) => changeStatus(event.target.value as InvoiceStatus)} value={effectiveStatus}>{effectiveStatus === "overdue" ? <option disabled value="overdue">Overdue</option> : null}{(["draft", "sent", "partially_paid", "paid", "void"] as InvoiceStatus[]).map((value) => <option key={value} value={value}>{invoiceStatusLabels[value]}</option>)}</select><p>Overdue status is automatically shown when a sent invoice passes its due date.</p></section>
+          <section className="panel invoice-status-panel"><p className="section-kicker">Payment tracking</p><h2>Invoice status</h2><label htmlFor="invoice-detail-status">Update status</label><select className={`invoice-status-select ${effectiveStatus}`} disabled={updateInvoice.isPending} id="invoice-detail-status" onChange={(event) => changeStatus(event.target.value as InvoiceStatus)} value={effectiveStatus}>{effectiveStatus === "overdue" ? <option disabled value="overdue">Overdue</option> : null}{(["draft", "sent", "partially_paid", "paid", "void"] as InvoiceStatus[]).map((value) => <option key={value} value={value}>{invoiceStatusLabels[value]}</option>)}</select><p>Overdue status is automatically shown when a sent invoice passes its due date.</p></section>
           <section className="panel invoice-history-panel"><p className="section-kicker">Local record</p><h2>Invoice history</h2><dl><div><dt>Created</dt><dd>{dateTimeFormatter.format(new Date(invoice.createdAt))}</dd></div><div><dt>Last updated</dt><dd>{dateTimeFormatter.format(new Date(invoice.updatedAt))}</dd></div><div><dt>Record ID</dt><dd className="record-id">{invoice.id}</dd></div></dl><button className="button button-danger button-full" onClick={() => setConfirmDelete(true)} type="button"><Trash2 aria-hidden="true" size={17} />Delete invoice</button></section>
         </aside>
       </div>
 
-      <ConfirmationDialog danger confirmLabel="Delete invoice" description={`Delete ${invoice.invoiceNumber} for ${invoice.customerName}? This permanently removes the invoice and its reminder history from this device.`} onCancel={() => setConfirmDelete(false)} onConfirm={remove} open={confirmDelete} title="Delete this invoice?" />
+      <ConfirmationDialog danger confirmLabel={deleteInvoice.isPending ? "Deleting…" : "Delete invoice"} description={`Delete ${invoice.invoiceNumber} for ${invoice.customerName}? This permanently removes the invoice and its reminder history from this device.`} onCancel={() => setConfirmDelete(false)} onConfirm={remove} open={confirmDelete} pending={deleteInvoice.isPending} title="Delete this invoice?" />
     </>
   );
 }
