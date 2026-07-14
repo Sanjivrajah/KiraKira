@@ -1,6 +1,6 @@
 # NiagaAI
 
-NiagaAI is a mobile-first financial workspace concept for Malaysian micro-business owners. The current frontend demo includes a complete local-only first-time journey:
+NiagaAI is a mobile-first financial workspace concept for Malaysian micro-business owners. The current app includes a complete browser-local first-time journey:
 
 ```text
 Welcome → Sign in or Sign up → Business onboarding → Dashboard
@@ -9,7 +9,7 @@ Welcome → Sign in or Sign up → Business onboarding → Dashboard
 It also includes the frontend roadmap’s transaction and invoicing journeys:
 
 ```text
-Choose a source → Provide a demo input → Simulated processing → Review → Save locally
+Choose a source → Capture or import evidence → Review each proposed transaction → Save locally
 Create invoice → Check totals and readiness → Save locally → Preview reminder
 ```
 
@@ -25,15 +25,18 @@ Phase 0 through Phase 2 of `plan_frontend_first.md` are complete.
 - Dashboard identity populated from the saved demo profile
 - Confirmed sign-out and full demo-reset actions
 - Focused validation, store, and component tests
-- Receipt, voice, manual, CSV, bank statement, and WhatsApp capture options
-- Editable transaction review with clearly labelled sample extraction states
+- OpenAI receipt-image extraction with bulk review
+- Deterministic, browser-local CSV and bank-CSV parsing for up to 100 rows
+- OpenAI PDF bank-statement extraction with strict file validation
+- Voice and WhatsApp capture previews that remain clearly labelled demos
+- Editable transaction review with provenance-specific extraction disclosures
 - Resilient browser-local transaction storage and completion actions
 - Searchable invoice tracking with draft, sent, paid, and derived overdue states
 - Multi-line invoice builder with automatic subtotal, tax, and total calculations
 - Transparent frontend-only e-invoice readiness checks
 - Upcoming and overdue reminder previews with locally persisted reminder history
 
-This phase makes no authentication, database, or external API calls. AI, OCR, MyInvois submission, and real financial records remain out of scope.
+Authentication, database persistence, MyInvois submission, and production financial storage remain out of scope. Receipt images and PDF bank statements use the configured OpenAI API; CSV imports are parsed locally without an AI call.
 
 ## Demo Access
 
@@ -57,6 +60,8 @@ The sanitized demo session is stored only in the current browser under `niagaai-
 - Clearing browser site data has the same effect as resetting the demo.
 
 The route guards improve demo navigation only. Browser-local state is not a security boundary and does not provide real authentication or authorization.
+
+CSV files remain in the browser. Receipt images and PDF bank statements are sent to OpenAI with response storage disabled and remain proposed drafts until the owner confirms every transaction.
 
 ## Requirements
 
@@ -89,7 +94,7 @@ npm run build
 | `/onboarding` | Hydration-gated business setup and review |
 | `/dashboard` | Hydration-gated Phase 1 application preview |
 | `/transactions` | Filter, sort, review, edit, and delete local transactions |
-| `/transactions/new` | Simulated multi-source transaction capture, review, and local save |
+| `/transactions/new` | Receipt AI extraction, local CSV parsing, bank-statement import, review, and local save |
 | `/invoices` | Filterable local invoice tracking and status updates |
 | `/invoices/new` | Invoice builder, live preview, calculations, and readiness check |
 | `/invoices/[id]` | Reopen a saved invoice, update status, or delete it |
@@ -110,7 +115,7 @@ src/
 │   ├── reminders/       # Local reminder cards and message preview
 │   ├── layout/
 │   └── shared/
-├── lib/                 # Validation, calculations, and browser-local storage
+├── lib/                 # Validation, CSV imports, OpenAI extraction, calculations, and local storage
 ├── store/               # Persisted Zustand demo session
 └── types/               # Auth and business contracts
 ```
