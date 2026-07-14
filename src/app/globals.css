@@ -1839,6 +1839,52 @@ legend {
   line-height: 1.6;
 }
 
+.state-page {
+  display: grid;
+  min-height: 100vh;
+  min-height: 100dvh;
+  place-items: center;
+  padding: max(24px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+}
+
+.state-page .state-card {
+  width: min(100%, 620px);
+}
+
+.state-card-action h1 {
+  margin: 10px 0 10px;
+  font-size: clamp(28px, 8vw, 42px);
+  line-height: 1.05;
+  letter-spacing: -0.045em;
+}
+
+.state-card-action .eyebrow {
+  margin: 18px 0 0;
+  color: var(--brand-700);
+}
+
+.state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+@media (max-width: 480px) {
+  .state-page {
+    align-items: stretch;
+  }
+
+  .state-page .state-card {
+    min-height: calc(100dvh - 48px);
+  }
+
+  .state-actions .button {
+    width: 100%;
+  }
+}
+
 .skeleton {
   overflow: hidden;
   border-radius: 12px;
