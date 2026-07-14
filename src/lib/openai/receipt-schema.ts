@@ -20,21 +20,23 @@ export const receiptExtractionSchema = z.object({
   invoiceNumber: extractedStringSchema,
   documentDate: extractedStringSchema,
   currency: extractedStringSchema,
-  lineItems: z.array(z.object({
-    description: z.string(),
-    quantity: z.number().positive().nullable(),
-    unitPrice: z.number().nonnegative().nullable(),
-    amount: z.number().nonnegative().nullable(),
-    evidenceText: z.string().nullable(),
-    confidence: confidenceSchema,
-  })),
+  lineItems: z
+    .array(z.object({
+      description: z.string().max(140),
+      quantity: z.number().positive().nullable(),
+      unitPrice: z.number().nonnegative().nullable(),
+      amount: z.number().nonnegative().nullable(),
+      evidenceText: z.string().max(280).nullable(),
+      confidence: confidenceSchema,
+    }))
+    .max(100),
   subtotal: extractedNumberSchema,
   tax: extractedNumberSchema,
   total: extractedNumberSchema,
   paymentMethod: extractedStringSchema,
   category: extractedStringSchema,
-  missingFields: z.array(z.string()),
-  warnings: z.array(z.string()),
+  missingFields: z.array(z.string().max(60)).max(50),
+  warnings: z.array(z.string().max(200)).max(50),
   overallConfidence: confidenceSchema,
 });
 
