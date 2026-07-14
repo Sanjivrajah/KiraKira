@@ -1453,7 +1453,7 @@ legend {
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
     "icon main amount"
-    "icon badges badges";
+    "icon meta meta";
   align-items: center;
   gap: 7px 11px;
   padding: 15px 0;
@@ -1511,18 +1511,23 @@ legend {
   font-weight: 700;
 }
 
+.transaction-meta {
+  grid-area: meta;
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
 .transaction-source {
-  grid-area: badges;
   width: fit-content;
-  margin-right: 62px;
   background: var(--canvas);
   color: var(--ink-700);
 }
 
 .status-badge {
-  grid-area: badges;
   width: fit-content;
-  margin-left: 58px;
 }
 
 .status-badge.reviewed,
@@ -2716,22 +2721,13 @@ legend {
   }
 
   .transaction-row {
-    grid-template-columns: auto minmax(180px, 1fr) auto auto auto;
-    grid-template-areas: "icon main source status amount";
+    grid-template-columns: auto minmax(180px, 1fr) minmax(0, auto) auto;
+    grid-template-areas: "icon main meta amount";
     gap: 12px;
   }
 
-  .transaction-source,
-  .status-badge {
-    margin: 0;
-  }
-
-  .transaction-source {
-    grid-area: source;
-  }
-
-  .status-badge {
-    grid-area: status;
+  .transaction-meta {
+    justify-content: flex-end;
   }
 
   .skeleton-metrics {
