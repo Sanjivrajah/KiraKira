@@ -12,7 +12,7 @@ import { getEffectiveInvoiceStatus, parseLocalDate } from "@/lib/invoices/calcul
 import { deleteInvoice, initializeInvoices, updateInvoice } from "@/lib/invoices/storage";
 import { deleteInvoiceReminder } from "@/lib/reminders/storage";
 import { useNiagaStore } from "@/store/use-niaga-store";
-import type { Invoice, InvoiceStatus } from "@/types/finance";
+import type { Invoice, InvoiceStatus } from "@/types";
 import { invoiceStatusLabels } from "./invoice-list";
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "long" });
@@ -73,7 +73,7 @@ export function InvoiceDetail({ id }: { id: string }) {
         </article>
 
         <aside className="invoice-detail-sidebar">
-          <section className="panel invoice-status-panel"><p className="section-kicker">Payment tracking</p><h2>Invoice status</h2><label htmlFor="invoice-detail-status">Update status</label><select className={`invoice-status-select ${effectiveStatus}`} id="invoice-detail-status" onChange={(event) => changeStatus(event.target.value as InvoiceStatus)} value={effectiveStatus}>{Object.entries(invoiceStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><p>Overdue status is automatically shown when a sent invoice passes its due date.</p></section>
+          <section className="panel invoice-status-panel"><p className="section-kicker">Payment tracking</p><h2>Invoice status</h2><label htmlFor="invoice-detail-status">Update status</label><select className={`invoice-status-select ${effectiveStatus}`} id="invoice-detail-status" onChange={(event) => changeStatus(event.target.value as InvoiceStatus)} value={effectiveStatus}>{effectiveStatus === "overdue" ? <option disabled value="overdue">Overdue</option> : null}{(["draft", "sent", "partially_paid", "paid", "void"] as InvoiceStatus[]).map((value) => <option key={value} value={value}>{invoiceStatusLabels[value]}</option>)}</select><p>Overdue status is automatically shown when a sent invoice passes its due date.</p></section>
           <section className="panel invoice-history-panel"><p className="section-kicker">Local record</p><h2>Invoice history</h2><dl><div><dt>Created</dt><dd>{dateTimeFormatter.format(new Date(invoice.createdAt))}</dd></div><div><dt>Last updated</dt><dd>{dateTimeFormatter.format(new Date(invoice.updatedAt))}</dd></div><div><dt>Record ID</dt><dd className="record-id">{invoice.id}</dd></div></dl><button className="button button-danger button-full" onClick={() => setConfirmDelete(true)} type="button"><Trash2 aria-hidden="true" size={17} />Delete invoice</button></section>
         </aside>
       </div>

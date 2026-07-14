@@ -1,9 +1,9 @@
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { MoneyDisplay } from "@/components/shared/money-display";
-import type { Transaction, TransactionSource, TransactionStatus } from "@/types/finance";
+import type { Transaction, TransactionSourceType, TransactionStatus } from "@/types";
 
-const sourceLabels: Record<TransactionSource, string> = {
+const sourceLabels: Record<TransactionSourceType, string> = {
   receipt: "Receipt",
   voice: "Voice",
   manual: "Manual",
@@ -13,9 +13,10 @@ const sourceLabels: Record<TransactionSource, string> = {
 };
 
 const statusLabels: Record<TransactionStatus, string> = {
-  processing: "Processing",
+  draft: "Draft",
   needs_review: "Review",
-  reviewed: "Reviewed",
+  confirmed: "Reviewed",
+  failed: "Failed",
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { day: "numeric", month: "short" });
@@ -48,9 +49,9 @@ export function RecentTransactions({ transactions }: { transactions: Transaction
                 <h3>{transaction.description}</h3>
                 <p>{dateFormatter.format(new Date(`${transaction.date}T00:00:00`))} · {transaction.category}</p>
               </div>
-              <span className="transaction-source">{sourceLabels[transaction.source]}</span>
+              <span className="transaction-source">{sourceLabels[transaction.sourceType]}</span>
               <span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span>
-              <MoneyDisplay amount={transaction.amount} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} />
+              <MoneyDisplay amount={transaction.total} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} />
             </article>
           ))}
         </div>

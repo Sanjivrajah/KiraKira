@@ -1,26 +1,76 @@
-import type { Transaction } from "@/types/finance";
+import type { Transaction, TransactionLineItem, TransactionSourceType, TransactionStatus, TransactionType } from "@/types";
 
 export const TRANSACTIONS_STORAGE_KEY = "niagaai_transactions";
 
 const transactionTypes = new Set(["income", "expense"]);
-const transactionSources = new Set(["receipt", "voice", "manual", "csv", "bank_statement", "whatsapp"]);
-const transactionStatuses = new Set(["processing", "needs_review", "reviewed"]);
+const transactionSources = new Set<TransactionSourceType>(["receipt", "voice", "manual", "csv", "bank_statement", "whatsapp"]);
+const transactionStatuses = new Set<TransactionStatus>(["draft", "needs_review", "confirmed", "failed"]);
+const LEGACY_BUSINESS_ID = "business_demo";
+const LEGACY_USER_ID = "user_demo";
 
-function isTransaction(value: unknown): value is Transaction {
-  if (!value || typeof value !== "object") return false;
+function parseLineItem(value: unknown): TransactionLineItem | null {
+  if (!value || typeof value !== "object") return null;
   const item = value as Record<string, unknown>;
-  return (
+  if (!(typeof item.id === "string" && typeof item.description === "string" &&
+    typeof item.quantity === "number" && Number.isFinite(item.quantity) &&
+    typeof item.unitPrice === "number" && Number.isFinite(item.unitPrice) &&
+    typeof item.taxRate === "number" && Number.isFinite(item.taxRate) &&
+    typeof item.subtotal === "number" && Number.isFinite(item.subtotal) &&
+    typeof item.tax === "number" && Number.isFinite(item.tax) &&
+    typeof item.total === "number" && Number.isFinite(item.total))) return null;
+  return {
+    id: item.id, description: item.description, quantity: item.quantity, unitPrice: item.unitPrice,
+    taxRate: item.taxRate, subtotal: item.subtotal, tax: item.tax, total: item.total,
+  };
+}
+
+function migrateTransaction(value: unknown): Transaction | null {
+  if (!value || typeof value !== "object") return null;
+  const item = value as Record<string, unknown>;
+  const type = String(item.type) as TransactionType;
+  const sourceType = String(item.sourceType ?? item.source) as TransactionSourceType;
+  const legacyStatus = String(item.status);
+  const status = legacyStatus === "reviewed" ? "confirmed" : legacyStatus === "processing" ? "draft" : legacyStatus as TransactionStatus;
+  const total = item.total ?? item.amount;
+  const items = Array.isArray(item.items) ? item.items.map(parseLineItem) : [];
+  if (items.some((lineItem) => lineItem === null)) return null;
+  if (!(
     typeof item.id === "string" &&
-    transactionTypes.has(String(item.type)) &&
-    typeof item.amount === "number" &&
-    Number.isFinite(item.amount) &&
+    transactionTypes.has(type) &&
+    typeof total === "number" &&
+    Number.isFinite(total) &&
     typeof item.date === "string" &&
     typeof item.category === "string" &&
     typeof item.description === "string" &&
-    transactionSources.has(String(item.source)) &&
-    transactionStatuses.has(String(item.status)) &&
+    transactionSources.has(sourceType) &&
+    transactionStatuses.has(status) &&
     typeof item.createdAt === "string"
-  );
+  )) return null;
+
+  return {
+    id: item.id,
+    businessId: typeof item.businessId === "string" ? item.businessId : LEGACY_BUSINESS_ID,
+    createdBy: typeof item.createdBy === "string" ? item.createdBy : LEGACY_USER_ID,
+    type,
+    status,
+    sourceType,
+    sourceDocumentId: typeof item.sourceDocumentId === "string" ? item.sourceDocumentId : null,
+    date: item.date,
+    counterpartyId: typeof item.counterpartyId === "string" ? item.counterpartyId : null,
+    counterpartyName: typeof item.counterpartyName === "string" ? item.counterpartyName : typeof item.customerName === "string" ? item.customerName : typeof item.merchantName === "string" ? item.merchantName : "",
+    description: item.description,
+    category: item.category,
+    currency: "MYR",
+    subtotal: typeof item.subtotal === "number" ? item.subtotal : total,
+    tax: typeof item.tax === "number" ? item.tax : 0,
+    total,
+    paymentMethod: typeof item.paymentMethod === "string" ? item.paymentMethod : null,
+    confidenceScore: typeof item.confidenceScore === "number" ? item.confidenceScore : null,
+    notes: typeof item.notes === "string" ? item.notes : null,
+    items: items.filter((lineItem): lineItem is TransactionLineItem => lineItem !== null),
+    createdAt: item.createdAt,
+    updatedAt: typeof item.updatedAt === "string" ? item.updatedAt : item.createdAt,
+  };
 }
 
 function getStorage(): Storage | null {
@@ -66,11 +116,13 @@ export function getTransactions(): Transaction[] {
     if (!Array.isArray(parsed)) return [];
 
     const seen = new Set<string>();
-    return parsed.filter((item): item is Transaction => {
-      if (!isTransaction(item) || seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    });
+    return parsed.reduce<Transaction[]>((transactions, item) => {
+      const transaction = migrateTransaction(item);
+      if (!transaction || seen.has(transaction.id)) return transactions;
+      seen.add(transaction.id);
+      transactions.push(transaction);
+      return transactions;
+    }, []);
   } catch {
     return [];
   }

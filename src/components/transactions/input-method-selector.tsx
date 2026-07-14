@@ -7,10 +7,10 @@ import {
   Mic,
   type LucideIcon,
 } from "lucide-react";
-import type { TransactionSource } from "@/types/finance";
+import type { TransactionSourceType } from "@/types";
 
 interface Method {
-  source: TransactionSource;
+  source: TransactionSourceType;
   name: string;
   description: string;
   icon: LucideIcon;
@@ -26,7 +26,7 @@ const methods: Method[] = [
   { source: "whatsapp", name: "WhatsApp order", description: "Paste an order message and turn it into a sample sale.", icon: MessageCircle, flow: "Demo extraction" },
 ];
 
-export function InputMethodSelector({ onSelect }: { onSelect: (source: TransactionSource) => void }) {
+export function InputMethodSelector({ onSelect }: { onSelect: (source: TransactionSourceType) => void }) {
   return (
     <section aria-labelledby="capture-method-title">
       <div className="capture-section-heading">

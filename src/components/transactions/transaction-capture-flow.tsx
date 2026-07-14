@@ -6,7 +6,8 @@ import { useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { makeTransactionId, saveTransaction } from "@/lib/transactions/storage";
 import type { ValidTransactionFormValues } from "@/lib/validation/transaction";
-import type { Transaction, TransactionSource } from "@/types/finance";
+import { useNiagaStore } from "@/store/use-niaga-store";
+import type { Transaction, TransactionSourceType } from "@/types";
 import { DemoSourceInput } from "./demo-source-input";
 import { InputMethodSelector } from "./input-method-selector";
 import { ProcessingState } from "./processing-state";
@@ -17,7 +18,7 @@ import { VoiceRecorderDemo } from "./voice-recorder-demo";
 
 type Stage = "select" | "input" | "processing" | "review" | "success";
 
-const sourceLabels: Record<TransactionSource, string> = {
+const sourceLabels: Record<TransactionSourceType, string> = {
   receipt: "Receipt photo",
   voice: "Voice note",
   manual: "Manual entry",
@@ -32,7 +33,7 @@ function localDate() {
   return new Date(now.getTime() - offset).toISOString().slice(0, 10);
 }
 
-function makeDraft(source: TransactionSource): TransactionDraft {
+function makeDraft(source: TransactionSourceType): TransactionDraft {
   const common = { date: localDate(), source };
   switch (source) {
     case "receipt":
@@ -50,14 +51,16 @@ function makeDraft(source: TransactionSource): TransactionDraft {
   }
 }
 
-export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: TransactionSource }) {
-  const [source, setSource] = useState<TransactionSource | null>(initialMethod ?? null);
+export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: TransactionSourceType }) {
+  const businessId = useNiagaStore((state) => state.business?.id) || "business_demo";
+  const userId = useNiagaStore((state) => state.user?.id) || "user_demo";
+  const [source, setSource] = useState<TransactionSourceType | null>(initialMethod ?? null);
   const [stage, setStage] = useState<Stage>(initialMethod === "manual" ? "review" : initialMethod ? "input" : "select");
   const [draft, setDraft] = useState<TransactionDraft>(() => makeDraft(initialMethod ?? "manual"));
   const [saved, setSaved] = useState<Transaction | null>(null);
   const [saveError, setSaveError] = useState("");
 
-  const selectSource = (nextSource: TransactionSource) => {
+  const selectSource = (nextSource: TransactionSourceType) => {
     setSource(nextSource);
     setDraft(makeDraft(nextSource));
     setSaveError("");
@@ -72,19 +75,26 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
   };
 
   const confirm = (values: ValidTransactionFormValues) => {
+    const now = new Date().toISOString();
     const transaction: Transaction = {
       id: makeTransactionId(),
+      businessId,
+      createdBy: userId,
       type: values.type,
-      amount: values.amount,
+      subtotal: values.amount,
+      tax: 0,
+      total: values.amount,
+      currency: "MYR",
       date: values.date,
       category: values.category,
       description: values.description,
-      ...(values.type === "income" && values.counterpartyName ? { customerName: values.counterpartyName } : {}),
-      ...(values.type === "expense" && values.counterpartyName ? { merchantName: values.counterpartyName } : {}),
-      ...(values.paymentMethod ? { paymentMethod: values.paymentMethod } : {}),
-      source: values.source,
-      status: "reviewed",
-      createdAt: new Date().toISOString(),
+      counterpartyName: values.counterpartyName,
+      paymentMethod: values.paymentMethod || null,
+      sourceType: values.source,
+      status: "confirmed",
+      items: [],
+      createdAt: now,
+      updatedAt: now,
     };
 
     if (!saveTransaction(transaction)) {

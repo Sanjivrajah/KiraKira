@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { FormField } from "@/components/forms/form-field";
 import { SelectField } from "@/components/forms/select-field";
 import { businessSchema, type BusinessFormValues } from "@/lib/validation/business";
-import type { BusinessProfile } from "@/types/business";
+import type { BusinessInput } from "@/types";
 
 const businessTypes = [
   { value: "", label: "Choose a business type" },
@@ -17,8 +17,8 @@ const businessTypes = [
 ];
 
 export function BusinessForm({ initialValues, onReview }: {
-  initialValues?: BusinessProfile | null;
-  onReview: (business: BusinessProfile) => void;
+  initialValues?: BusinessInput | null;
+  onReview: (business: BusinessInput) => void;
 }) {
   const { register, handleSubmit, formState: { errors } } = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),

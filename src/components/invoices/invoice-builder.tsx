@@ -47,7 +47,18 @@ export function InvoiceBuilder() {
   const submit = (values: ValidInvoiceFormValues) => {
     const calculated = calculateInvoiceTotals(values.items);
     const now = new Date().toISOString();
-    const saved = saveInvoice({ ...values, id: makeInvoiceId(), items: values.items.map((item) => ({ ...item, id: item.id || makeItemId() })), ...calculated, createdAt: now, updatedAt: now });
+    const saved = saveInvoice({
+      ...values,
+      id: makeInvoiceId(),
+      businessId: business?.id || "business_demo",
+      customerId: null,
+      currency: "MYR",
+      amountPaid: 0,
+      items: values.items.map((item) => ({ ...item, id: item.id || makeItemId() })),
+      ...calculated,
+      createdAt: now,
+      updatedAt: now,
+    });
     if (!saved) {
       setError("root", { message: "We could not save this invoice in your browser. Check available storage and try again." });
       return;

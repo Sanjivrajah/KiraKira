@@ -15,8 +15,8 @@ describe("transaction queries", () => {
 
   it("supports every amount and date sort direction without mutating input", () => {
     const original = [...mockTransactions];
-    expect(filterAndSortTransactions(mockTransactions, emptyTransactionFilters, "highest")[0].amount).toBe(850);
-    expect(filterAndSortTransactions(mockTransactions, emptyTransactionFilters, "lowest")[0].amount).toBe(78);
+    expect(filterAndSortTransactions(mockTransactions, emptyTransactionFilters, "highest")[0].total).toBe(850);
+    expect(filterAndSortTransactions(mockTransactions, emptyTransactionFilters, "lowest")[0].total).toBe(78);
     expect(filterAndSortTransactions(mockTransactions, emptyTransactionFilters, "oldest")[0].id).toBe("txn_006");
     expect(mockTransactions).toEqual(original);
   });

@@ -20,7 +20,7 @@ describe("TransactionList", () => {
   it("marks a needs-review transaction as reviewed and persists it", () => {
     render(<TransactionList />);
     fireEvent.click(screen.getAllByRole("button", { name: "Mark reviewed" })[0]);
-    expect(getTransactionById("txn_002")?.status).toBe("reviewed");
+    expect(getTransactionById("txn_002")?.status).toBe("confirmed");
     expect(screen.getByRole("status")).toHaveTextContent("marked as reviewed");
   });
 });

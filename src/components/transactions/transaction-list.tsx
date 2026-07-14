@@ -8,14 +8,14 @@ import { PageHeader } from "@/components/shared/page-header";
 import { mockTransactions } from "@/data/mock-transactions";
 import { emptyTransactionFilters, filterAndSortTransactions, type TransactionFilters, type TransactionSort } from "@/lib/transactions/query";
 import { initializeTransactions, updateTransaction } from "@/lib/transactions/storage";
-import type { Transaction, TransactionSource, TransactionStatus } from "@/types/finance";
+import type { Transaction, TransactionSourceType, TransactionStatus } from "@/types";
 
-export const sourceLabels: Record<TransactionSource, string> = {
+export const sourceLabels: Record<TransactionSourceType, string> = {
   receipt: "Receipt", voice: "Voice", manual: "Manual", csv: "CSV",
   bank_statement: "Bank statement", whatsapp: "WhatsApp",
 };
 export const statusLabels: Record<TransactionStatus, string> = {
-  processing: "Processing", needs_review: "Needs review", reviewed: "Reviewed",
+  draft: "Draft", needs_review: "Needs review", confirmed: "Reviewed", failed: "Failed",
 };
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { day: "numeric", month: "short", year: "numeric" });
 
@@ -24,7 +24,7 @@ function displayDate(date: string) {
 }
 
 function Counterparty({ transaction }: { transaction: Transaction }) {
-  return <>{transaction.merchantName || transaction.customerName || "—"}</>;
+  return <>{transaction.counterpartyName || "—"}</>;
 }
 
 export function TransactionList() {
@@ -45,7 +45,7 @@ export function TransactionList() {
     setFilters((current) => ({ ...current, [key]: value }));
 
   const markReviewed = (transaction: Transaction) => {
-    const updated = { ...transaction, status: "reviewed" as const };
+    const updated = { ...transaction, status: "confirmed" as const, updatedAt: new Date().toISOString() };
     if (!updateTransaction(updated)) {
       setMessage("We could not save that change. Please try again.");
       return;
@@ -85,10 +85,10 @@ export function TransactionList() {
       ) : <>
         <div className="transaction-table-wrap panel">
           <table className="transaction-table"><thead><tr><th>Date</th><th>Description</th><th>Merchant / customer</th><th>Category</th><th>Source</th><th>Status</th><th>Amount</th><th><span className="sr-only">Actions</span></th></tr></thead>
-            <tbody>{visible.map((transaction) => <tr key={transaction.id}><td>{displayDate(transaction.date)}</td><td><Link href={`/transactions/${transaction.id}`}><strong>{transaction.description}</strong><span className={`type-label ${transaction.type}`}>{transaction.type}</span></Link></td><td><Counterparty transaction={transaction} /></td><td>{transaction.category}</td><td>{sourceLabels[transaction.source]}</td><td><span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span></td><td><MoneyDisplay amount={transaction.amount} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} /></td><td>{transaction.status === "needs_review" ? <button className="review-button" onClick={() => markReviewed(transaction)} type="button">Mark reviewed</button> : <Link className="row-link" href={`/transactions/${transaction.id}`} aria-label={`View ${transaction.description}`}><ChevronRight aria-hidden="true" size={18} /></Link>}</td></tr>)}</tbody>
+            <tbody>{visible.map((transaction) => <tr key={transaction.id}><td>{displayDate(transaction.date)}</td><td><Link href={`/transactions/${transaction.id}`}><strong>{transaction.description}</strong><span className={`type-label ${transaction.type}`}>{transaction.type}</span></Link></td><td><Counterparty transaction={transaction} /></td><td>{transaction.category}</td><td>{sourceLabels[transaction.sourceType]}</td><td><span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span></td><td><MoneyDisplay amount={transaction.total} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} /></td><td>{transaction.status === "needs_review" ? <button className="review-button" onClick={() => markReviewed(transaction)} type="button">Mark reviewed</button> : <Link className="row-link" href={`/transactions/${transaction.id}`} aria-label={`View ${transaction.description}`}><ChevronRight aria-hidden="true" size={18} /></Link>}</td></tr>)}</tbody>
           </table>
         </div>
-        <div className="transaction-cards">{visible.map((transaction) => <article className="transaction-card" key={transaction.id}><Link className="transaction-card-link" href={`/transactions/${transaction.id}`}><div className="transaction-card-top"><span className={`type-label ${transaction.type}`}>{transaction.type}</span><MoneyDisplay amount={transaction.amount} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} /></div><h2>{transaction.description}</h2><p>{displayDate(transaction.date)} · <Counterparty transaction={transaction} /></p><div className="transaction-card-meta"><span>{transaction.category}</span><span>{sourceLabels[transaction.source]}</span><span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span></div></Link>{transaction.status === "needs_review" ? <button className="review-button" onClick={() => markReviewed(transaction)} type="button"><CheckCircle2 aria-hidden="true" size={16} />Mark reviewed</button> : null}</article>)}</div>
+        <div className="transaction-cards">{visible.map((transaction) => <article className="transaction-card" key={transaction.id}><Link className="transaction-card-link" href={`/transactions/${transaction.id}`}><div className="transaction-card-top"><span className={`type-label ${transaction.type}`}>{transaction.type}</span><MoneyDisplay amount={transaction.total} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} /></div><h2>{transaction.description}</h2><p>{displayDate(transaction.date)} · <Counterparty transaction={transaction} /></p><div className="transaction-card-meta"><span>{transaction.category}</span><span>{sourceLabels[transaction.sourceType]}</span><span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span></div></Link>{transaction.status === "needs_review" ? <button className="review-button" onClick={() => markReviewed(transaction)} type="button"><CheckCircle2 aria-hidden="true" size={16} />Mark reviewed</button> : null}</article>)}</div>
       </>}
     </>
   );

@@ -1,4 +1,4 @@
-import type { BusinessProfile, BusinessType } from "@/types/business";
+import type { BusinessInput, BusinessType } from "@/types";
 
 const typeLabels: Record<BusinessType, string> = {
   food_beverage: "Food & beverage",
@@ -11,7 +11,7 @@ const typeLabels: Record<BusinessType, string> = {
 export const businessTypeLabels = typeLabels;
 
 export function BusinessPreview({ business, onEdit, onComplete }: {
-  business: BusinessProfile;
+  business: BusinessInput;
   onEdit: () => void;
   onComplete: () => void;
 }) {

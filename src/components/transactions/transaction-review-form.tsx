@@ -7,7 +7,7 @@ import { FormField } from "@/components/forms/form-field";
 import { SelectField } from "@/components/forms/select-field";
 import { TextareaField } from "@/components/forms/textarea-field";
 import { transactionFormSchema, type TransactionFormValues, type ValidTransactionFormValues } from "@/lib/validation/transaction";
-import type { TransactionSource } from "@/types/finance";
+import type { TransactionSourceType } from "@/types";
 
 export interface TransactionDraft {
   type: "income" | "expense";
@@ -17,7 +17,7 @@ export interface TransactionDraft {
   description: string;
   counterpartyName: string;
   paymentMethod: string;
-  source: TransactionSource;
+  source: TransactionSourceType;
 }
 
 const typeOptions = [{ label: "Money in", value: "income" }, { label: "Money out", value: "expense" }];

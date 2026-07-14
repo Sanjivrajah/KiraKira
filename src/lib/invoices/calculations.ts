@@ -1,9 +1,8 @@
-import type { Invoice, InvoiceItem, InvoiceStatus } from "@/types/finance";
-import type { BusinessProfile } from "@/types/business";
+import type { Business, BusinessInput, EffectiveInvoiceStatus, Invoice, InvoiceLineItem } from "@/types";
 
 const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
-export function calculateInvoiceTotals(items: Pick<InvoiceItem, "quantity" | "unitPrice" | "taxRate">[]) {
+export function calculateInvoiceTotals(items: Pick<InvoiceLineItem, "quantity" | "unitPrice" | "taxRate">[]) {
   const subtotal = roundMoney(items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0));
   const tax = roundMoney(items.reduce((sum, item) => sum + item.quantity * item.unitPrice * (item.taxRate / 100), 0));
   return { subtotal, tax, total: roundMoney(subtotal + tax) };
@@ -22,9 +21,9 @@ export function daysFromDueDate(dueDate: string, today = new Date()): number {
   return Math.round((startOfLocalDay(today).getTime() - parseLocalDate(dueDate).getTime()) / millisecondsPerDay);
 }
 
-export function getEffectiveInvoiceStatus(invoice: Pick<Invoice, "status" | "dueDate">, today = new Date()): InvoiceStatus {
-  if (invoice.status === "paid" || invoice.status === "draft") return invoice.status;
-  return daysFromDueDate(invoice.dueDate, today) > 0 ? "overdue" : invoice.status === "overdue" ? "sent" : invoice.status;
+export function getEffectiveInvoiceStatus(invoice: Pick<Invoice, "status" | "dueDate">, today = new Date()): EffectiveInvoiceStatus {
+  if (invoice.status !== "sent") return invoice.status;
+  return daysFromDueDate(invoice.dueDate, today) > 0 ? "overdue" : "sent";
 }
 
 export interface ReadinessCheck {
@@ -39,15 +38,15 @@ export function getInvoiceReadinessChecks({
   issueDate,
   items,
 }: {
-  business: BusinessProfile | null;
+  business: Business | BusinessInput | null;
   customerName: string;
   buyerTin: string;
   issueDate: string;
-  items: Pick<InvoiceItem, "description" | "quantity" | "unitPrice" | "taxRate">[];
+  items: Pick<InvoiceLineItem, "description" | "quantity" | "unitPrice" | "taxRate">[];
 }): ReadinessCheck[] {
   return [
     { label: "Seller business name", ready: Boolean(business?.name.trim()) },
-    { label: "Seller registration number", ready: Boolean(business?.registrationNumber.trim()) },
+    { label: "Seller registration number", ready: Boolean(business?.registrationNumber?.trim()) },
     { label: "Buyer name", ready: Boolean(customerName.trim()) },
     { label: "Buyer TIN placeholder", ready: Boolean(buyerTin.trim()) },
     { label: "Invoice date", ready: Boolean(issueDate) },

@@ -1,27 +1,56 @@
-import type { Invoice } from "@/types/finance";
+import type { Invoice, InvoiceLineItem, InvoiceStatus } from "@/types";
 
 export const INVOICES_STORAGE_KEY = "niagaai_invoices";
-const invoiceStatuses = new Set(["draft", "sent", "paid", "overdue"]);
+const invoiceStatuses = new Set<InvoiceStatus>(["draft", "sent", "partially_paid", "paid", "void"]);
+const LEGACY_BUSINESS_ID = "business_demo";
 
-function isInvoice(value: unknown): value is Invoice {
-  if (!value || typeof value !== "object") return false;
+function parseInvoiceItem(value: unknown): InvoiceLineItem | null {
+  if (!value || typeof value !== "object") return null;
+  const item = value as Record<string, unknown>;
+  if (!(typeof item.id === "string" && typeof item.description === "string" &&
+    typeof item.quantity === "number" && Number.isFinite(item.quantity) &&
+    typeof item.unitPrice === "number" && Number.isFinite(item.unitPrice) &&
+    typeof item.taxRate === "number" && Number.isFinite(item.taxRate))) return null;
+  return { id: item.id, description: item.description, quantity: item.quantity, unitPrice: item.unitPrice, taxRate: item.taxRate };
+}
+
+function migrateInvoice(value: unknown): Invoice | null {
+  if (!value || typeof value !== "object") return null;
   const invoice = value as Record<string, unknown>;
-  if (!Array.isArray(invoice.items) || invoice.items.length === 0) return false;
-  const itemsAreValid = invoice.items.every((value) => {
-    if (!value || typeof value !== "object") return false;
-    const item = value as Record<string, unknown>;
-    return typeof item.id === "string" && typeof item.description === "string" &&
-      typeof item.quantity === "number" && Number.isFinite(item.quantity) &&
-      typeof item.unitPrice === "number" && Number.isFinite(item.unitPrice) &&
-      typeof item.taxRate === "number" && Number.isFinite(item.taxRate);
-  });
-  return itemsAreValid && typeof invoice.id === "string" && typeof invoice.invoiceNumber === "string" &&
+  if (!Array.isArray(invoice.items) || invoice.items.length === 0) return null;
+  const items = invoice.items.map(parseInvoiceItem);
+  if (items.some((item) => item === null)) return null;
+  const legacyStatus = String(invoice.status);
+  const status = (legacyStatus === "overdue" ? "sent" : legacyStatus) as InvoiceStatus;
+  if (!(typeof invoice.id === "string" && typeof invoice.invoiceNumber === "string" &&
     typeof invoice.customerName === "string" && typeof invoice.issueDate === "string" &&
-    typeof invoice.dueDate === "string" && invoiceStatuses.has(String(invoice.status)) &&
+    typeof invoice.dueDate === "string" && invoiceStatuses.has(status) &&
     typeof invoice.subtotal === "number" && Number.isFinite(invoice.subtotal) &&
     typeof invoice.tax === "number" && Number.isFinite(invoice.tax) &&
     typeof invoice.total === "number" && Number.isFinite(invoice.total) &&
-    typeof invoice.createdAt === "string" && typeof invoice.updatedAt === "string";
+    typeof invoice.createdAt === "string" && typeof invoice.updatedAt === "string")) return null;
+  return {
+    id: invoice.id,
+    businessId: typeof invoice.businessId === "string" ? invoice.businessId : LEGACY_BUSINESS_ID,
+    customerId: typeof invoice.customerId === "string" ? invoice.customerId : null,
+    invoiceNumber: invoice.invoiceNumber,
+    customerName: invoice.customerName,
+    customerEmail: typeof invoice.customerEmail === "string" ? invoice.customerEmail : null,
+    buyerTin: typeof invoice.buyerTin === "string" ? invoice.buyerTin : null,
+    issueDate: invoice.issueDate,
+    dueDate: invoice.dueDate,
+    status,
+    currency: "MYR",
+    items: items.filter((item): item is InvoiceLineItem => item !== null),
+    subtotal: invoice.subtotal,
+    tax: invoice.tax,
+    total: invoice.total,
+    amountPaid: typeof invoice.amountPaid === "number" ? invoice.amountPaid : status === "paid" ? invoice.total : 0,
+    notes: typeof invoice.notes === "string" ? invoice.notes : null,
+    paymentTerms: typeof invoice.paymentTerms === "string" ? invoice.paymentTerms : null,
+    createdAt: invoice.createdAt,
+    updatedAt: invoice.updatedAt,
+  };
 }
 
 function getStorage(): Storage | null {
@@ -43,11 +72,13 @@ export function getInvoices(): Invoice[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     const seen = new Set<string>();
-    return parsed.filter((invoice): invoice is Invoice => {
-      if (!isInvoice(invoice) || seen.has(invoice.id)) return false;
+    return parsed.reduce<Invoice[]>((invoices, value) => {
+      const invoice = migrateInvoice(value);
+      if (!invoice || seen.has(invoice.id)) return invoices;
       seen.add(invoice.id);
-      return true;
-    });
+      invoices.push(invoice);
+      return invoices;
+    }, []);
   } catch { return []; }
 }
 

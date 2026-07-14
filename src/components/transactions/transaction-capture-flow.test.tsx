@@ -22,6 +22,6 @@ describe("TransactionCaptureFlow", () => {
 
     expect(await screen.findByRole("heading", { name: "Transaction added" })).toBeInTheDocument();
     await waitFor(() => expect(getTransactions()).toHaveLength(1));
-    expect(getTransactions()[0]).toMatchObject({ amount: 125.5, status: "reviewed", source: "manual", customerName: "Kedai Murni" });
+    expect(getTransactions()[0]).toMatchObject({ total: 125.5, status: "confirmed", sourceType: "manual", counterpartyName: "Kedai Murni" });
   });
 });

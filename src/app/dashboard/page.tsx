@@ -23,7 +23,7 @@ import { mockTransactions } from "@/data/mock-transactions";
 import { calculateMonthlyMetrics } from "@/lib/transactions/query";
 import { initializeTransactions } from "@/lib/transactions/storage";
 import { useNiagaStore } from "@/store/use-niaga-store";
-import type { Transaction } from "@/types/finance";
+import type { Transaction } from "@/types";
 
 function DashboardContent() {
   const user = useNiagaStore((state) => state.user);

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useNiagaStore } from "@/store/use-niaga-store";
-import type { BusinessProfile } from "@/types/business";
+import type { BusinessInput } from "@/types";
 import { BusinessForm } from "./business-form";
 import { BusinessPreview } from "./business-preview";
 import { OnboardingProgress } from "./onboarding-progress";
@@ -14,7 +14,14 @@ export function OnboardingFlow() {
   const saveBusiness = useNiagaStore((state) => state.saveBusiness);
   const completeOnboarding = useNiagaStore((state) => state.completeOnboarding);
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [draft, setDraft] = useState<BusinessProfile | null>(savedBusiness);
+  const [draft, setDraft] = useState<BusinessInput | null>(() => savedBusiness ? {
+    name: savedBusiness.name,
+    type: savedBusiness.type,
+    registrationNumber: savedBusiness.registrationNumber || "",
+    tin: savedBusiness.tin || "",
+    currency: savedBusiness.currency,
+    preferredLanguage: savedBusiness.preferredLanguage,
+  } : null);
 
   const complete = () => {
     if (!draft) return;
