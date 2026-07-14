@@ -134,7 +134,8 @@ button:disabled {
   text-decoration: none;
 }
 
-.mobile-brand {
+.mobile-brand,
+.brand-lockup {
   min-height: 44px;
 }
 
@@ -1056,6 +1057,7 @@ legend {
 
 .text-button {
   display: inline-flex;
+  min-height: 44px;
   align-items: center;
   gap: 5px;
   padding: 4px;
@@ -2991,7 +2993,7 @@ legend {
 
 .review-tabs button {
   display: flex;
-  min-height: 39px;
+  min-height: 44px;
   flex: 1;
   align-items: center;
   justify-content: center;
@@ -3038,6 +3040,7 @@ legend {
 .transaction-search input {
   width: 100%;
   min-width: 0;
+  min-height: 44px;
   border: 0;
   outline: 0;
   background: transparent;
@@ -3062,7 +3065,7 @@ legend {
 .transaction-filter-grid select,
 .transaction-filter-grid input {
   width: 100%;
-  min-height: 43px;
+  min-height: 44px;
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 11px;
@@ -3201,7 +3204,7 @@ legend {
 .structured-fields dd,
 .transaction-source-panel dd { margin: 0; font-size: 13px; font-weight: 620; line-height: 1.45; }
 .structured-fields .status-badge { display: inline-block; grid-area: auto; margin: 0; }
-.compact-button { min-height: 40px; padding-inline: 13px; font-size: 12px; }
+.compact-button { min-height: 44px; padding-inline: 13px; font-size: 12px; }
 .transaction-source-panel h2 { margin: 0; }
 .transaction-source-panel dl { margin: 12px 0 24px; }
 .record-id { overflow-wrap: anywhere; color: var(--ink-700); font-family: var(--font-geist-mono), monospace; font-size: 11px !important; }
@@ -3280,7 +3283,7 @@ legend {
 .invoice-status-select {
   width: auto;
   min-width: 108px;
-  min-height: 38px;
+  min-height: 44px;
   appearance: none;
   padding: 0 34px 0 12px;
   border: 1px solid var(--line);
@@ -3300,7 +3303,7 @@ legend {
 .invoice-status-select.overdue { border-color: #f0c9c5; background-color: var(--danger-bg); color: var(--danger); }
 .invoice-card-actions { display: flex; min-height: 54px; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 18px; border-top: 1px solid var(--line); background: #fafbfa; }
 .invoice-card-actions label { min-width: 0; }
-.invoice-card-actions > a { display: inline-flex; align-items: center; gap: 5px; color: var(--brand-700); font-size: 11px; font-weight: 720; text-decoration: none; }
+.invoice-card-actions > a { display: inline-flex; min-height: 44px; align-items: center; gap: 5px; color: var(--brand-700); font-size: 11px; font-weight: 720; text-decoration: none; }
 
 .invoice-builder-grid,
 .invoice-form-column,
@@ -3312,7 +3315,7 @@ legend {
 .line-items { display: grid; gap: 13px; }
 .line-item { position: relative; display: grid; gap: 13px; margin: 0; padding: 18px 14px 14px; border: 1px solid var(--line); border-radius: 16px; background: #fbfcfb; }
 .line-item legend { padding: 0 7px; color: var(--brand-700); font-size: 10px; font-weight: 760; text-transform: uppercase; }
-.remove-line-item { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 11px; background: var(--danger-bg); color: var(--danger); cursor: pointer; font-size: 11px; font-weight: 700; }
+.remove-line-item { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 11px; background: var(--danger-bg); color: var(--danger); cursor: pointer; font-size: 11px; font-weight: 700; }
 .invoice-notes-grid { display: grid; gap: 14px; }
 .invoice-save-actions { display: flex; flex-direction: column-reverse; gap: 9px; }
 
@@ -3391,16 +3394,16 @@ legend {
 .reminder-card dd { margin: 0; font-size: 11px; font-weight: 700; }
 .last-reminded { display: flex; align-items: center; gap: 7px; margin: 13px 0 0; color: var(--brand-700); font-size: 10px; font-weight: 650; }
 .reminder-actions { display: grid; gap: 8px; margin-top: 18px; }
-.reminder-actions .button { min-height: 42px; font-size: 11px; }
+.reminder-actions .button { min-height: 44px; font-size: 11px; }
 .reminder-preview-dialog { position: relative; }
-.dialog-close { position: absolute; top: 14px; right: 14px; display: grid; width: 36px; height: 36px; place-items: center; border: 0; border-radius: 10px; background: var(--canvas); color: var(--ink-700); cursor: pointer; }
+.dialog-close { position: absolute; top: 14px; right: 14px; display: grid; width: 44px; height: 44px; place-items: center; border: 0; border-radius: 10px; background: var(--canvas); color: var(--ink-700); cursor: pointer; }
 .reminder-preview-dialog blockquote { margin: 20px 0; padding: 18px; overflow-wrap: anywhere; border-inline-start: 4px solid var(--brand-600); border-radius: 0 13px 13px 0; background: #f4faf6; color: var(--ink-700); font-size: 13px; line-height: 1.65; }
 
 @media (min-width: 700px) {
   .invoice-toolbar { grid-template-columns: minmax(0, 1fr) 220px; align-items: end; padding: 20px; }
   .invoice-form-section { padding: 26px; }
   .line-item { grid-template-columns: minmax(180px, 1.5fr) repeat(3, minmax(100px, .65fr)) auto; align-items: start; }
-  .remove-line-item { align-self: end; width: 42px; padding: 0; font-size: 0; }
+  .remove-line-item { align-self: end; width: 44px; padding: 0; font-size: 0; }
   .invoice-notes-grid { grid-template-columns: repeat(2, 1fr); }
   .invoice-save-actions { flex-direction: row; justify-content: flex-end; }
   .invoice-preview-meta { grid-template-columns: minmax(0, 1fr) 1fr; }
