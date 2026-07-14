@@ -3,8 +3,8 @@ import { z } from "zod";
 const confidenceSchema = z.number().min(0).max(1);
 
 export const extractedStringSchema = z.object({
-  value: z.string().nullable(),
-  evidenceText: z.string().nullable(),
+  value: z.string().max(200).nullable(),
+  evidenceText: z.string().max(280).nullable(),
   confidence: confidenceSchema,
 });
 
