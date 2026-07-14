@@ -1,5 +1,6 @@
 export * from "./demo-business";
 export * from "./demo-cash-flow";
+export * from "./demo-commercial-documents";
 export * from "./demo-customers";
 export * from "./demo-extractions";
 export * from "./demo-financial-transactions";
@@ -9,3 +10,4 @@ export * from "./demo-reminders";
 export * from "./demo-transactions";
 export * from "./demo-user";
 export * from "./legacy-transaction-adapter";
+export * from "./legacy-invoice-adapter";

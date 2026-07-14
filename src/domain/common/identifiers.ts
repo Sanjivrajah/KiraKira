@@ -13,6 +13,8 @@ export type DocumentId = BrandedIdentifier<"DocumentId">;
 export type TransactionId = BrandedIdentifier<"TransactionId">;
 export type SourceDocumentId = BrandedIdentifier<"SourceDocumentId">;
 export type ExtractionRunId = BrandedIdentifier<"ExtractionRunId">;
+export type PaymentId = BrandedIdentifier<"PaymentId">;
+export type PaymentAllocationId = BrandedIdentifier<"PaymentAllocationId">;
 export type UserId = BrandedIdentifier<"UserId">;
 
 const identifierValueSchema = z
@@ -35,4 +37,6 @@ export const documentIdSchema = brandedIdentifierSchema<DocumentId>();
 export const transactionIdSchema = brandedIdentifierSchema<TransactionId>();
 export const sourceDocumentIdSchema = brandedIdentifierSchema<SourceDocumentId>();
 export const extractionRunIdSchema = brandedIdentifierSchema<ExtractionRunId>();
+export const paymentIdSchema = brandedIdentifierSchema<PaymentId>();
+export const paymentAllocationIdSchema = brandedIdentifierSchema<PaymentAllocationId>();
 export const userIdSchema = brandedIdentifierSchema<UserId>();
