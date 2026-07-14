@@ -111,10 +111,27 @@ button:disabled {
   width: 34px;
   height: 34px;
   place-items: center;
-  border-radius: 11px;
-  background: var(--brand-700);
-  color: white;
-  font-weight: 800;
+  flex: 0 0 auto;
+  background: transparent;
+}
+
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  padding: 1px;
+  object-fit: contain;
+}
+
+.brand-wordmark {
+  display: inline-flex;
+  align-items: center;
+}
+
+.brand-wordmark img {
+  display: block;
+  width: auto;
+  height: 34px;
+  object-fit: contain;
 }
 
 .topbar-actions {

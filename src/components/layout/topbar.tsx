@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandWordmark } from "@/components/shared/brand-mark";
 import { Bell, RotateCcw, LogOut } from "lucide-react";
 
 export function Topbar({ initials, menuOpen, onToggleMenu, onSignOut, onReset }: {
@@ -11,8 +12,7 @@ export function Topbar({ initials, menuOpen, onToggleMenu, onSignOut, onReset }:
   return (
     <header className="topbar">
       <Link className="mobile-brand" href="/dashboard">
-        <span className="brand-mark">N</span>
-        NiagaAI
+        <BrandWordmark />
       </Link>
       <div className="topbar-actions">
         <button className="icon-button" type="button" aria-label="Notifications">

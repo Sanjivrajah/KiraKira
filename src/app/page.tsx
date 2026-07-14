@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandWordmark } from "@/components/shared/brand-mark";
 import { ArrowRight, BarChart3, BookOpenCheck, ReceiptText, Sparkles } from "lucide-react";
 
 const benefits = [
@@ -11,7 +12,7 @@ export default function WelcomePage() {
   return (
     <main className="welcome-page">
       <nav className="welcome-nav" aria-label="Welcome navigation">
-        <Link className="brand-lockup" href="/"><span className="brand-mark">N</span>NiagaAI</Link>
+        <Link className="brand-lockup" href="/"><BrandWordmark /></Link>
         <Link className="button button-secondary welcome-signin" href="/login">Sign in</Link>
       </nav>
       <section className="welcome-hero">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BrandWordmark } from "@/components/shared/brand-mark";
 import Link from "next/link";
 import { useNiagaStore } from "@/store/use-niaga-store";
 import type { BusinessProfile } from "@/types/business";
@@ -26,7 +27,7 @@ export function OnboardingFlow() {
     <main className="onboarding-page">
       <div className="onboarding-shell">
         <Link className="brand-lockup auth-brand" href="/">
-          <span className="brand-mark">N</span>NiagaAI
+          <BrandWordmark />
         </Link>
         <OnboardingProgress step={step} />
         <section className="onboarding-card">

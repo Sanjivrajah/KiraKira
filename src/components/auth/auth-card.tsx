@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BrandWordmark } from "@/components/shared/brand-mark";
 
 export function AuthCard({ eyebrow, title, description, children }: {
   eyebrow: string;
@@ -10,8 +11,7 @@ export function AuthCard({ eyebrow, title, description, children }: {
   return (
     <main className="auth-page">
       <Link className="brand-lockup auth-brand" href="/">
-        <span className="brand-mark">N</span>
-        NiagaAI
+        <BrandWordmark />
       </Link>
       <section className="auth-card" aria-labelledby="auth-title">
         <p className="eyebrow">{eyebrow}</p>
