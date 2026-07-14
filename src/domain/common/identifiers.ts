@@ -12,6 +12,7 @@ export type PartyId = BrandedIdentifier<"PartyId">;
 export type DocumentId = BrandedIdentifier<"DocumentId">;
 export type TransactionId = BrandedIdentifier<"TransactionId">;
 export type SourceDocumentId = BrandedIdentifier<"SourceDocumentId">;
+export type ExtractionRunId = BrandedIdentifier<"ExtractionRunId">;
 export type UserId = BrandedIdentifier<"UserId">;
 
 const identifierValueSchema = z
@@ -33,4 +34,5 @@ export const partyIdSchema = brandedIdentifierSchema<PartyId>();
 export const documentIdSchema = brandedIdentifierSchema<DocumentId>();
 export const transactionIdSchema = brandedIdentifierSchema<TransactionId>();
 export const sourceDocumentIdSchema = brandedIdentifierSchema<SourceDocumentId>();
+export const extractionRunIdSchema = brandedIdentifierSchema<ExtractionRunId>();
 export const userIdSchema = brandedIdentifierSchema<UserId>();
