@@ -45,6 +45,12 @@ export function ReceiptUploader({ onExtracted, onBack }: {
     const files = Array.from(selected);
     const supported = files.filter((file) => ["image/jpeg", "image/png", "image/webp"].includes(file.type));
     const candidates = supported.filter((file) => file.size > 0 && file.size <= MAX_RECEIPT_BYTES);
+    const unsupportedCount = files.length - supported.length;
+    const invalidSizeCount = supported.length - candidates.length;
+    const existingIds = new Set(receipts.map((receipt) => receipt.id));
+    const uniqueCandidates = candidates.filter((file) => !existingIds.has(`${file.name}-${file.size}-${file.lastModified}`));
+    const overLimit = receipts.length + uniqueCandidates.length > MAX_RECEIPTS;
+
     setReceipts((current) => {
       const existing = new Set(current.map((receipt) => receipt.id));
       const available = MAX_RECEIPTS - current.length;
@@ -55,9 +61,10 @@ export function ReceiptUploader({ onExtracted, onBack }: {
         .map(({ file, id }) => ({ file, id, preview: URL.createObjectURL(file) }));
       return [...current, ...additions];
     });
-    if (files.length > MAX_RECEIPTS) setError(`Choose up to ${MAX_RECEIPTS} receipts at a time.`);
-    else if (supported.length === 0) setError("Use JPG, PNG, or WEBP receipt images.");
-    else if (candidates.length !== supported.length) setError("Each receipt must be between 1 byte and 10 MB.");
+
+    if (unsupportedCount) setError("Use JPG, PNG, or WEBP receipt images.");
+    else if (invalidSizeCount) setError("Each receipt must be between 1 byte and 10 MB.");
+    else if (overLimit) setError(`You can only queue up to ${MAX_RECEIPTS} receipts.`);
     else setError("");
     if (inputRef.current) inputRef.current.value = "";
   };
