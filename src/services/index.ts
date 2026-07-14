@@ -1,11 +1,13 @@
 import { repositories } from "@/repositories";
 import { DashboardService } from "./dashboard-service";
+import { BusinessService } from "./business-service";
 import { DemoService } from "./demo-service";
 import { InvoiceService } from "./invoice-service";
 import { ReminderService } from "./reminder-service";
 import { TransactionService } from "./transaction-service";
 
 export const services = {
+  businesses: new BusinessService(repositories.businesses, repositories.memberships),
   transactions: new TransactionService(repositories.transactions),
   invoices: new InvoiceService(repositories.invoices, repositories.reminders),
   reminders: new ReminderService(repositories.reminders),
@@ -13,4 +15,4 @@ export const services = {
   demo: new DemoService(repositories),
 };
 
-export { DashboardService, DemoService, InvoiceService, ReminderService, TransactionService };
+export { BusinessService, DashboardService, DemoService, InvoiceService, ReminderService, TransactionService };

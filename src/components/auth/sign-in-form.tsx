@@ -1,21 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { FormField } from "@/components/forms/form-field";
 import { signInSchema, type SignInValues } from "@/lib/validation/auth";
-import { useNiagaStore } from "@/store/use-niaga-store";
+import { useAuth } from "./auth-provider";
+import { MockAuthError } from "@/services/auth/mock-auth-service";
 import { PasswordField } from "./password-field";
 
-const wait = () => new Promise((resolve) => setTimeout(resolve, 650));
-
 export function SignInForm() {
-  const router = useRouter();
-  const signIn = useNiagaStore((state) => state.signIn);
-  const isOnboardingComplete = useNiagaStore((state) => state.isOnboardingComplete);
+  const { signIn } = useAuth();
   const [message, setMessage] = useState<{ tone: "error" | "success"; text: string } | null>(null);
   const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
@@ -24,14 +20,12 @@ export function SignInForm() {
 
   const submit = handleSubmit(async (values) => {
     setMessage(null);
-    await wait();
-    if (values.email.trim().toLowerCase() === "error@niagaai.demo") {
-      setMessage({ tone: "error", text: "This demo account is set to fail. Try another email address." });
-      return;
+    try {
+      await signIn(values);
+      setMessage({ tone: "success", text: "Signed in. Opening your workspace…" });
+    } catch (error) {
+      setMessage({ tone: "error", text: error instanceof MockAuthError ? error.message : "We could not sign in to this demo account." });
     }
-    signIn(values.email);
-    setMessage({ tone: "success", text: "Signed in. Opening your workspace…" });
-    router.replace(isOnboardingComplete ? "/dashboard" : "/onboarding");
   });
 
   return (

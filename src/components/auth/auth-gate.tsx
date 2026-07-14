@@ -1,45 +1,49 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LoadingState } from "@/components/shared/loading-state";
-import { useNiagaStore } from "@/store/use-niaga-store";
+import { useBusiness } from "@/hooks/use-business";
+import { useAuth } from "./auth-provider";
 
 type Gate = "public-auth" | "onboarding" | "dashboard";
 
-export function AuthGate({ gate, children }: { gate: Gate; children: ReactNode }) {
+function safeDestination(value: string | null) {
+  return value?.startsWith("/") && !value.startsWith("//") ? value : null;
+}
+
+const fallback = <main className="route-loading"><LoadingState label="Restoring your demo session" /></main>;
+
+export function AuthGate(props: { gate: Gate; children: ReactNode }) {
+  return <Suspense fallback={fallback}><AuthGateContent {...props} /></Suspense>;
+}
+
+function AuthGateContent({ gate, children }: { gate: Gate; children: ReactNode }) {
   const router = useRouter();
-  const hasHydrated = useNiagaStore((state) => state.hasHydrated);
-  const setHasHydrated = useNiagaStore((state) => state.setHasHydrated);
-  const isAuthenticated = useNiagaStore((state) => state.isAuthenticated);
-  const isOnboardingComplete = useNiagaStore((state) => state.isOnboardingComplete);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { status } = useAuth();
+  const business = useBusiness();
+  const businessLoading = status === "authenticated" && business.isPending;
   let destination: string | null = null;
-  if (hasHydrated) {
-    if (gate === "public-auth" && isAuthenticated) {
-      destination = isOnboardingComplete ? "/dashboard" : "/onboarding";
-    } else if (gate !== "public-auth" && !isAuthenticated) {
-      destination = "/login";
-    } else if (gate === "dashboard" && !isOnboardingComplete) {
-      destination = "/onboarding";
-    } else if (gate === "onboarding" && isOnboardingComplete) {
-      destination = "/dashboard";
-    }
+
+  if (status === "authenticated" && !businessLoading) {
+    if (gate === "public-auth") destination = business.data ? safeDestination(searchParams.get("next")) ?? "/dashboard" : "/onboarding";
+    else if (gate === "dashboard" && !business.data) destination = "/onboarding";
+    else if (gate === "onboarding" && business.data) destination = "/dashboard";
+  } else if (status === "unauthenticated" && gate !== "public-auth") {
+    const query = searchParams.toString();
+    const intended = `${pathname}${query ? `?${query}` : ""}`;
+    destination = `/login?next=${encodeURIComponent(intended)}`;
   }
 
   useEffect(() => {
     if (destination) router.replace(destination);
   }, [destination, router]);
 
-  useEffect(() => {
-    if (hasHydrated) return;
-    void useNiagaStore.persist.rehydrate();
-    setHasHydrated(true);
-  }, [hasHydrated, setHasHydrated]);
-
-  // This is a client-side demo UX guard, not an authentication security boundary.
-  if (!hasHydrated || destination) {
-    return <main className="route-loading"><LoadingState label="Restoring your demo session" /></main>;
+  // This remains a client-side demo UX guard, not a server authorization boundary.
+  if (status === "loading" || businessLoading || destination) {
+    return fallback;
   }
-
   return children;
 }

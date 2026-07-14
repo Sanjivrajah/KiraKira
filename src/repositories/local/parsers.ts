@@ -1,4 +1,4 @@
-import type { Business, Invoice, InvoiceLineItem, InvoiceStatus, Payment, Reminder, Transaction, TransactionLineItem, TransactionSourceType, TransactionStatus, TransactionType } from "@/types";
+import type { Business, BusinessMember, Invoice, InvoiceLineItem, InvoiceStatus, Payment, Reminder, Transaction, TransactionLineItem, TransactionSourceType, TransactionStatus, TransactionType } from "@/types";
 
 const LEGACY_BUSINESS_ID = "business_demo";
 const LEGACY_USER_ID = "user_demo";
@@ -102,4 +102,12 @@ export function parseBusiness(value: unknown): Business | null {
   return { id: item.id, name: item.name, type: item.type as Business["type"], registrationNumber: isString(item.registrationNumber) ? item.registrationNumber : null,
     tin: isString(item.tin) ? item.tin : null, currency: "MYR", preferredLanguage: item.preferredLanguage as Business["preferredLanguage"],
     createdAt: item.createdAt, updatedAt: item.updatedAt };
+}
+
+export function parseBusinessMember(value: unknown): BusinessMember | null {
+  if (!value || typeof value !== "object") return null;
+  const item = value as Record<string, unknown>;
+  if (!isString(item.id) || !isString(item.businessId) || !isString(item.userId) ||
+    !(["owner", "admin", "member"] as unknown[]).includes(item.role) || !isString(item.createdAt) || !isString(item.updatedAt)) return null;
+  return { id: item.id, businessId: item.businessId, userId: item.userId, role: item.role as BusinessMember["role"], createdAt: item.createdAt, updatedAt: item.updatedAt };
 }

@@ -9,8 +9,8 @@ import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { useDeleteInvoice, useInvoice, useUpdateInvoice } from "@/hooks/use-invoices";
+import { useBusiness } from "@/hooks/use-business";
 import { getEffectiveInvoiceStatus, parseLocalDate } from "@/lib/invoices/calculations";
-import { useNiagaStore } from "@/store/use-niaga-store";
 import type { InvoiceStatus } from "@/types";
 import { invoiceStatusLabels } from "./invoice-list";
 
@@ -19,7 +19,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "medium"
 
 export function InvoiceDetail({ id }: { id: string }) {
   const router = useRouter();
-  const business = useNiagaStore((state) => state.business);
+  const business = useBusiness().data;
   const businessId = business?.id || "business_demo";
   const invoiceQuery = useInvoice(businessId, id);
   const updateInvoice = useUpdateInvoice();

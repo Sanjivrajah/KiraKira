@@ -1,4 +1,5 @@
 export * from "./business-repository";
+export * from "./business-membership-repository";
 export * from "./invoice-repository";
 export * from "./payment-repository";
 export * from "./reminder-repository";

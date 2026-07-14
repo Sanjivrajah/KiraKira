@@ -1,21 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { FieldError } from "@/components/forms/field-error";
 import { FormField } from "@/components/forms/form-field";
 import { signUpSchema, type SignUpValues } from "@/lib/validation/auth";
-import { makeLocalUserId, useNiagaStore } from "@/store/use-niaga-store";
+import { useAuth } from "./auth-provider";
 import { PasswordField } from "./password-field";
 
-const wait = () => new Promise((resolve) => setTimeout(resolve, 650));
-
 export function SignUpForm() {
-  const router = useRouter();
-  const signUp = useNiagaStore((state) => state.signUp);
+  const { signUp } = useAuth();
   const [success, setSuccess] = useState(false);
   const { register, handleSubmit, resetField, formState: { errors, isSubmitting } } = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
@@ -24,13 +20,10 @@ export function SignUpForm() {
 
   const submit = handleSubmit(async (values) => {
     setSuccess(false);
-    await wait();
-    const email = values.email.trim().toLowerCase();
-    signUp({ id: makeLocalUserId(email), name: values.name.trim(), email });
+    await signUp({ name: values.name, email: values.email, password: values.password });
     resetField("password");
     resetField("confirmPassword");
     setSuccess(true);
-    router.replace("/onboarding");
   });
 
   return (

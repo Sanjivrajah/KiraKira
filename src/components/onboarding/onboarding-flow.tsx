@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useNiagaStore } from "@/store/use-niaga-store";
+import { useSaveBusiness } from "@/hooks/use-business";
 import type { BusinessInput } from "@/types";
 import { BusinessForm } from "./business-form";
 import { BusinessPreview } from "./business-preview";
@@ -10,22 +11,13 @@ import { OnboardingProgress } from "./onboarding-progress";
 import { OnboardingSuccess } from "./onboarding-success";
 
 export function OnboardingFlow() {
-  const savedBusiness = useNiagaStore((state) => state.business);
-  const saveBusiness = useNiagaStore((state) => state.saveBusiness);
-  const completeOnboarding = useNiagaStore((state) => state.completeOnboarding);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [draft, setDraft] = useState<BusinessInput | null>(() => savedBusiness ? {
-    name: savedBusiness.name,
-    type: savedBusiness.type,
-    registrationNumber: savedBusiness.registrationNumber || "",
-    tin: savedBusiness.tin || "",
-    currency: savedBusiness.currency,
-    preferredLanguage: savedBusiness.preferredLanguage,
-  } : null);
+  const step = useNiagaStore((state) => state.onboardingStep);
+  const setStep = useNiagaStore((state) => state.setOnboardingStep);
+  const saveBusiness = useSaveBusiness();
+  const [draft, setDraft] = useState<BusinessInput | null>(null);
 
   const complete = () => {
     if (!draft) return;
-    saveBusiness(draft);
     setStep(3);
   };
 
@@ -53,7 +45,7 @@ export function OnboardingFlow() {
               <BusinessPreview business={draft} onComplete={complete} onEdit={() => setStep(1)} />
             </>
           ) : null}
-          {step === 3 && draft ? <OnboardingSuccess businessName={draft.name} onContinue={completeOnboarding} /> : null}
+          {step === 3 && draft ? <OnboardingSuccess businessName={draft.name} onContinue={() => saveBusiness.mutateAsync(draft)} /> : null}
         </section>
       </div>
     </main>

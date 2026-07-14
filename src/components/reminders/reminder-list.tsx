@@ -8,9 +8,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { useInvoices } from "@/hooks/use-invoices";
+import { useBusiness } from "@/hooks/use-business";
 import { useMarkReminderSent, useReminders } from "@/hooks/use-reminders";
 import { daysFromDueDate, getEffectiveInvoiceStatus, parseLocalDate } from "@/lib/invoices/calculations";
-import { useNiagaStore } from "@/store/use-niaga-store";
 import type { Invoice } from "@/types";
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { day: "numeric", month: "long", year: "numeric" });
@@ -22,7 +22,7 @@ export function makeReminderMessage(invoice: Invoice) {
 }
 
 export function ReminderList() {
-  const businessId = useNiagaStore((state) => state.business?.id) || "business_demo";
+  const businessId = useBusiness().data?.id || "business_demo";
   const invoicesQuery = useInvoices(businessId);
   const remindersQuery = useReminders(businessId);
   const markReminderSent = useMarkReminderSent();
