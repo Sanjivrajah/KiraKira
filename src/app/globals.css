@@ -1834,6 +1834,11 @@ legend {
   font-size: 20px;
 }
 
+.state-card > div > svg {
+  display: block;
+  margin-inline: auto;
+}
+
 .state-card p {
   max-width: 420px;
   margin: 0;
