@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, ChevronRight, FilterX, Plus, Search } from "lucide-react";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockTransactions } from "@/data/mock-transactions";
 import { emptyTransactionFilters, filterAndSortTransactions, type TransactionFilters, type TransactionSort } from "@/lib/transactions/query";
-import { initializeTransactions, updateTransaction } from "@/lib/transactions/storage";
+import { services } from "@/services";
+import { useNiagaStore } from "@/store/use-niaga-store";
 import type { Transaction, TransactionSourceType, TransactionStatus } from "@/types";
 
 export const sourceLabels: Record<TransactionSourceType, string> = {
@@ -28,7 +28,8 @@ function Counterparty({ transaction }: { transaction: Transaction }) {
 }
 
 export function TransactionList() {
-  const [transactions, setTransactions] = useState<Transaction[]>(() => initializeTransactions(mockTransactions));
+  const businessId = useNiagaStore((state) => state.business?.id) || "business_demo";
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filters, setFilters] = useState<TransactionFilters>(emptyTransactionFilters);
   const [sort, setSort] = useState<TransactionSort>("newest");
   const [message, setMessage] = useState(() => {
@@ -36,6 +37,13 @@ export function TransactionList() {
     window.history.replaceState(null, "", "/transactions");
     return "Transaction deleted successfully.";
   });
+  useEffect(() => {
+    let active = true;
+    services.transactions.initializeDemo(businessId)
+      .then((items) => { if (active) setTransactions(items); })
+      .catch(() => { if (active) setMessage("We could not load your transactions from this device."); });
+    return () => { active = false; };
+  }, [businessId]);
 
   const categories = useMemo(() => [...new Set(transactions.map((item) => item.category))].sort(), [transactions]);
   const visible = useMemo(() => filterAndSortTransactions(transactions, filters, sort), [transactions, filters, sort]);
@@ -44,14 +52,15 @@ export function TransactionList() {
   const setFilter = <K extends keyof TransactionFilters>(key: K, value: TransactionFilters[K]) =>
     setFilters((current) => ({ ...current, [key]: value }));
 
-  const markReviewed = (transaction: Transaction) => {
+  const markReviewed = async (transaction: Transaction) => {
     const updated = { ...transaction, status: "confirmed" as const, updatedAt: new Date().toISOString() };
-    if (!updateTransaction(updated)) {
+    try {
+      const persisted = await services.transactions.update(updated);
+      setTransactions((current) => current.map((item) => item.id === transaction.id ? persisted : item));
+      setMessage(`“${transaction.description}” marked as reviewed.`);
+    } catch {
       setMessage("We could not save that change. Please try again.");
-      return;
     }
-    setTransactions((current) => current.map((item) => item.id === transaction.id ? updated : item));
-    setMessage(`“${transaction.description}” marked as reviewed.`);
   };
 
   return (

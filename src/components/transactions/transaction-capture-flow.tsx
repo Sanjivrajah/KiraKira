@@ -4,8 +4,8 @@ import { ArrowLeft, LockKeyhole } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
-import { makeTransactionId, saveTransaction } from "@/lib/transactions/storage";
 import type { ValidTransactionFormValues } from "@/lib/validation/transaction";
+import { services } from "@/services";
 import { useNiagaStore } from "@/store/use-niaga-store";
 import type { Transaction, TransactionSourceType } from "@/types";
 import { DemoSourceInput } from "./demo-source-input";
@@ -74,10 +74,9 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
     setStage("select");
   };
 
-  const confirm = (values: ValidTransactionFormValues) => {
-    const now = new Date().toISOString();
-    const transaction: Transaction = {
-      id: makeTransactionId(),
+  const confirm = async (values: ValidTransactionFormValues) => {
+    try {
+      const transaction = await services.transactions.create({
       businessId,
       createdBy: userId,
       type: values.type,
@@ -93,16 +92,12 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
       sourceType: values.source,
       status: "confirmed",
       items: [],
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    if (!saveTransaction(transaction)) {
+      });
+      setSaved(transaction);
+      setStage("success");
+    } catch {
       setSaveError("We couldn’t save to browser storage. Check that local storage is available, then try again.");
-      return;
     }
-    setSaved(transaction);
-    setStage("success");
   };
 
   return (

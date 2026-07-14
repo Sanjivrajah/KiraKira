@@ -5,9 +5,9 @@ import { CheckCircle2, ChevronRight, FilePlus2, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockInvoices } from "@/data/mock-invoices";
 import { getEffectiveInvoiceStatus, parseLocalDate } from "@/lib/invoices/calculations";
-import { initializeInvoices, updateInvoice } from "@/lib/invoices/storage";
+import { services } from "@/services";
+import { useNiagaStore } from "@/store/use-niaga-store";
 import type { EffectiveInvoiceStatus, Invoice, InvoiceStatus } from "@/types";
 
 export const invoiceStatusLabels: Record<EffectiveInvoiceStatus, string> = {
@@ -19,7 +19,8 @@ const dateFormatter = new Intl.DateTimeFormat("en-MY", { day: "numeric", month: 
 const displayDate = (date: string) => dateFormatter.format(parseLocalDate(date));
 
 export function InvoiceList({ initialMessage = "" }: { initialMessage?: string }) {
-  const [invoices, setInvoices] = useState<Invoice[]>(() => initializeInvoices(mockInvoices));
+  const businessId = useNiagaStore((state) => state.business?.id) || "business_demo";
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [status, setStatus] = useState<EffectiveInvoiceStatus | "all">("all");
   const [customer, setCustomer] = useState("");
   const [message, setMessage] = useState(initialMessage);
@@ -27,20 +28,28 @@ export function InvoiceList({ initialMessage = "" }: { initialMessage?: string }
   useEffect(() => {
     if (initialMessage) window.history.replaceState(null, "", "/invoices");
   }, [initialMessage]);
+  useEffect(() => {
+    let active = true;
+    services.invoices.initializeDemo(businessId)
+      .then((items) => { if (active) setInvoices(items); })
+      .catch(() => { if (active) setMessage("We could not load your invoices from this device."); });
+    return () => { active = false; };
+  }, [businessId]);
 
   const visible = useMemo(() => invoices
     .filter((invoice) => status === "all" || getEffectiveInvoiceStatus(invoice) === status)
     .filter((invoice) => invoice.customerName.toLowerCase().includes(customer.trim().toLowerCase()))
     .sort((a, b) => b.issueDate.localeCompare(a.issueDate)), [customer, invoices, status]);
 
-  const changeStatus = (invoice: Invoice, nextStatus: InvoiceStatus) => {
+  const changeStatus = async (invoice: Invoice, nextStatus: InvoiceStatus) => {
     const updated = { ...invoice, status: nextStatus, updatedAt: new Date().toISOString() };
-    if (!updateInvoice(updated)) {
+    try {
+      const persisted = await services.invoices.update(updated);
+      setInvoices((current) => current.map((item) => item.id === invoice.id ? persisted : item));
+      setMessage(`${invoice.invoiceNumber} marked as ${invoiceStatusLabels[nextStatus].toLowerCase()}.`);
+    } catch {
       setMessage("We could not save that status. Please try again.");
-      return;
     }
-    setInvoices((current) => current.map((item) => item.id === invoice.id ? updated : item));
-    setMessage(`${invoice.invoiceNumber} marked as ${invoiceStatusLabels[nextStatus].toLowerCase()}.`);
   };
 
   return (

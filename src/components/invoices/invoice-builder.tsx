@@ -10,8 +10,8 @@ import { TextareaField } from "@/components/forms/textarea-field";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { PageHeader } from "@/components/shared/page-header";
 import { calculateInvoiceTotals, getInvoiceReadinessChecks, parseLocalDate } from "@/lib/invoices/calculations";
-import { makeInvoiceId, makeInvoiceNumber, saveInvoice } from "@/lib/invoices/storage";
 import { invoiceFormSchema, type InvoiceFormValues, type ValidInvoiceFormValues } from "@/lib/validation/invoice";
+import { services } from "@/services";
 import { useNiagaStore } from "@/store/use-niaga-store";
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { day: "numeric", month: "long", year: "numeric" });
@@ -30,7 +30,7 @@ export function InvoiceBuilder() {
   const { control, register, handleSubmit, formState: { errors, isSubmitting }, setError } = useForm<InvoiceFormValues, unknown, ValidInvoiceFormValues>({
     resolver: zodResolver(invoiceFormSchema),
     defaultValues: {
-      invoiceNumber: makeInvoiceNumber(), customerName: "", customerEmail: "", buyerTin: "", issueDate: isoDate(today), dueDate: isoDate(due), status: "draft",
+      invoiceNumber: "INV-1024", customerName: "", customerEmail: "", buyerTin: "", issueDate: isoDate(today), dueDate: isoDate(due), status: "draft",
       items: [{ id: makeItemId(), description: "", quantity: 1, unitPrice: 0, taxRate: 0 }], notes: "", paymentTerms: "Payment due within 14 days.",
     },
   });
@@ -44,26 +44,20 @@ export function InvoiceBuilder() {
   const readiness = getInvoiceReadinessChecks({ business, customerName: watched.customerName || "", buyerTin: watched.buyerTin || "", issueDate: watched.issueDate || "", items });
   const readyCount = readiness.filter((item) => item.ready).length;
 
-  const submit = (values: ValidInvoiceFormValues) => {
-    const calculated = calculateInvoiceTotals(values.items);
-    const now = new Date().toISOString();
-    const saved = saveInvoice({
+  const submit = async (values: ValidInvoiceFormValues) => {
+    try {
+      await services.invoices.create({
       ...values,
-      id: makeInvoiceId(),
       businessId: business?.id || "business_demo",
       customerId: null,
       currency: "MYR",
       amountPaid: 0,
       items: values.items.map((item) => ({ ...item, id: item.id || makeItemId() })),
-      ...calculated,
-      createdAt: now,
-      updatedAt: now,
-    });
-    if (!saved) {
+      });
+      router.push("/invoices?created=1");
+    } catch {
       setError("root", { message: "We could not save this invoice in your browser. Check available storage and try again." });
-      return;
     }
-    router.push("/invoices?created=1");
   };
 
   return (

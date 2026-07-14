@@ -3,14 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, FileText, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { ErrorState } from "@/components/shared/error-state";
 import { MoneyDisplay } from "@/components/shared/money-display";
-import { mockInvoices } from "@/data/mock-invoices";
 import { getEffectiveInvoiceStatus, parseLocalDate } from "@/lib/invoices/calculations";
-import { deleteInvoice, initializeInvoices, updateInvoice } from "@/lib/invoices/storage";
-import { deleteInvoiceReminder } from "@/lib/reminders/storage";
+import { services } from "@/services";
 import { useNiagaStore } from "@/store/use-niaga-store";
 import type { Invoice, InvoiceStatus } from "@/types";
 import { invoiceStatusLabels } from "./invoice-list";
@@ -21,35 +19,46 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "medium"
 export function InvoiceDetail({ id }: { id: string }) {
   const router = useRouter();
   const business = useNiagaStore((state) => state.business);
-  const [invoice, setInvoice] = useState<Invoice | undefined>(() => initializeInvoices(mockInvoices).find((item) => item.id === id));
+  const businessId = business?.id || "business_demo";
+  const [invoice, setInvoice] = useState<Invoice | null>();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  if (!invoice) {
+  useEffect(() => {
+    let active = true;
+    services.invoices.initializeDemo(businessId)
+      .then((items) => { if (active) setInvoice(items.find((item) => item.id === id) ?? null); })
+      .catch(() => { if (active) setInvoice(null); });
+    return () => { active = false; };
+  }, [businessId, id]);
+
+  if (invoice === undefined) return null;
+  if (invoice === null) {
     return <><Link className="back-link" href="/invoices"><ArrowLeft aria-hidden="true" size={17} />Back to invoices</Link><ErrorState title="Invoice not found" description="This invoice may have been deleted, or the link is no longer valid." /></>;
   }
 
   const effectiveStatus = getEffectiveInvoiceStatus(invoice);
-  const changeStatus = (status: InvoiceStatus) => {
+  const changeStatus = async (status: InvoiceStatus) => {
     const updated = { ...invoice, status, updatedAt: new Date().toISOString() };
-    if (!updateInvoice(updated)) {
+    try {
+      const persisted = await services.invoices.update(updated);
+      setInvoice(persisted);
+      setError("");
+      setMessage(`${invoice.invoiceNumber} marked as ${invoiceStatusLabels[status].toLowerCase()}.`);
+    } catch {
       setError("We could not save this status. Check browser storage and try again.");
-      return;
     }
-    setInvoice(updated);
-    setError("");
-    setMessage(`${invoice.invoiceNumber} marked as ${invoiceStatusLabels[status].toLowerCase()}.`);
   };
 
-  const remove = () => {
-    if (!deleteInvoice(invoice.id)) {
+  const remove = async () => {
+    try {
+      await services.invoices.remove(invoice.businessId, invoice.id);
+      router.push("/invoices?deleted=1");
+    } catch {
       setConfirmDelete(false);
       setError("We could not delete this invoice. Please try again.");
-      return;
     }
-    deleteInvoiceReminder(invoice.id);
-    router.push("/invoices?deleted=1");
   };
 
   return (

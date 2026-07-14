@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
-import { getTransactions } from "@/lib/transactions/storage";
+import { repositories } from "@/repositories";
 import { TransactionCaptureFlow } from "./transaction-capture-flow";
 
 describe("TransactionCaptureFlow", () => {
@@ -21,7 +21,7 @@ describe("TransactionCaptureFlow", () => {
     fireEvent.click(screen.getByRole("button", { name: /Confirm and save/ }));
 
     expect(await screen.findByRole("heading", { name: "Transaction added" })).toBeInTheDocument();
-    await waitFor(() => expect(getTransactions()).toHaveLength(1));
-    expect(getTransactions()[0]).toMatchObject({ total: 125.5, status: "confirmed", sourceType: "manual", counterpartyName: "Kedai Murni" });
+    await waitFor(async () => expect(await repositories.transactions.list({ businessId: "business_demo" })).toHaveLength(1));
+    expect((await repositories.transactions.list({ businessId: "business_demo" }))[0]).toMatchObject({ total: 125.5, status: "confirmed", sourceType: "manual", counterpartyName: "Kedai Murni" });
   });
 });

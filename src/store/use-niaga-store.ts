@@ -2,10 +2,12 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { getBrowserStorage } from "@/lib/storage/browser-storage";
+import { STORAGE_KEYS } from "@/lib/storage/storage-keys";
 import type { Business, BusinessInput, UserProfile, UserProfileInput } from "@/types";
 
 export const STORE_VERSION = 2;
-export const STORE_KEY = "niagaai-demo-session";
+export const STORE_KEY = STORAGE_KEYS.session;
 
 interface NiagaState {
   schemaVersion: number;
@@ -124,7 +126,7 @@ export const useNiagaStore = create<NiagaState>()(
           } : null,
         };
       },
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => getBrowserStorage() as Storage),
       partialize: (state) => ({
         schemaVersion: state.schemaVersion,
         user: state.user,

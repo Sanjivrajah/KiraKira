@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { AuthGate } from "@/components/auth/auth-gate";
@@ -19,9 +19,8 @@ import {
   mockCashFlow,
   quickActions,
 } from "@/data/mock-dashboard";
-import { mockTransactions } from "@/data/mock-transactions";
 import { calculateMonthlyMetrics } from "@/lib/transactions/query";
-import { initializeTransactions } from "@/lib/transactions/storage";
+import { services } from "@/services";
 import { useNiagaStore } from "@/store/use-niaga-store";
 import type { Transaction } from "@/types";
 
@@ -30,7 +29,15 @@ function DashboardContent() {
   const business = useNiagaStore((state) => state.business);
   const firstName = user?.name.split(" ")[0] || "there";
   const businessName = business?.name || "your business";
-  const [transactions] = useState<Transaction[]>(() => initializeTransactions(mockTransactions));
+  const businessId = business?.id || "business_demo";
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  useEffect(() => {
+    let active = true;
+    services.transactions.initializeDemo(businessId)
+      .then((items) => { if (active) setTransactions(items); })
+      .catch(() => { if (active) setTransactions([]); });
+    return () => { active = false; };
+  }, [businessId]);
   const metrics = useMemo(() => {
     const totals = calculateMonthlyMetrics(transactions);
     return dashboardMetrics.map((metric) => {

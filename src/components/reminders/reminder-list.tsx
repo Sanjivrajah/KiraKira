@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { BellRing, CheckCircle2, Clock3, Eye, FilePlus2, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockInvoices } from "@/data/mock-invoices";
 import { daysFromDueDate, getEffectiveInvoiceStatus, parseLocalDate } from "@/lib/invoices/calculations";
-import { initializeInvoices } from "@/lib/invoices/storage";
-import { getReminders, markInvoiceReminded } from "@/lib/reminders/storage";
+import { services } from "@/services";
+import { useNiagaStore } from "@/store/use-niaga-store";
 import type { Invoice, Reminder } from "@/types";
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { day: "numeric", month: "long", year: "numeric" });
@@ -19,10 +18,20 @@ export function makeReminderMessage(invoice: Invoice) {
 }
 
 export function ReminderList() {
-  const [invoices] = useState<Invoice[]>(() => initializeInvoices(mockInvoices));
-  const [reminders, setReminders] = useState<Reminder[]>(() => getReminders());
+  const businessId = useNiagaStore((state) => state.business?.id) || "business_demo";
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [preview, setPreview] = useState<Invoice | null>(null);
   const [message, setMessage] = useState("");
+  useEffect(() => {
+    let active = true;
+    Promise.all([services.invoices.initializeDemo(businessId), services.reminders.list(businessId)])
+      .then(([invoiceItems, reminderItems]) => {
+        if (active) { setInvoices(invoiceItems); setReminders(reminderItems); }
+      })
+      .catch(() => { if (active) setMessage("We could not load reminder history from this device."); });
+    return () => { active = false; };
+  }, [businessId]);
 
   const dueInvoices = useMemo(() => invoices
     .filter((invoice) => {
@@ -36,16 +45,17 @@ export function ReminderList() {
       return bDays - aDays;
     }), [invoices]);
 
-  const markReminded = (invoice: Invoice) => {
+  const markReminded = async (invoice: Invoice) => {
     const sentAt = new Date().toISOString();
     const messagePreview = makeReminderMessage(invoice);
-    if (!markInvoiceReminded(invoice, messagePreview, sentAt)) {
+    try {
+      await services.reminders.markSent(invoice, messagePreview, sentAt);
+      setReminders(await services.reminders.list(businessId));
+      setMessage(`${invoice.invoiceNumber} marked as reminded. No message was sent.`);
+      setPreview(null);
+    } catch {
       setMessage("We could not save that reminder status. Please try again.");
-      return;
     }
-    setReminders(getReminders());
-    setMessage(`${invoice.invoiceNumber} marked as reminded. No message was sent.`);
-    setPreview(null);
   };
 
   const overdueCount = dueInvoices.filter((invoice) => daysFromDueDate(invoice.dueDate) > 0).length;

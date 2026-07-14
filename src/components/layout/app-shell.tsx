@@ -6,9 +6,7 @@ import { useRouter } from "next/navigation";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { useNiagaStore } from "@/store/use-niaga-store";
 import { businessTypeLabels } from "@/components/onboarding/business-preview";
-import { clearTransactions } from "@/lib/transactions/storage";
-import { clearInvoices } from "@/lib/invoices/storage";
-import { clearReminders } from "@/lib/reminders/storage";
+import { services } from "@/services";
 import { MobileNav } from "./mobile-nav";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
@@ -23,15 +21,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [dialog, setDialog] = useState<"signout" | "reset" | null>(null);
   const initials = (user?.name || "Demo User").split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 
-  const confirm = () => {
+  const confirm = async () => {
     if (dialog === "signout") {
       signOut();
       router.replace("/login");
     } else if (dialog === "reset") {
       resetDemo();
-      clearTransactions();
-      clearInvoices();
-      clearReminders();
+      await services.demo.reset().catch(() => undefined);
       router.replace("/");
     }
     setDialog(null);

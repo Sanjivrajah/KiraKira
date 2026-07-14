@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,9 +13,9 @@ import { TextareaField } from "@/components/forms/textarea-field";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { ErrorState } from "@/components/shared/error-state";
 import { MoneyDisplay } from "@/components/shared/money-display";
-import { mockTransactions } from "@/data/mock-transactions";
 import { transactionFormSchema } from "@/lib/validation/transaction";
-import { deleteTransaction, initializeTransactions, updateTransaction } from "@/lib/transactions/storage";
+import { services } from "@/services";
+import { useNiagaStore } from "@/store/use-niaga-store";
 import type { Transaction } from "@/types";
 import { sourceLabels, statusLabels } from "./transaction-list";
 
@@ -31,7 +31,8 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "medium"
 
 export function TransactionDetail({ id }: { id: string }) {
   const router = useRouter();
-  const [transaction, setTransaction] = useState<Transaction | undefined>(() => initializeTransactions(mockTransactions).find((item) => item.id === id));
+  const businessId = useNiagaStore((state) => state.business?.id) || "business_demo";
+  const [transaction, setTransaction] = useState<Transaction | null>();
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [message, setMessage] = useState("");
@@ -50,10 +51,27 @@ export function TransactionDetail({ id }: { id: string }) {
     } : undefined,
   });
   const type = useWatch({ control, name: "type" });
+  useEffect(() => {
+    let active = true;
+    services.transactions.initializeDemo(businessId)
+      .then((items) => {
+        if (!active) return;
+        const found = items.find((item) => item.id === id) ?? null;
+        setTransaction(found);
+        if (found) reset({
+          type: found.type, date: found.date, amount: found.total, category: found.category,
+          description: found.description, counterpartyName: found.counterpartyName,
+          paymentMethod: found.paymentMethod || "", status: found.status,
+        });
+      })
+      .catch(() => { if (active) setTransaction(null); });
+    return () => { active = false; };
+  }, [businessId, id, reset]);
 
-  if (!transaction) return <><Link className="back-link" href="/transactions"><ArrowLeft aria-hidden="true" size={17} />Back to transactions</Link><ErrorState title="Transaction not found" description="This transaction may have been deleted, or the link is no longer valid." /></>;
+  if (transaction === undefined) return null;
+  if (transaction === null) return <><Link className="back-link" href="/transactions"><ArrowLeft aria-hidden="true" size={17} />Back to transactions</Link><ErrorState title="Transaction not found" description="This transaction may have been deleted, or the link is no longer valid." /></>;
 
-  const save = (values: EditValues) => {
+  const save = async (values: EditValues) => {
     const updated: Transaction = {
       ...transaction,
       type: values.type,
@@ -68,23 +86,25 @@ export function TransactionDetail({ id }: { id: string }) {
       counterpartyName: values.counterpartyName,
       updatedAt: new Date().toISOString(),
     };
-    if (!updateTransaction(updated)) {
+    try {
+      const persisted = await services.transactions.update(updated);
+      setTransaction(persisted);
+      setEditing(false);
+      setError("");
+      setMessage("Transaction changes saved.");
+    } catch {
       setError("We could not save your changes. Check browser storage and try again.");
-      return;
     }
-    setTransaction(updated);
-    setEditing(false);
-    setError("");
-    setMessage("Transaction changes saved.");
   };
 
-  const remove = () => {
-    if (!deleteTransaction(transaction.id)) {
+  const remove = async () => {
+    try {
+      await services.transactions.remove(transaction.businessId, transaction.id);
+      router.push("/transactions?deleted=1");
+    } catch {
       setConfirmDelete(false);
       setError("We could not delete this transaction. Please try again.");
-      return;
     }
-    router.push("/transactions?deleted=1");
   };
 
   return (
