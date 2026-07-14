@@ -19,7 +19,7 @@ interface Method {
 
 const methods: Method[] = [
   { source: "receipt", name: "Receipt photos", description: "Upload up to 10 images, extract them with AI, and review each draft.", icon: Camera, flow: "Available" },
-  { source: "voice", name: "Voice note", description: "Preview the planned voice-note workflow with sample transcription.", icon: Mic, flow: "Demo" },
+  { source: "voice", name: "Voice note", description: "Record or upload audio, transcribe it with Scribe, and review the proposed transaction.", icon: Mic, flow: "Available" },
   { source: "manual", name: "Manual entry", description: "Enter a sale or expense directly with no extraction step.", icon: FilePenLine, flow: "Available" },
   { source: "csv", name: "CSV import", description: "Parse up to 100 transaction rows locally and review each one.", icon: FileSpreadsheet, flow: "Available" },
   { source: "bank_statement", name: "Bank statement", description: "Import a bank CSV locally or extract transactions from a PDF with AI.", icon: Landmark, flow: "Available" },
@@ -34,7 +34,7 @@ export function InputMethodSelector({ onSelect }: { onSelect: (source: Transacti
           <p className="section-kicker">Step 1 of 3</p>
           <h2 id="capture-method-title">How would you like to add it?</h2>
         </div>
-        <p>CSV stays on this device. Receipt images and bank PDFs use secure AI extraction.</p>
+        <p>CSV stays on this device. Receipt images, voice notes, and bank PDFs use secure AI extraction.</p>
       </div>
       <div className="capture-method-grid">
         {methods.map(({ source, name, description, icon: Icon, flow }) => (

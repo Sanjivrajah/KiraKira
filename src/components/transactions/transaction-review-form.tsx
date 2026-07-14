@@ -30,7 +30,7 @@ const sourceOptions = [
   { label: "WhatsApp order", value: "whatsapp" },
 ];
 
-export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, saving = false, batchProgress, batchNotice, disclosure }: {
+export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, saving = false, batchProgress, batchNotice, disclosure, sourceEvidence }: {
   draft: TransactionDraft;
   onBack: () => void;
   onConfirm: (values: ValidTransactionFormValues) => void;
@@ -39,6 +39,7 @@ export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, sav
   batchProgress?: { current: number; total: number; label: string };
   batchNotice?: string;
   disclosure?: { title: string; description: string };
+  sourceEvidence?: { label: string; text: string };
 }) {
   const { control, register, handleSubmit, formState: { errors, isSubmitting } } = useForm<TransactionFormValues, unknown, ValidTransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
@@ -62,6 +63,7 @@ export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, sav
       {batchNotice ? <div className="form-alert" role="alert"><AlertCircle aria-hidden="true" size={18} /><span>{batchNotice}</span></div> : null}
 
       <div className="demo-disclosure"><ShieldCheck aria-hidden="true" size={18} /><p><strong>{disclosure?.title || (draft.source === "receipt" ? "AI-proposed extraction" : "Owner-entered transaction")}</strong><span>{disclosure?.description || (draft.source === "receipt" ? "OpenAI processed the image. Check every value before confirming." : "Check every value before confirming this transaction.")}</span></p></div>
+      {sourceEvidence ? <div className="transcript-preview"><span>{sourceEvidence.label}</span><p>“{sourceEvidence.text}”</p></div> : null}
 
       <form noValidate onSubmit={handleSubmit(onConfirm)}>
         <div className="review-form-grid">

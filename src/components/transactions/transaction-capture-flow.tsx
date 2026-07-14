@@ -16,7 +16,7 @@ import { ProcessingState } from "./processing-state";
 import { ReceiptUploader, type ReceiptBatchResult } from "./receipt-uploader";
 import { TransactionReviewForm, type TransactionDraft } from "./transaction-review-form";
 import { TransactionSuccessState } from "./transaction-success-state";
-import { VoiceRecorderDemo } from "./voice-recorder-demo";
+import { VoiceRecorder, type VoiceTransactionResult } from "./voice-recorder";
 import { DEMO_BUSINESS, DEMO_USER } from "@/data/demo";
 
 type Stage = "select" | "input" | "processing" | "review" | "success";
@@ -42,7 +42,7 @@ function makeDraft(source: TransactionSourceType): TransactionDraft {
     case "receipt":
       return { ...common, type: "expense", amount: 86.4, category: "Inventory", description: "Cooking ingredients and packaging", counterpartyName: "Maju Mart", paymentMethod: "Debit card" };
     case "voice":
-      return { ...common, type: "expense", amount: 240, category: "Inventory", description: "20 boxes of mineral water", counterpartyName: "ABC Supplier", paymentMethod: "Bank transfer" };
+      return { ...common, date: "", type: "expense", amount: undefined, category: "Uncategorised", description: "", counterpartyName: "", paymentMethod: "" };
     case "csv":
       return { ...common, type: "expense", amount: 78, category: "Utilities", description: "Mobile and internet bill", counterpartyName: "CelcomDigi", paymentMethod: "Auto debit" };
     case "bank_statement":
@@ -69,6 +69,7 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
   const [importIndex, setImportIndex] = useState(0);
   const [batchNotice, setBatchNotice] = useState("");
   const [reviewDisclosure, setReviewDisclosure] = useState<{ title: string; description: string } | undefined>();
+  const [sourceEvidence, setSourceEvidence] = useState<{ label: string; text: string } | undefined>();
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -79,7 +80,8 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
     setDraft(makeDraft(nextSource));
     setSaveError("");
     setBatchNotice("");
-    setReviewDisclosure(nextSource === "voice" || nextSource === "whatsapp" ? {
+    setSourceEvidence(undefined);
+    setReviewDisclosure(nextSource === "whatsapp" ? {
       title: "Sample extraction",
       description: "This is representative demo data. No AI service processed your input.",
     } : undefined);
@@ -96,6 +98,7 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
     setImportIndex(0);
     setBatchNotice("");
     setReviewDisclosure(undefined);
+    setSourceEvidence(undefined);
     setStage("select");
   };
 
@@ -119,6 +122,7 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
     setImportDrafts([]);
     setBatchNotice(failures.length ? `${failures.length} receipt${failures.length === 1 ? "" : "s"} could not be extracted. You can upload them again after this batch.` : "");
     setReviewDisclosure({ title: "AI-proposed extraction", description: "OpenAI processed the receipt image. Check every value before confirming." });
+    setSourceEvidence(undefined);
     setDraft(makeReceiptDraft(extractions[0]));
     setStage("review");
   };
@@ -136,7 +140,23 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
     setReviewDisclosure(method === "openai_pdf"
       ? { title: "AI-proposed statement extraction", description: "OpenAI processed the PDF. Compare every value with your statement before confirming." }
       : { title: "Parsed on this device", description: "We mapped the CSV columns locally without sending the file to an AI service. Check every value before confirming." });
+    setSourceEvidence(undefined);
     setDraft(drafts[0]);
+    setStage("review");
+  };
+
+  const reviewVoiceTransaction = ({ draft: voiceDraft, transcript, warnings, languageCode }: VoiceTransactionResult) => {
+    setReceiptExtractions([]);
+    setReceiptIndex(0);
+    setImportDrafts([]);
+    setImportIndex(0);
+    setBatchNotice(warnings.slice(0, 3).join(" "));
+    setReviewDisclosure({
+      title: "Scribe transcript · AI-proposed transaction",
+      description: `ElevenLabs transcribed${languageCode ? ` (${languageCode})` : ""}; OpenAI structured the draft. Check it against what you said before confirming.`,
+    });
+    setSourceEvidence({ label: "ElevenLabs transcript", text: transcript });
+    setDraft(voiceDraft);
     setStage("review");
   };
 
@@ -204,17 +224,19 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
         ? <><strong>AI extraction:</strong> receipt images are sent securely to OpenAI and remain drafts until you confirm them.</>
         : source === "csv"
           ? <><strong>Local import:</strong> CSV rows are parsed on this device and remain drafts until you confirm them.</>
+          : source === "voice"
+            ? <><strong>Speech-to-text:</strong> audio is sent securely to ElevenLabs, then OpenAI proposes a transaction for your review.</>
           : source === "bank_statement"
             ? <><strong>Statement import:</strong> bank CSV stays on this device; bank PDFs use secure OpenAI extraction.</>
-            : <><strong>Frontend demo:</strong> voice and WhatsApp extraction remain representative demo flows.</>}</span></div>
+            : <><strong>Frontend demo:</strong> WhatsApp extraction remains a representative demo flow.</>}</span></div>
 
       <div className="capture-workspace">
         {stage === "select" ? <InputMethodSelector onSelect={selectSource} /> : null}
         {stage === "input" && source === "receipt" ? <ReceiptUploader onBack={restart} onExtracted={reviewReceiptExtractions} /> : null}
-        {stage === "input" && source === "voice" ? <VoiceRecorderDemo onBack={restart} onContinue={() => setStage("processing")} /> : null}
+        {stage === "input" && source === "voice" ? <VoiceRecorder onBack={restart} onExtracted={reviewVoiceTransaction} /> : null}
         {stage === "input" && (source === "csv" || source === "bank_statement" || source === "whatsapp") ? <DemoSourceInput onBack={restart} onContinue={() => setStage("processing")} onImported={reviewImportedTransactions} source={source} /> : null}
         {stage === "processing" ? <ProcessingState onCancel={restart} onComplete={() => setStage("review")} /> : null}
-        {stage === "review" ? <TransactionReviewForm batchNotice={batchNotice || undefined} batchProgress={source === "receipt" && receiptExtractions.length > 1 ? { current: receiptIndex + 1, total: receiptExtractions.length, label: "receipt" } : importDrafts.length > 1 ? { current: importIndex + 1, total: importDrafts.length, label: "transaction" } : undefined} disclosure={reviewDisclosure} draft={draft} onBack={restart} onConfirm={confirm} saveError={saveError} saving={createTransaction.isPending} /> : null}
+        {stage === "review" ? <TransactionReviewForm batchNotice={batchNotice || undefined} batchProgress={source === "receipt" && receiptExtractions.length > 1 ? { current: receiptIndex + 1, total: receiptExtractions.length, label: "receipt" } : importDrafts.length > 1 ? { current: importIndex + 1, total: importDrafts.length, label: "transaction" } : undefined} disclosure={reviewDisclosure} draft={draft} onBack={restart} onConfirm={confirm} saveError={saveError} saving={createTransaction.isPending} sourceEvidence={sourceEvidence} /> : null}
         {stage === "success" && saved ? <TransactionSuccessState onAddAnother={restart} onNextItem={receiptExtractions.length ? reviewNextReceipt : importDrafts.length ? reviewNextImport : undefined} remainingItems={receiptExtractions.length ? Math.max(0, receiptExtractions.length - receiptIndex - 1) : Math.max(0, importDrafts.length - importIndex - 1)} nextItemLabel={receiptExtractions.length ? "receipt" : "transaction"} transaction={saved} /> : null}
       </div>
     </>
