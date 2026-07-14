@@ -7,7 +7,7 @@ import { FormField } from "@/components/forms/form-field";
 import { SelectField } from "@/components/forms/select-field";
 import { TextareaField } from "@/components/forms/textarea-field";
 import { transactionFormSchema, type TransactionFormValues, type ValidTransactionFormValues } from "@/lib/validation/transaction";
-import type { TransactionSource } from "@/types/finance";
+import type { TransactionSourceType } from "@/types";
 
 export interface TransactionDraft {
   type: "income" | "expense";
@@ -17,7 +17,7 @@ export interface TransactionDraft {
   description: string;
   counterpartyName: string;
   paymentMethod: string;
-  source: TransactionSource;
+  source: TransactionSourceType;
 }
 
 const typeOptions = [{ label: "Money in", value: "income" }, { label: "Money out", value: "expense" }];
@@ -30,11 +30,12 @@ const sourceOptions = [
   { label: "WhatsApp order", value: "whatsapp" },
 ];
 
-export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, batchProgress, batchNotice }: {
+export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, saving = false, batchProgress, batchNotice }: {
   draft: TransactionDraft;
   onBack: () => void;
   onConfirm: (values: ValidTransactionFormValues) => void;
   saveError?: string;
+  saving?: boolean;
   batchProgress?: { current: number; total: number };
   batchNotice?: string;
 }) {
@@ -79,8 +80,8 @@ export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, bat
 
         {saveError ? <div className="form-alert" role="alert"><AlertCircle aria-hidden="true" size={18} /><span>{saveError}</span></div> : null}
         <div className="capture-actions review-actions">
-          <button className="button button-secondary" onClick={onBack} type="button">Back to methods</button>
-          <button className="button button-primary" disabled={isSubmitting} type="submit"><CheckCircle2 aria-hidden="true" size={18} />Confirm and save</button>
+          <button className="button button-secondary" disabled={saving} onClick={onBack} type="button">Back to methods</button>
+          <button className="button button-primary" disabled={isSubmitting || saving} type="submit"><CheckCircle2 aria-hidden="true" size={18} />Confirm and save</button>
         </div>
       </form>
     </section>

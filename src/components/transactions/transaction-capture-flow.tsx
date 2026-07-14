@@ -4,10 +4,11 @@ import { ArrowLeft, LockKeyhole } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
-import { makeTransactionId, saveTransaction } from "@/lib/transactions/storage";
-import type { ValidTransactionFormValues } from "@/lib/validation/transaction";
+import { useCreateTransaction } from "@/hooks/use-transactions";
 import type { ReceiptExtraction } from "@/lib/openai/receipt-schema";
-import type { Transaction, TransactionSource } from "@/types/finance";
+import type { ValidTransactionFormValues } from "@/lib/validation/transaction";
+import { useNiagaStore } from "@/store/use-niaga-store";
+import type { Transaction, TransactionSourceType } from "@/types";
 import { DemoSourceInput } from "./demo-source-input";
 import { InputMethodSelector } from "./input-method-selector";
 import { ProcessingState } from "./processing-state";
@@ -18,7 +19,7 @@ import { VoiceRecorderDemo } from "./voice-recorder-demo";
 
 type Stage = "select" | "input" | "processing" | "review" | "success";
 
-const sourceLabels: Record<TransactionSource, string> = {
+const sourceLabels: Record<TransactionSourceType, string> = {
   receipt: "Receipt photo",
   voice: "Voice note",
   manual: "Manual entry",
@@ -33,7 +34,7 @@ function localDate() {
   return new Date(now.getTime() - offset).toISOString().slice(0, 10);
 }
 
-function makeDraft(source: TransactionSource): TransactionDraft {
+function makeDraft(source: TransactionSourceType): TransactionDraft {
   const common = { date: localDate(), source };
   switch (source) {
     case "receipt":
@@ -51,8 +52,11 @@ function makeDraft(source: TransactionSource): TransactionDraft {
   }
 }
 
-export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: TransactionSource }) {
-  const [source, setSource] = useState<TransactionSource | null>(initialMethod ?? null);
+export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: TransactionSourceType }) {
+  const createTransaction = useCreateTransaction();
+  const businessId = useNiagaStore((state) => state.business?.id) || "business_demo";
+  const userId = useNiagaStore((state) => state.user?.id) || "user_demo";
+  const [source, setSource] = useState<TransactionSourceType | null>(initialMethod ?? null);
   const [stage, setStage] = useState<Stage>(initialMethod === "manual" ? "review" : initialMethod ? "input" : "select");
   const [draft, setDraft] = useState<TransactionDraft>(() => makeDraft(initialMethod ?? "manual"));
   const [saved, setSaved] = useState<Transaction | null>(null);
@@ -65,7 +69,7 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [stage]);
 
-  const selectSource = (nextSource: TransactionSource) => {
+  const selectSource = (nextSource: TransactionSourceType) => {
     setSource(nextSource);
     setDraft(makeDraft(nextSource));
     setSaveError("");
@@ -116,28 +120,31 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
     setStage("review");
   };
 
-  const confirm = (values: ValidTransactionFormValues) => {
-    const transaction: Transaction = {
-      id: makeTransactionId(),
-      type: values.type,
-      amount: values.amount,
-      date: values.date,
-      category: values.category,
-      description: values.description,
-      ...(values.type === "income" && values.counterpartyName ? { customerName: values.counterpartyName } : {}),
-      ...(values.type === "expense" && values.counterpartyName ? { merchantName: values.counterpartyName } : {}),
-      ...(values.paymentMethod ? { paymentMethod: values.paymentMethod } : {}),
-      source: values.source,
-      status: "reviewed",
-      createdAt: new Date().toISOString(),
-    };
-
-    if (!saveTransaction(transaction)) {
+  const confirm = async (values: ValidTransactionFormValues) => {
+    setSaveError("");
+    try {
+      const transaction = await createTransaction.mutateAsync({
+        businessId,
+        createdBy: userId,
+        type: values.type,
+        subtotal: values.amount,
+        tax: 0,
+        total: values.amount,
+        currency: "MYR",
+        date: values.date,
+        category: values.category,
+        description: values.description,
+        counterpartyName: values.counterpartyName,
+        paymentMethod: values.paymentMethod || null,
+        sourceType: values.source,
+        status: "confirmed",
+        items: [],
+      });
+      setSaved(transaction);
+      setStage("success");
+    } catch {
       setSaveError("We couldn’t save to browser storage. Check that local storage is available, then try again.");
-      return;
     }
-    setSaved(transaction);
-    setStage("success");
   };
 
   return (
@@ -157,7 +164,7 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
         {stage === "input" && source === "voice" ? <VoiceRecorderDemo onBack={restart} onContinue={() => setStage("processing")} /> : null}
         {stage === "input" && (source === "csv" || source === "bank_statement" || source === "whatsapp") ? <DemoSourceInput onBack={restart} onContinue={() => setStage("processing")} source={source} /> : null}
         {stage === "processing" ? <ProcessingState onCancel={restart} onComplete={() => setStage("review")} /> : null}
-        {stage === "review" ? <TransactionReviewForm batchNotice={batchFailureCount ? `${batchFailureCount} receipt${batchFailureCount === 1 ? "" : "s"} could not be extracted.` : undefined} batchProgress={source === "receipt" && receiptExtractions.length > 1 ? { current: receiptIndex + 1, total: receiptExtractions.length } : undefined} draft={draft} onBack={restart} onConfirm={confirm} saveError={saveError} /> : null}
+        {stage === "review" ? <TransactionReviewForm batchNotice={batchFailureCount ? `${batchFailureCount} receipt${batchFailureCount === 1 ? "" : "s"} could not be extracted.` : undefined} batchProgress={source === "receipt" && receiptExtractions.length > 1 ? { current: receiptIndex + 1, total: receiptExtractions.length } : undefined} draft={draft} onBack={restart} onConfirm={confirm} saveError={saveError} saving={createTransaction.isPending} /> : null}
         {stage === "success" && saved ? <TransactionSuccessState onAddAnother={restart} onNextReceipt={reviewNextReceipt} remainingReceipts={Math.max(0, receiptExtractions.length - receiptIndex - 1)} transaction={saved} /> : null}
       </div>
     </>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { AuthGate } from "@/components/auth/auth-gate";
@@ -12,6 +12,8 @@ import { QuickActions } from "@/components/dashboard/quick-actions";
 import { RecentTransactions } from "@/components/dashboard/recent-transactions";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/shared/page-header";
+import { ErrorState } from "@/components/shared/error-state";
+import { LoadingState } from "@/components/shared/loading-state";
 import {
   dashboardInsights,
   dashboardMetrics,
@@ -19,28 +21,27 @@ import {
   mockCashFlow,
   quickActions,
 } from "@/data/mock-dashboard";
-import { mockTransactions } from "@/data/mock-transactions";
-import { calculateMonthlyMetrics } from "@/lib/transactions/query";
-import { initializeTransactions } from "@/lib/transactions/storage";
+import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
 import { useNiagaStore } from "@/store/use-niaga-store";
-import type { Transaction } from "@/types/finance";
 
 function DashboardContent() {
   const user = useNiagaStore((state) => state.user);
   const business = useNiagaStore((state) => state.business);
   const firstName = user?.name.split(" ")[0] || "there";
   const businessName = business?.name || "your business";
-  const [transactions] = useState<Transaction[]>(() => initializeTransactions(mockTransactions));
+  const businessId = business?.id || "business_demo";
+  const summary = useDashboardSummary(businessId);
+  const transactions = summary.data?.transactions ?? [];
   const metrics = useMemo(() => {
-    const totals = calculateMonthlyMetrics(transactions);
+    const totals = summary.data?.metrics ?? { revenue: 0, expenses: 0, profit: 0 };
     return dashboardMetrics.map((metric) => {
       if (metric.id === "revenue") return { ...metric, value: totals.revenue, trend: "From recorded income this month" };
       if (metric.id === "expenses") return { ...metric, value: totals.expenses, trend: "From recorded expenses this month" };
       if (metric.id === "profit") return { ...metric, value: totals.profit, trend: totals.revenue ? `${Math.round((totals.profit / totals.revenue) * 100)}% estimated margin` : "Add income to calculate margin" };
       return metric;
     });
-  }, [transactions]);
-  const reviewCount = transactions.filter((item) => item.status === "needs_review").length;
+  }, [summary.data?.metrics]);
+  const reviewCount = summary.data?.reviewCount ?? 0;
   const insights = dashboardInsights.map((insight) => insight.id === "review" ? {
     ...insight,
     title: reviewCount ? `${reviewCount} transaction${reviewCount === 1 ? "" : "s"} need review` : "All transactions reviewed",
@@ -57,7 +58,10 @@ function DashboardContent() {
         action={<Link className="button button-primary" href="/transactions/new?method=manual"><Plus aria-hidden="true" size={18} />Add transaction</Link>}
       />
 
-      <section className="metrics-grid" aria-label="Financial summary">
+      {summary.isPending ? <LoadingState label="Loading dashboard summary" /> : null}
+      {summary.isError ? <><ErrorState title="We could not load your dashboard" description="Your records are still on this device. Try loading the summary again." /><button className="button button-secondary" onClick={() => summary.refetch()} type="button">Try again</button></> : null}
+
+      {summary.isSuccess ? <><section className="metrics-grid" aria-label="Financial summary">
         {metrics.map((metric) => <MetricCard key={metric.id} {...metric} />)}
       </section>
 
@@ -73,7 +77,7 @@ function DashboardContent() {
         <InsightsPanel insights={insights} />
       </div>
 
-      <p className="foundation-note">Stored on this device · No bank account is connected.</p>
+      <p className="foundation-note">Stored on this device · No bank account is connected.</p></> : null}
     </AppShell>
   );
 }

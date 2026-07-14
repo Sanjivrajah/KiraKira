@@ -2,22 +2,23 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import type { DemoUser } from "@/types/auth";
-import type { BusinessProfile } from "@/types/business";
+import { getBrowserStorage } from "@/lib/storage/browser-storage";
+import { STORAGE_KEYS } from "@/lib/storage/storage-keys";
+import type { Business, BusinessInput, UserProfile, UserProfileInput } from "@/types";
 
-export const STORE_VERSION = 1;
-export const STORE_KEY = "niagaai-demo-session";
+export const STORE_VERSION = 2;
+export const STORE_KEY = STORAGE_KEYS.session;
 
 interface NiagaState {
   schemaVersion: number;
-  user: DemoUser | null;
+  user: UserProfile | null;
   isAuthenticated: boolean;
-  business: BusinessProfile | null;
+  business: Business | null;
   isOnboardingComplete: boolean;
   hasHydrated: boolean;
   signIn: (email: string, name?: string) => void;
-  signUp: (user: DemoUser) => void;
-  saveBusiness: (business: BusinessProfile) => void;
+  signUp: (user: UserProfileInput) => void;
+  saveBusiness: (business: BusinessInput) => void;
   completeOnboarding: () => void;
   signOut: () => void;
   resetDemo: () => void;
@@ -60,6 +61,7 @@ export const useNiagaStore = create<NiagaState>()(
       signIn: (email, name) => {
         const normalizedEmail = email.trim().toLowerCase();
         const existing = get().user;
+        const now = new Date().toISOString();
         set({
           user:
             existing?.email === normalizedEmail
@@ -68,12 +70,28 @@ export const useNiagaStore = create<NiagaState>()(
                   id: normalizedEmail === "lina@niagaai.demo" ? "demo-lina" : makeLocalUserId(normalizedEmail),
                   name: name?.trim() || displayNameFromEmail(normalizedEmail),
                   email: normalizedEmail,
+                  createdAt: now,
+                  updatedAt: now,
                 },
           isAuthenticated: true,
         });
       },
-      signUp: (user) => set({ user, isAuthenticated: true, business: null, isOnboardingComplete: false }),
-      saveBusiness: (business) => set({ business }),
+      signUp: (user) => {
+        const now = new Date().toISOString();
+        set({ user: { ...user, createdAt: now, updatedAt: now }, isAuthenticated: true, business: null, isOnboardingComplete: false });
+      },
+      saveBusiness: (input) => {
+        const existing = get().business;
+        const now = new Date().toISOString();
+        set({ business: {
+          ...input,
+          registrationNumber: input.registrationNumber || null,
+          tin: input.tin || null,
+          id: existing?.id || "business_demo",
+          createdAt: existing?.createdAt || now,
+          updatedAt: now,
+        } });
+      },
       completeOnboarding: () => {
         if (get().business) set({ isOnboardingComplete: true });
       },
@@ -84,7 +102,31 @@ export const useNiagaStore = create<NiagaState>()(
     {
       name: STORE_KEY,
       version: STORE_VERSION,
-      storage: createJSONStorage(() => localStorage),
+      migrate: (persistedState) => {
+        if (!persistedState || typeof persistedState !== "object") return initialSession;
+        const state = persistedState as Record<string, unknown>;
+        const now = new Date().toISOString();
+        const legacyUser = state.user && typeof state.user === "object" ? state.user as Record<string, unknown> : null;
+        const legacyBusiness = state.business && typeof state.business === "object" ? state.business as Record<string, unknown> : null;
+        return {
+          ...state,
+          schemaVersion: STORE_VERSION,
+          user: legacyUser && typeof legacyUser.id === "string" && typeof legacyUser.name === "string" && typeof legacyUser.email === "string" ? {
+            id: legacyUser.id, name: legacyUser.name, email: legacyUser.email,
+            createdAt: typeof legacyUser.createdAt === "string" ? legacyUser.createdAt : now,
+            updatedAt: typeof legacyUser.updatedAt === "string" ? legacyUser.updatedAt : now,
+          } : null,
+          business: legacyBusiness && typeof legacyBusiness.name === "string" && typeof legacyBusiness.type === "string" ? {
+            ...legacyBusiness,
+            id: typeof legacyBusiness.id === "string" ? legacyBusiness.id : "business_demo",
+            registrationNumber: typeof legacyBusiness.registrationNumber === "string" && legacyBusiness.registrationNumber ? legacyBusiness.registrationNumber : null,
+            tin: typeof legacyBusiness.tin === "string" && legacyBusiness.tin ? legacyBusiness.tin : null,
+            createdAt: typeof legacyBusiness.createdAt === "string" ? legacyBusiness.createdAt : now,
+            updatedAt: typeof legacyBusiness.updatedAt === "string" ? legacyBusiness.updatedAt : now,
+          } : null,
+        };
+      },
+      storage: createJSONStorage(() => getBrowserStorage() as Storage),
       partialize: (state) => ({
         schemaVersion: state.schemaVersion,
         user: state.user,

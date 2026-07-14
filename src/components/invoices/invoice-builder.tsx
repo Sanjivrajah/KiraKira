@@ -10,8 +10,8 @@ import { TextareaField } from "@/components/forms/textarea-field";
 import { BrandMark } from "@/components/shared/brand-mark";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { PageHeader } from "@/components/shared/page-header";
+import { useCreateInvoice } from "@/hooks/use-invoices";
 import { calculateInvoiceTotals, getInvoiceReadinessChecks, parseLocalDate } from "@/lib/invoices/calculations";
-import { makeInvoiceId, makeInvoiceNumber, saveInvoice } from "@/lib/invoices/storage";
 import { invoiceFormSchema, type InvoiceFormValues, type ValidInvoiceFormValues } from "@/lib/validation/invoice";
 import { useNiagaStore } from "@/store/use-niaga-store";
 
@@ -24,6 +24,7 @@ function makeItemId() {
 }
 
 export function InvoiceBuilder() {
+  const createInvoice = useCreateInvoice();
   const router = useRouter();
   const business = useNiagaStore((state) => state.business);
   const today = new Date();
@@ -31,7 +32,7 @@ export function InvoiceBuilder() {
   const { control, register, handleSubmit, formState: { errors, isSubmitting }, setError } = useForm<InvoiceFormValues, unknown, ValidInvoiceFormValues>({
     resolver: zodResolver(invoiceFormSchema),
     defaultValues: {
-      invoiceNumber: makeInvoiceNumber(), customerName: "", customerEmail: "", buyerTin: "", issueDate: isoDate(today), dueDate: isoDate(due), status: "draft",
+      invoiceNumber: "INV-1024", customerName: "", customerEmail: "", buyerTin: "", issueDate: isoDate(today), dueDate: isoDate(due), status: "draft",
       items: [{ id: makeItemId(), description: "", quantity: 1, unitPrice: 0, taxRate: 0 }], notes: "", paymentTerms: "Payment due within 14 days.",
     },
   });
@@ -45,15 +46,20 @@ export function InvoiceBuilder() {
   const readiness = getInvoiceReadinessChecks({ business, customerName: watched.customerName || "", buyerTin: watched.buyerTin || "", issueDate: watched.issueDate || "", items });
   const readyCount = readiness.filter((item) => item.ready).length;
 
-  const submit = (values: ValidInvoiceFormValues) => {
-    const calculated = calculateInvoiceTotals(values.items);
-    const now = new Date().toISOString();
-    const saved = saveInvoice({ ...values, id: makeInvoiceId(), items: values.items.map((item) => ({ ...item, id: item.id || makeItemId() })), ...calculated, createdAt: now, updatedAt: now });
-    if (!saved) {
+  const submit = async (values: ValidInvoiceFormValues) => {
+    try {
+      await createInvoice.mutateAsync({
+      ...values,
+      businessId: business?.id || "business_demo",
+      customerId: null,
+      currency: "MYR",
+      amountPaid: 0,
+      items: values.items.map((item) => ({ ...item, id: item.id || makeItemId() })),
+      });
+      router.push("/invoices?created=1");
+    } catch {
       setError("root", { message: "We could not save this invoice in your browser. Check available storage and try again." });
-      return;
     }
-    router.push("/invoices?created=1");
   };
 
   return (
@@ -67,7 +73,7 @@ export function InvoiceBuilder() {
 
           <section className="panel invoice-form-section"><p className="section-kicker">Final details</p><h2>Notes and terms</h2><div className="invoice-notes-grid"><TextareaField error={errors.notes?.message} label="Notes (optional)" maxLength={500} rows={4} {...register("notes")} /><TextareaField error={errors.paymentTerms?.message} label="Payment terms (optional)" maxLength={240} rows={4} {...register("paymentTerms")} /></div></section>
           {errors.root?.message ? <div className="form-alert" role="alert"><AlertCircle aria-hidden="true" size={18} />{errors.root.message}</div> : null}
-          <div className="invoice-save-actions"><button className="button button-secondary" onClick={() => router.push("/invoices")} type="button">Cancel</button><button className="button button-primary" disabled={isSubmitting} type="submit"><Save aria-hidden="true" size={18} />Save invoice</button></div>
+          <div className="invoice-save-actions"><button className="button button-secondary" disabled={createInvoice.isPending} onClick={() => router.push("/invoices")} type="button">Cancel</button><button className="button button-primary" disabled={isSubmitting || createInvoice.isPending} type="submit"><Save aria-hidden="true" size={18} />Save invoice</button></div>
         </div>
 
         <aside className="invoice-preview-column">

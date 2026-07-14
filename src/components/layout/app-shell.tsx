@@ -2,19 +2,20 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { useNiagaStore } from "@/store/use-niaga-store";
 import { businessTypeLabels } from "@/components/onboarding/business-preview";
-import { clearTransactions } from "@/lib/transactions/storage";
-import { clearInvoices } from "@/lib/invoices/storage";
-import { clearReminders } from "@/lib/reminders/storage";
+import { clearQueryCache } from "@/lib/query/query-client";
+import { services } from "@/services";
 import { MobileNav } from "./mobile-nav";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const user = useNiagaStore((state) => state.user);
   const business = useNiagaStore((state) => state.business);
   const signOut = useNiagaStore((state) => state.signOut);
@@ -23,15 +24,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [dialog, setDialog] = useState<"signout" | "reset" | null>(null);
   const initials = (user?.name || "Demo User").split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 
-  const confirm = () => {
+  const confirm = async () => {
     if (dialog === "signout") {
+      clearQueryCache(queryClient);
       signOut();
       router.replace("/login");
     } else if (dialog === "reset") {
       resetDemo();
-      clearTransactions();
-      clearInvoices();
-      clearReminders();
+      await services.demo.reset().catch(() => undefined);
+      clearQueryCache(queryClient);
       router.replace("/");
     }
     setDialog(null);

@@ -1,7 +1,7 @@
 import { ArrowRight, Check, LayoutDashboard, ListChecks, Plus } from "lucide-react";
 import Link from "next/link";
 import { MoneyDisplay } from "@/components/shared/money-display";
-import type { Transaction } from "@/types/finance";
+import type { Transaction } from "@/types";
 
 export function TransactionSuccessState({ transaction, onAddAnother, onNextReceipt, remainingReceipts = 0 }: {
   transaction: Transaction;
@@ -17,7 +17,7 @@ export function TransactionSuccessState({ transaction, onAddAnother, onNextRecei
       <p>Your reviewed record is stored in this browser and will still be here after a refresh.</p>
       <div className="saved-transaction-summary">
         <div><span>{transaction.type === "income" ? "Money in" : "Money out"}</span><strong>{transaction.description}</strong></div>
-        <MoneyDisplay amount={transaction.amount} prefix={transaction.type === "income" ? "+" : "−"} />
+        <MoneyDisplay amount={transaction.total} prefix={transaction.type === "income" ? "+" : "−"} />
       </div>
       <div className="success-actions">
         <Link className="button button-primary" href="/transactions"><ListChecks aria-hidden="true" size={18} />View all transactions<ArrowRight aria-hidden="true" size={16} /></Link>

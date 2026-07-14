@@ -1,6 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
-import { getInvoices } from "@/lib/invoices/storage";
+import { repositories } from "@/repositories";
+import { render } from "@/test/render";
 import { InvoiceList } from "./invoice-list";
 
 describe("InvoiceList", () => {
@@ -9,18 +10,18 @@ describe("InvoiceList", () => {
     window.history.replaceState(null, "", "/invoices");
   });
 
-  it("links seeded invoices to their detail routes", () => {
+  it("links seeded invoices to their detail routes", async () => {
     render(<InvoiceList />);
-    const links = screen.getAllByRole("link", { name: "View INV-1024" });
+    const links = await screen.findAllByRole("link", { name: "View INV-1024" });
     expect(links.length).toBeGreaterThan(0);
     expect(links[0]).toHaveAttribute("href", "/invoices/inv_1024");
   });
 
-  it("updates invoice status in browser storage", () => {
+  it("updates invoice status in browser storage", async () => {
     render(<InvoiceList />);
-    fireEvent.change(screen.getAllByLabelText("Status for INV-1022")[0], { target: { value: "sent" } });
-    expect(getInvoices().find((invoice) => invoice.id === "inv_1022")?.status).toBe("sent");
-    expect(screen.getByRole("status")).toHaveTextContent("marked as sent");
+    fireEvent.change((await screen.findAllByLabelText("Status for INV-1022"))[0], { target: { value: "sent" } });
+    await waitFor(async () => expect((await repositories.invoices.getById({ businessId: "business_demo", invoiceId: "inv_1022" }))?.status).toBe("sent"));
+    expect(await screen.findByRole("status")).toHaveTextContent("marked as sent");
   });
 
   it("shows deletion feedback after returning from a detail page", async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,15 +12,16 @@ import { SelectField } from "@/components/forms/select-field";
 import { TextareaField } from "@/components/forms/textarea-field";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { ErrorState } from "@/components/shared/error-state";
+import { LoadingState } from "@/components/shared/loading-state";
 import { MoneyDisplay } from "@/components/shared/money-display";
-import { mockTransactions } from "@/data/mock-transactions";
+import { useDeleteTransaction, useTransaction, useUpdateTransaction } from "@/hooks/use-transactions";
 import { transactionFormSchema } from "@/lib/validation/transaction";
-import { deleteTransaction, initializeTransactions, updateTransaction } from "@/lib/transactions/storage";
-import type { Transaction } from "@/types/finance";
+import { useNiagaStore } from "@/store/use-niaga-store";
+import type { Transaction } from "@/types";
 import { sourceLabels, statusLabels } from "./transaction-list";
 
 const editSchema = transactionFormSchema.omit({ source: true }).extend({
-  status: z.enum(["processing", "needs_review", "reviewed"]),
+  status: z.enum(["draft", "needs_review", "confirmed", "failed"]),
 });
 type EditInput = z.input<typeof editSchema>;
 type EditValues = z.output<typeof editSchema>;
@@ -31,7 +32,11 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "medium"
 
 export function TransactionDetail({ id }: { id: string }) {
   const router = useRouter();
-  const [transaction, setTransaction] = useState<Transaction | undefined>(() => initializeTransactions(mockTransactions).find((item) => item.id === id));
+  const businessId = useNiagaStore((state) => state.business?.id) || "business_demo";
+  const transactionQuery = useTransaction(businessId, id);
+  const updateTransaction = useUpdateTransaction();
+  const deleteTransaction = useDeleteTransaction();
+  const transaction = transactionQuery.data;
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [message, setMessage] = useState("");
@@ -41,54 +46,71 @@ export function TransactionDetail({ id }: { id: string }) {
     defaultValues: transaction ? {
       type: transaction.type,
       date: transaction.date,
-      amount: transaction.amount,
+      amount: transaction.total,
       category: transaction.category,
       description: transaction.description,
-      counterpartyName: transaction.customerName || transaction.merchantName || "",
+      counterpartyName: transaction.counterpartyName,
       paymentMethod: transaction.paymentMethod || "",
       status: transaction.status,
     } : undefined,
   });
   const type = useWatch({ control, name: "type" });
+  useEffect(() => {
+    if (!transaction) return;
+    reset({
+      type: transaction.type, date: transaction.date, amount: transaction.total, category: transaction.category,
+      description: transaction.description, counterpartyName: transaction.counterpartyName,
+      paymentMethod: transaction.paymentMethod || "", status: transaction.status,
+    });
+  }, [reset, transaction]);
 
+  if (transactionQuery.isPending) return <LoadingState label="Loading transaction" />;
+  if (transactionQuery.isError) return <><Link className="back-link" href="/transactions"><ArrowLeft aria-hidden="true" size={17} />Back to transactions</Link><ErrorState title="We could not load this transaction" description="Your record is still on this device. Try loading it again." /><button className="button button-secondary" onClick={() => transactionQuery.refetch()} type="button">Try again</button></>;
   if (!transaction) return <><Link className="back-link" href="/transactions"><ArrowLeft aria-hidden="true" size={17} />Back to transactions</Link><ErrorState title="Transaction not found" description="This transaction may have been deleted, or the link is no longer valid." /></>;
 
-  const save = (values: EditValues) => {
+  const save = async (values: EditValues) => {
     const updated: Transaction = {
       ...transaction,
       type: values.type,
       date: values.date,
-      amount: values.amount,
+      subtotal: values.amount,
+      tax: 0,
+      total: values.amount,
       category: values.category,
       description: values.description,
-      paymentMethod: values.paymentMethod || undefined,
+      paymentMethod: values.paymentMethod || null,
       status: values.status,
-      merchantName: values.type === "expense" ? values.counterpartyName || undefined : undefined,
-      customerName: values.type === "income" ? values.counterpartyName || undefined : undefined,
+      counterpartyName: values.counterpartyName,
+      updatedAt: new Date().toISOString(),
     };
-    if (!updateTransaction(updated)) {
-      setError("We could not save your changes. Check browser storage and try again.");
-      return;
-    }
-    setTransaction(updated);
-    setEditing(false);
+    setMessage("");
     setError("");
-    setMessage("Transaction changes saved.");
+    try {
+      await updateTransaction.mutateAsync(updated);
+      setEditing(false);
+      setError("");
+      setMessage("Transaction changes saved.");
+    } catch {
+      setError("We could not save your changes. Check browser storage and try again.");
+    }
   };
 
-  const remove = () => {
-    if (!deleteTransaction(transaction.id)) {
+  const remove = async () => {
+    setMessage("");
+    setError("");
+    try {
+      await deleteTransaction.mutateAsync({ businessId: transaction.businessId, transactionId: transaction.id });
+      router.push("/transactions?deleted=1");
+    } catch {
       setConfirmDelete(false);
       setError("We could not delete this transaction. Please try again.");
-      return;
     }
-    router.push("/transactions?deleted=1");
   };
 
   return (
     <>
       <Link className="back-link" href="/transactions"><ArrowLeft aria-hidden="true" size={17} />Back to transactions</Link>
-      <header className="transaction-detail-header"><div><p className="eyebrow">Transaction detail</p><h1>{transaction.description}</h1><p>{dateFormatter.format(new Date(`${transaction.date}T00:00:00`))}</p></div><MoneyDisplay amount={transaction.amount} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} /></header>
+      <header className="transaction-detail-header"><div><p className="eyebrow">Transaction detail</p><h1>{transaction.description}</h1><p>{dateFormatter.format(new Date(`${transaction.date}T00:00:00`))}</p></div><MoneyDisplay amount={transaction.total} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} /></header>
 
       {message ? <div className="inline-success" role="status"><CheckCircle2 aria-hidden="true" size={18} />{message}<button aria-label="Dismiss message" onClick={() => setMessage("")} type="button">×</button></div> : null}
       {error ? <div className="form-alert" role="alert">{error}</div> : null}
@@ -104,16 +126,16 @@ export function TransactionDetail({ id }: { id: string }) {
             <FormField error={errors.counterpartyName?.message} label={type === "income" ? "Customer name (optional)" : "Merchant name (optional)"} {...register("counterpartyName")} />
             <FormField error={errors.paymentMethod?.message} label="Payment method (optional)" {...register("paymentMethod")} />
             <SelectField error={errors.status?.message} label="Review status" options={statusOptions} {...register("status")} />
-          </div><div className="detail-form-actions"><button className="button button-secondary" onClick={() => { setEditing(false); setError(""); reset(); }} type="button">Cancel</button><button className="button button-primary" disabled={isSubmitting} type="submit"><CheckCircle2 aria-hidden="true" size={18} />Save changes</button></div></form>
+          </div><div className="detail-form-actions"><button className="button button-secondary" disabled={updateTransaction.isPending} onClick={() => { setEditing(false); setError(""); reset(); }} type="button">Cancel</button><button className="button button-primary" disabled={isSubmitting || updateTransaction.isPending} type="submit"><CheckCircle2 aria-hidden="true" size={18} />Save changes</button></div></form>
         </section>
       ) : (
         <div className="transaction-detail-grid"><section className="panel structured-fields"><div className="panel-heading"><div><p className="section-kicker">Structured record</p><h2>Transaction information</h2></div><button className="button button-secondary compact-button" onClick={() => { setEditing(true); setMessage(""); }} type="button"><Pencil aria-hidden="true" size={16} />Edit</button></div>
-          <dl><div><dt>Type</dt><dd><span className={`type-label ${transaction.type}`}>{transaction.type}</span></dd></div><div><dt>Amount</dt><dd><MoneyDisplay amount={transaction.amount} /></dd></div><div><dt>Date</dt><dd>{dateFormatter.format(new Date(`${transaction.date}T00:00:00`))}</dd></div><div><dt>Category</dt><dd>{transaction.category}</dd></div><div className="detail-wide"><dt>Description</dt><dd>{transaction.description}</dd></div><div><dt>{transaction.type === "income" ? "Customer" : "Merchant"}</dt><dd>{transaction.customerName || transaction.merchantName || "Not provided"}</dd></div><div><dt>Payment method</dt><dd>{transaction.paymentMethod || "Not provided"}</dd></div><div><dt>Review status</dt><dd><span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span></dd></div></dl>
+          <dl><div><dt>Type</dt><dd><span className={`type-label ${transaction.type}`}>{transaction.type}</span></dd></div><div><dt>Amount</dt><dd><MoneyDisplay amount={transaction.total} /></dd></div><div><dt>Date</dt><dd>{dateFormatter.format(new Date(`${transaction.date}T00:00:00`))}</dd></div><div><dt>Category</dt><dd>{transaction.category}</dd></div><div className="detail-wide"><dt>Description</dt><dd>{transaction.description}</dd></div><div><dt>{transaction.type === "income" ? "Customer" : "Merchant"}</dt><dd>{transaction.counterpartyName || "Not provided"}</dd></div><div><dt>Payment method</dt><dd>{transaction.paymentMethod || "Not provided"}</dd></div><div><dt>Review status</dt><dd><span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span></dd></div></dl>
         </section>
-        <aside className="panel transaction-source-panel"><p className="section-kicker">Record history</p><h2>Source information</h2><dl><div><dt>Captured via</dt><dd>{sourceLabels[transaction.source]}</dd></div><div><dt>Created</dt><dd>{dateTimeFormatter.format(new Date(transaction.createdAt))}</dd></div><div><dt>Record ID</dt><dd className="record-id">{transaction.id}</dd></div></dl><button className="button button-danger button-full" onClick={() => setConfirmDelete(true)} type="button"><Trash2 aria-hidden="true" size={17} />Delete transaction</button></aside></div>
+        <aside className="panel transaction-source-panel"><p className="section-kicker">Record history</p><h2>Source information</h2><dl><div><dt>Captured via</dt><dd>{sourceLabels[transaction.sourceType]}</dd></div><div><dt>Created</dt><dd>{dateTimeFormatter.format(new Date(transaction.createdAt))}</dd></div><div><dt>Record ID</dt><dd className="record-id">{transaction.id}</dd></div></dl><button className="button button-danger button-full" onClick={() => setConfirmDelete(true)} type="button"><Trash2 aria-hidden="true" size={17} />Delete transaction</button></aside></div>
       )}
 
-      <ConfirmationDialog danger confirmLabel="Delete transaction" description={`Delete “${transaction.description}”? This permanently removes it from this device.`} onCancel={() => setConfirmDelete(false)} onConfirm={remove} open={confirmDelete} title="Delete this transaction?" />
+      <ConfirmationDialog danger confirmLabel={deleteTransaction.isPending ? "Deleting…" : "Delete transaction"} description={`Delete “${transaction.description}”? This permanently removes it from this device.`} onCancel={() => setConfirmDelete(false)} onConfirm={remove} open={confirmDelete} pending={deleteTransaction.isPending} title="Delete this transaction?" />
     </>
   );
 }
