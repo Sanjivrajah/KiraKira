@@ -1,4 +1,5 @@
 import type { BusinessMembershipRepository, BusinessRepository, InvoiceRepository, PaymentRepository, ReminderRepository, TransactionRepository } from "@/repositories/contracts";
+import { clearFrontendDomainStorage } from "@/frontend/storage";
 
 export class DemoService {
   constructor(private readonly repositories: {
@@ -14,5 +15,6 @@ export class DemoService {
       this.repositories.businesses.clear(), this.repositories.memberships.clear(), this.repositories.transactions.clear(), this.repositories.invoices.clear(),
       this.repositories.payments.clear(), this.repositories.reminders.clear(),
     ]);
+    clearFrontendDomainStorage();
   }
 }

@@ -1,26 +1,49 @@
 import { z } from "zod";
 
+const optionalMoney = z.coerce.number<number>().min(0, "Amount cannot be negative.").max(10_000_000).default(0);
 const invoiceItemSchema = z.object({
   id: z.string().min(1),
-  description: z.string().trim().min(2, "Describe this item.").max(140, "Keep the description under 140 characters."),
-  quantity: z.coerce.number<number>().positive("Quantity must be greater than 0.").max(100_000, "Enter a smaller quantity."),
-  unitPrice: z.coerce.number<number>().min(0, "Unit price cannot be negative.").max(10_000_000, "Enter a smaller unit price."),
+  description: z.string().trim().min(2, "Describe this item.").max(1000),
+  quantity: z.coerce.number<number>().positive("Quantity must be greater than 0.").max(100_000),
+  unitPrice: z.coerce.number<number>().min(0, "Unit price cannot be negative.").max(10_000_000),
+  classificationCode: z.string().trim().min(1, "Choose a classification code.").default("022"),
+  unitCode: z.string().trim().min(1, "Choose a unit code.").default("C62"),
+  taxTypeCode: z.string().trim().min(1, "Choose a tax type.").default("06"),
   taxRate: z.coerce.number<number>().min(0, "Tax cannot be negative.").max(100, "Tax cannot exceed 100%."),
+  exemptionReason: z.string().trim().max(500).default(""),
+  discountAmount: optionalMoney,
+  chargeAmount: optionalMoney,
+}).superRefine((item, context) => {
+  if (item.taxTypeCode === "E" && !item.exemptionReason) {
+    context.addIssue({ code: "custom", path: ["exemptionReason"], message: "Explain why this item is tax exempt." });
+  }
+  if (item.discountAmount > item.quantity * item.unitPrice + item.chargeAmount) {
+    context.addIssue({ code: "custom", path: ["discountAmount"], message: "Discount cannot exceed the line amount and charges." });
+  }
 });
 
 export const invoiceFormSchema = z.object({
-  invoiceNumber: z.string().trim().min(1, "Enter an invoice number.").max(40, "Keep the invoice number under 40 characters."),
-  customerName: z.string().trim().min(2, "Enter the customer name.").max(100, "Keep the name under 100 characters."),
-  customerEmail: z.string().trim().refine((value) => !value || z.email().safeParse(value).success, "Enter a valid email address."),
-  buyerTin: z.string().trim().max(30, "Keep the buyer TIN under 30 characters."),
+  documentType: z.enum(["invoice", "credit_note", "debit_note", "refund_note", "self_billed_invoice", "self_billed_credit_note", "self_billed_debit_note", "self_billed_refund_note"]).default("invoice"),
+  invoiceNumber: z.string().trim().min(1, "Enter a document number.").max(100),
+  buyerId: z.string().min(1, "Choose or create a buyer.").default("legacy_buyer"),
+  customerName: z.string().trim().max(200).default(""),
+  customerEmail: z.string().trim().refine((value) => !value || z.email().safeParse(value).success, "Enter a valid email address.").default(""),
+  buyerTin: z.string().trim().max(50).default(""),
   issueDate: z.string().min(1, "Choose an issue date."),
+  issueTime: z.string().min(1, "Choose an issue time.").default("09:00"),
   dueDate: z.string().min(1, "Choose a due date."),
   status: z.enum(["draft", "sent"]),
-  items: z.array(invoiceItemSchema).min(1, "Add at least one line item.").max(50, "Keep invoices to 50 line items or fewer."),
-  notes: z.string().trim().max(500, "Keep notes under 500 characters."),
-  paymentTerms: z.string().trim().max(240, "Keep payment terms under 240 characters."),
-}).refine((values) => !values.issueDate || !values.dueDate || values.dueDate >= values.issueDate, {
-  path: ["dueDate"], message: "Due date must be on or after the issue date.",
+  originalDocumentReference: z.string().trim().max(200).default(""),
+  paymentModeCode: z.string().min(1, "Choose a payment mode.").default("03"),
+  bankAccountIdentifier: z.string().trim().max(200).default(""),
+  items: z.array(invoiceItemSchema).min(1).max(50),
+  notes: z.string().trim().max(1000).default(""),
+  paymentTerms: z.string().trim().max(1000).default(""),
+}).superRefine((values, context) => {
+  if (values.dueDate < values.issueDate) context.addIssue({ code: "custom", path: ["dueDate"], message: "Due date must be on or after the issue date." });
+  if (values.documentType !== "invoice" && values.documentType !== "self_billed_invoice" && !values.originalDocumentReference) {
+    context.addIssue({ code: "custom", path: ["originalDocumentReference"], message: "Adjustment documents require the original document reference." });
+  }
 });
 
 export type InvoiceFormValues = z.input<typeof invoiceFormSchema>;

@@ -9,6 +9,7 @@ export const transactionFormSchema = z.object({
   counterpartyName: z.string().trim().max(100, "Keep the name under 100 characters."),
   paymentMethod: z.string().trim().max(60, "Keep the payment method under 60 characters."),
   source: z.enum(["receipt", "voice", "manual", "csv", "bank_statement", "whatsapp"]),
+  eInvoiceTreatment: z.enum(["individual", "consolidated_candidate", "self_billed_candidate", "not_required", "undetermined"]).default("undetermined"),
 });
 
 export type TransactionFormValues = z.input<typeof transactionFormSchema>;

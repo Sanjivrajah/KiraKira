@@ -18,6 +18,10 @@ import { TransactionReviewForm, type TransactionDraft } from "./transaction-revi
 import { TransactionSuccessState } from "./transaction-success-state";
 import { VoiceRecorder, type VoiceTransactionResult } from "./voice-recorder";
 import { DEMO_BUSINESS, DEMO_USER } from "@/data/demo";
+import { FRONTEND_STORAGE_KEYS } from "@/frontend/storage";
+import { transactionReviewToDomain } from "@/frontend/view-models";
+import { browserStorage } from "@/lib/storage/browser-storage";
+import type { FinancialTransaction } from "@/domain";
 
 type Stage = "select" | "input" | "processing" | "review" | "success";
 
@@ -113,6 +117,13 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
       counterpartyName: extraction.merchantName.value || "",
       paymentMethod: extraction.paymentMethod.value || "",
       source: "receipt",
+      eInvoiceTreatment: "self_billed_candidate",
+      fieldConfidence: {
+        amount: extraction.total.confidence,
+        merchant: extraction.merchantName.confidence,
+        date: extraction.documentDate.confidence,
+        category: extraction.category.confidence,
+      },
     };
   };
 
@@ -204,6 +215,12 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
         status: "confirmed",
         items: [],
       });
+      const domain = transactionReviewToDomain({
+        ...values,
+        fieldConfidence: draft.fieldConfidence ?? {},
+      }, { id: transaction.id, businessId, userId, now: transaction.createdAt });
+      const existing = browserStorage.get<FinancialTransaction[]>(FRONTEND_STORAGE_KEYS.transactions, []);
+      browserStorage.set(FRONTEND_STORAGE_KEYS.transactions, [domain, ...existing.filter((item) => item.id !== domain.id)]);
       setSaved(transaction);
       setStage("success");
     } catch {
@@ -236,7 +253,7 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
         {stage === "input" && source === "voice" ? <VoiceRecorder onBack={restart} onExtracted={reviewVoiceTransaction} /> : null}
         {stage === "input" && (source === "csv" || source === "bank_statement" || source === "whatsapp") ? <DemoSourceInput onBack={restart} onContinue={() => setStage("processing")} onImported={reviewImportedTransactions} source={source} /> : null}
         {stage === "processing" ? <ProcessingState onCancel={restart} onComplete={() => setStage("review")} /> : null}
-        {stage === "review" ? <TransactionReviewForm batchNotice={batchNotice || undefined} batchProgress={source === "receipt" && receiptExtractions.length > 1 ? { current: receiptIndex + 1, total: receiptExtractions.length, label: "receipt" } : importDrafts.length > 1 ? { current: importIndex + 1, total: importDrafts.length, label: "transaction" } : undefined} disclosure={reviewDisclosure} draft={draft} onBack={restart} onConfirm={confirm} saveError={saveError} saving={createTransaction.isPending} sourceEvidence={sourceEvidence} /> : null}
+        {stage === "review" ? <TransactionReviewForm batchNotice={batchNotice || undefined} batchProgress={source === "receipt" && receiptExtractions.length > 1 ? { current: receiptIndex + 1, total: receiptExtractions.length, label: "receipt" } : importDrafts.length > 1 ? { current: importIndex + 1, total: importDrafts.length, label: "transaction" } : undefined} disclosure={reviewDisclosure} draft={draft} onBack={restart} onConfirm={confirm} onReject={restart} saveError={saveError} saving={createTransaction.isPending} sourceEvidence={sourceEvidence} /> : null}
         {stage === "success" && saved ? <TransactionSuccessState onAddAnother={restart} onNextItem={receiptExtractions.length ? reviewNextReceipt : importDrafts.length ? reviewNextImport : undefined} remainingItems={receiptExtractions.length ? Math.max(0, receiptExtractions.length - receiptIndex - 1) : Math.max(0, importDrafts.length - importIndex - 1)} nextItemLabel={receiptExtractions.length ? "receipt" : "transaction"} transaction={saved} /> : null}
       </div>
     </>

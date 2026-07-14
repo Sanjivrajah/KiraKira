@@ -44,7 +44,15 @@ function invoiceLine(value: unknown): InvoiceLineItem | null {
   if (!value || typeof value !== "object") return null;
   const item = value as Record<string, unknown>;
   return isString(item.id) && isString(item.description) && isNumber(item.quantity) && isNumber(item.unitPrice) && isNumber(item.taxRate)
-    ? { id: item.id, description: item.description, quantity: item.quantity, unitPrice: item.unitPrice, taxRate: item.taxRate } : null;
+    ? {
+        id: item.id, description: item.description, quantity: item.quantity, unitPrice: item.unitPrice, taxRate: item.taxRate,
+        classificationCode: isString(item.classificationCode) ? item.classificationCode : undefined,
+        unitCode: isString(item.unitCode) ? item.unitCode : undefined,
+        taxTypeCode: isString(item.taxTypeCode) ? item.taxTypeCode : undefined,
+        exemptionReason: isString(item.exemptionReason) ? item.exemptionReason : undefined,
+        discountAmount: isNumber(item.discountAmount) ? item.discountAmount : undefined,
+        chargeAmount: isNumber(item.chargeAmount) ? item.chargeAmount : undefined,
+      } : null;
 }
 
 export function parseInvoice(value: unknown): Invoice | null {
@@ -101,6 +109,21 @@ export function parseBusiness(value: unknown): Business | null {
     !(["en", "ms"] as unknown[]).includes(item.preferredLanguage) || !isString(item.createdAt) || !isString(item.updatedAt)) return null;
   return { id: item.id, name: item.name, type: item.type as Business["type"], registrationNumber: isString(item.registrationNumber) ? item.registrationNumber : null,
     tin: isString(item.tin) ? item.tin : null, currency: "MYR", preferredLanguage: item.preferredLanguage as Business["preferredLanguage"],
+    ...(isString(item.legalName) ? { legalName: item.legalName } : {}),
+    ...(isString(item.tradingName) ? { tradingName: item.tradingName } : {}),
+    ...(isString(item.entityType) ? { entityType: item.entityType } : {}),
+    ...(isString(item.registrationScheme) ? { registrationScheme: item.registrationScheme } : {}),
+    ...(isString(item.sstRegistration) ? { sstRegistration: item.sstRegistration } : {}),
+    ...(isString(item.msicCode) ? { msicCode: item.msicCode } : {}),
+    ...(isString(item.businessActivityDescription) ? { businessActivityDescription: item.businessActivityDescription } : {}),
+    ...(isString(item.addressLine1) ? { addressLine1: item.addressLine1 } : {}),
+    ...(isString(item.addressLine2) ? { addressLine2: item.addressLine2 } : {}),
+    ...(isString(item.city) ? { city: item.city } : {}),
+    ...(isString(item.postcode) ? { postcode: item.postcode } : {}),
+    ...(isString(item.stateCode) ? { stateCode: item.stateCode } : {}),
+    ...(isString(item.countryCode) ? { countryCode: item.countryCode } : {}),
+    ...(isString(item.email) ? { email: item.email } : {}),
+    ...(isString(item.phone) ? { phone: item.phone } : {}),
     createdAt: item.createdAt, updatedAt: item.updatedAt };
 }
 

@@ -14,6 +14,21 @@ export interface BusinessInput {
   tin: string;
   currency: CurrencyCode;
   preferredLanguage: PreferredLanguage;
+  legalName?: string;
+  tradingName?: string;
+  entityType?: string;
+  registrationScheme?: string;
+  sstRegistration?: string;
+  msicCode?: string;
+  businessActivityDescription?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  postcode?: string;
+  stateCode?: string;
+  countryCode?: string;
+  email?: string;
+  phone?: string;
 }
 
 export interface Business extends AuditableEntity {
@@ -23,6 +38,21 @@ export interface Business extends AuditableEntity {
   tin: string | null;
   currency: CurrencyCode;
   preferredLanguage: PreferredLanguage;
+  legalName?: string;
+  tradingName?: string;
+  entityType?: string;
+  registrationScheme?: string;
+  sstRegistration?: string;
+  msicCode?: string;
+  businessActivityDescription?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  postcode?: string;
+  stateCode?: string;
+  countryCode?: string;
+  email?: string;
+  phone?: string;
 }
 
 export type BusinessRole = "owner" | "admin" | "member";

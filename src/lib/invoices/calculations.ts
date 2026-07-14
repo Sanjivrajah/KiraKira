@@ -2,9 +2,10 @@ import type { Business, BusinessInput, EffectiveInvoiceStatus, Invoice, InvoiceL
 
 const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
-export function calculateInvoiceTotals(items: Pick<InvoiceLineItem, "quantity" | "unitPrice" | "taxRate">[]) {
-  const subtotal = roundMoney(items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0));
-  const tax = roundMoney(items.reduce((sum, item) => sum + item.quantity * item.unitPrice * (item.taxRate / 100), 0));
+export function calculateInvoiceTotals(items: Pick<InvoiceLineItem, "quantity" | "unitPrice" | "taxRate" | "discountAmount" | "chargeAmount">[]) {
+  const lineNet = (item: typeof items[number]) => item.quantity * item.unitPrice - (item.discountAmount ?? 0) + (item.chargeAmount ?? 0);
+  const subtotal = roundMoney(items.reduce((sum, item) => sum + lineNet(item), 0));
+  const tax = roundMoney(items.reduce((sum, item) => sum + lineNet(item) * (item.taxRate / 100), 0));
   return { subtotal, tax, total: roundMoney(subtotal + tax) };
 }
 

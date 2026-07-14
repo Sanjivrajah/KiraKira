@@ -18,6 +18,8 @@ export interface TransactionDraft {
   counterpartyName: string;
   paymentMethod: string;
   source: TransactionSourceType;
+  eInvoiceTreatment?: "individual" | "consolidated_candidate" | "self_billed_candidate" | "not_required" | "undetermined";
+  fieldConfidence?: Record<string, number>;
 }
 
 const typeOptions = [{ label: "Money in", value: "income" }, { label: "Money out", value: "expense" }];
@@ -30,7 +32,7 @@ const sourceOptions = [
   { label: "WhatsApp order", value: "whatsapp" },
 ];
 
-export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, saving = false, batchProgress, batchNotice, disclosure, sourceEvidence }: {
+export function TransactionReviewForm({ draft, onBack, onConfirm, onReject, saveError, saving = false, batchProgress, batchNotice, disclosure, sourceEvidence }: {
   draft: TransactionDraft;
   onBack: () => void;
   onConfirm: (values: ValidTransactionFormValues) => void;
@@ -40,10 +42,11 @@ export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, sav
   batchNotice?: string;
   disclosure?: { title: string; description: string };
   sourceEvidence?: { label: string; text: string };
+  onReject?: () => void;
 }) {
   const { control, register, handleSubmit, formState: { errors, isSubmitting } } = useForm<TransactionFormValues, unknown, ValidTransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
-    defaultValues: draft,
+    defaultValues: { ...draft, eInvoiceTreatment: draft.eInvoiceTreatment ?? "undetermined" },
   });
 
   const type = useWatch({ control, name: "type" });
@@ -64,6 +67,7 @@ export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, sav
 
       <div className="demo-disclosure"><ShieldCheck aria-hidden="true" size={18} /><p><strong>{disclosure?.title || (draft.source === "receipt" ? "AI-proposed extraction" : "Owner-entered transaction")}</strong><span>{disclosure?.description || (draft.source === "receipt" ? "OpenAI processed the image. Check every value before confirming." : "Check every value before confirming this transaction.")}</span></p></div>
       {sourceEvidence ? <div className="transcript-preview"><span>{sourceEvidence.label}</span><p>“{sourceEvidence.text}”</p></div> : null}
+      {draft.fieldConfidence && Object.keys(draft.fieldConfidence).length ? <div className="confidence-grid" aria-label="Extraction confidence by field">{Object.entries(draft.fieldConfidence).map(([field, confidence]) => <span className={confidence < 0.8 ? "low-confidence" : ""} key={field}><strong>{field}</strong>{Math.round(confidence * 100)}%{confidence < 0.8 ? " · Check carefully" : ""}</span>)}</div> : null}
 
       <form noValidate onSubmit={handleSubmit(onConfirm)}>
         <div className="review-form-grid">
@@ -75,6 +79,13 @@ export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, sav
           <FormField error={errors.counterpartyName?.message} label={type === "income" ? "Customer name (optional)" : "Merchant name (optional)"} maxLength={100} {...register("counterpartyName")} />
           <FormField error={errors.paymentMethod?.message} label="Payment method (optional)" maxLength={60} placeholder="e.g. Cash or DuitNow QR" {...register("paymentMethod")} />
           <SelectField error={errors.source?.message} hint="You can correct the source if needed." label="Source" options={sourceOptions} {...register("source")} />
+          <SelectField error={errors.eInvoiceTreatment?.message} label="E-Invoice treatment" options={[
+            { value: "undetermined", label: "Undetermined" },
+            { value: "individual", label: "Individual e-Invoice" },
+            { value: "consolidated_candidate", label: "Consolidated candidate" },
+            { value: "self_billed_candidate", label: "Self-billed candidate" },
+            { value: "not_required", label: "Not required" },
+          ]} {...register("eInvoiceTreatment")} />
           <div className="review-status-field">
             <span>Review status</span>
             <strong><CheckCircle2 aria-hidden="true" size={17} />Reviewed when confirmed</strong>
@@ -83,8 +94,9 @@ export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, sav
 
         {saveError ? <div className="form-alert" role="alert"><AlertCircle aria-hidden="true" size={18} /><span>{saveError}</span></div> : null}
         <div className="capture-actions review-actions">
-          <button className="button button-secondary" disabled={saving} onClick={onBack} type="button">Back to methods</button>
-          <button className="button button-primary" disabled={isSubmitting || saving} type="submit"><CheckCircle2 aria-hidden="true" size={18} />Confirm and save</button>
+          <button className="button button-secondary" disabled={saving} onClick={onBack} type="button">Edit source</button>
+          {onReject ? <button className="button button-secondary" disabled={saving} onClick={onReject} type="button">Reject draft</button> : null}
+          <button aria-label="Confirm and save — approve transaction" className="button button-primary" disabled={isSubmitting || saving} type="submit"><CheckCircle2 aria-hidden="true" size={18} />Approve and save</button>
         </div>
       </form>
     </section>

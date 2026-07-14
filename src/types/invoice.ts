@@ -9,6 +9,12 @@ export interface InvoiceLineItem {
   quantity: number;
   unitPrice: MoneyAmount;
   taxRate: number;
+  classificationCode?: string;
+  unitCode?: string;
+  taxTypeCode?: string;
+  exemptionReason?: string;
+  discountAmount?: number;
+  chargeAmount?: number;
 }
 
 export interface Invoice extends AuditableEntity {

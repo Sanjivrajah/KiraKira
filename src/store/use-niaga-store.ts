@@ -3,8 +3,8 @@
 import { create } from "zustand";
 
 interface NiagaUiState {
-  onboardingStep: 1 | 2 | 3;
-  setOnboardingStep: (step: 1 | 2 | 3) => void;
+  onboardingStep: 1 | 2 | 3 | 4 | 5;
+  setOnboardingStep: (step: 1 | 2 | 3 | 4 | 5) => void;
   resetTemporaryUi: () => void;
 }
 
