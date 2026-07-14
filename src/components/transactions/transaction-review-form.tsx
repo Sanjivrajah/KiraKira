@@ -30,14 +30,15 @@ const sourceOptions = [
   { label: "WhatsApp order", value: "whatsapp" },
 ];
 
-export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, saving = false, batchProgress, batchNotice }: {
+export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, saving = false, batchProgress, batchNotice, disclosure }: {
   draft: TransactionDraft;
   onBack: () => void;
   onConfirm: (values: ValidTransactionFormValues) => void;
   saveError?: string;
   saving?: boolean;
-  batchProgress?: { current: number; total: number };
+  batchProgress?: { current: number; total: number; label: string };
   batchNotice?: string;
+  disclosure?: { title: string; description: string };
 }) {
   const { control, register, handleSubmit, formState: { errors, isSubmitting } } = useForm<TransactionFormValues, unknown, ValidTransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
@@ -57,10 +58,10 @@ export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, sav
         <span className="status-badge needs_review"><AlertCircle aria-hidden="true" size={14} />Needs review</span>
       </div>
 
-      {batchProgress ? <p className="batch-review-progress">Reviewing receipt {batchProgress.current} of {batchProgress.total}</p> : null}
-      {batchNotice ? <div className="form-alert" role="alert"><AlertCircle aria-hidden="true" size={18} /><span>{batchNotice} You can upload those files again after finishing this batch.</span></div> : null}
+      {batchProgress ? <p className="batch-review-progress">Reviewing {batchProgress.label} {batchProgress.current} of {batchProgress.total}</p> : null}
+      {batchNotice ? <div className="form-alert" role="alert"><AlertCircle aria-hidden="true" size={18} /><span>{batchNotice}</span></div> : null}
 
-      <div className="demo-disclosure"><ShieldCheck aria-hidden="true" size={18} /><p><strong>{draft.source === "receipt" ? "AI-proposed extraction" : "Sample extraction"}</strong><span>{draft.source === "receipt" ? "OpenAI processed the image. Check every value before confirming." : "No real AI service processed your input."}</span></p></div>
+      <div className="demo-disclosure"><ShieldCheck aria-hidden="true" size={18} /><p><strong>{disclosure?.title || (draft.source === "receipt" ? "AI-proposed extraction" : "Owner-entered transaction")}</strong><span>{disclosure?.description || (draft.source === "receipt" ? "OpenAI processed the image. Check every value before confirming." : "Check every value before confirming this transaction.")}</span></p></div>
 
       <form noValidate onSubmit={handleSubmit(onConfirm)}>
         <div className="review-form-grid">

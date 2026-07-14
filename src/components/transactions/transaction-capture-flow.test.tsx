@@ -10,6 +10,7 @@ describe("TransactionCaptureFlow", () => {
   it("shows every Session 3 input method", () => {
     render(<TransactionCaptureFlow />);
     expect(screen.getAllByRole("button", { name: /Receipt photo|Voice note|Manual entry|CSV import|Bank statement|WhatsApp order/ })).toHaveLength(6);
+    expect(screen.getAllByText("Available")).toHaveLength(4);
   });
 
   it("validates and saves a manual transaction as reviewed", async () => {

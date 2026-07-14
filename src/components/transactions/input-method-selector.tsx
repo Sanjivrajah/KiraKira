@@ -14,16 +14,16 @@ interface Method {
   name: string;
   description: string;
   icon: LucideIcon;
-  flow: "Interactive" | "Demo extraction";
+  flow: "Available" | "Demo";
 }
 
 const methods: Method[] = [
-  { source: "receipt", name: "Receipt photos", description: "Upload up to 10 images, extract them with AI, and review each draft.", icon: Camera, flow: "Interactive" },
-  { source: "voice", name: "Voice note", description: "Record a demo note or upload audio to create a transaction.", icon: Mic, flow: "Interactive" },
-  { source: "manual", name: "Manual entry", description: "Enter a sale or expense directly with no extraction step.", icon: FilePenLine, flow: "Interactive" },
-  { source: "csv", name: "CSV import", description: "Choose a spreadsheet file and preview representative data.", icon: FileSpreadsheet, flow: "Demo extraction" },
-  { source: "bank_statement", name: "Bank statement", description: "Upload a statement and simulate matching one bank record.", icon: Landmark, flow: "Demo extraction" },
-  { source: "whatsapp", name: "WhatsApp order", description: "Paste an order message and turn it into a sample sale.", icon: MessageCircle, flow: "Demo extraction" },
+  { source: "receipt", name: "Receipt photos", description: "Upload up to 10 images, extract them with AI, and review each draft.", icon: Camera, flow: "Available" },
+  { source: "voice", name: "Voice note", description: "Preview the planned voice-note workflow with sample transcription.", icon: Mic, flow: "Demo" },
+  { source: "manual", name: "Manual entry", description: "Enter a sale or expense directly with no extraction step.", icon: FilePenLine, flow: "Available" },
+  { source: "csv", name: "CSV import", description: "Parse up to 100 transaction rows locally and review each one.", icon: FileSpreadsheet, flow: "Available" },
+  { source: "bank_statement", name: "Bank statement", description: "Import a bank CSV locally or extract transactions from a PDF with AI.", icon: Landmark, flow: "Available" },
+  { source: "whatsapp", name: "WhatsApp order", description: "Preview how a pasted order message could become a sale.", icon: MessageCircle, flow: "Demo" },
 ];
 
 export function InputMethodSelector({ onSelect }: { onSelect: (source: TransactionSourceType) => void }) {
@@ -34,7 +34,7 @@ export function InputMethodSelector({ onSelect }: { onSelect: (source: Transacti
           <p className="section-kicker">Step 1 of 3</p>
           <h2 id="capture-method-title">How would you like to add it?</h2>
         </div>
-        <p>Every option is local and simulated for this frontend demo.</p>
+        <p>CSV stays on this device. Receipt images and bank PDFs use secure AI extraction.</p>
       </div>
       <div className="capture-method-grid">
         {methods.map(({ source, name, description, icon: Icon, flow }) => (
@@ -44,7 +44,7 @@ export function InputMethodSelector({ onSelect }: { onSelect: (source: Transacti
               <strong>{name}</strong>
               <small>{description}</small>
             </span>
-            <span className={`availability-badge ${flow === "Interactive" ? "interactive" : "demo"}`}>{flow}</span>
+            <span className={`availability-badge ${flow === "Available" ? "interactive" : "demo"}`}>{flow}</span>
           </button>
         ))}
       </div>
