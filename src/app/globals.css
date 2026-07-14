@@ -2135,7 +2135,9 @@ button:disabled {
 .processing-card,
 .transaction-success-card {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   justify-items: center;
+  overflow: hidden;
   padding-block: 36px;
   text-align: center;
 }
@@ -2328,6 +2330,12 @@ button:disabled {
   text-align: left;
 }
 
+.transaction-success-card > *,
+.saved-transaction-summary,
+.success-actions {
+  max-width: 100%;
+}
+
 .saved-transaction-summary div,
 .saved-transaction-summary span,
 .saved-transaction-summary strong {
@@ -2366,6 +2374,126 @@ button:disabled {
 .success-actions .text-button {
   justify-self: center;
   margin-top: 5px;
+}
+
+.receipt-batch-dropzone {
+  min-height: 150px;
+}
+
+.receipt-queue {
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.receipt-queue-heading {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--canvas);
+  color: var(--ink-700);
+  font-size: 11px;
+}
+
+.receipt-queue-heading span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.receipt-queue ul {
+  max-height: 300px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.receipt-queue li {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+}
+
+.receipt-queue li:first-child {
+  border-top: 0;
+}
+
+.receipt-queue li img {
+  width: 48px;
+  height: 48px;
+  border-radius: 9px;
+  object-fit: cover;
+}
+
+.receipt-queue li > span {
+  min-width: 0;
+}
+
+.receipt-queue li strong,
+.receipt-queue li small {
+  display: block;
+}
+
+.receipt-queue li strong {
+  font-size: 12px;
+}
+
+.receipt-queue li small {
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--ink-500);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.receipt-queue li button {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-500);
+  cursor: pointer;
+}
+
+.receipt-queue li button:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.batch-progress,
+.batch-review-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--brand-700);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.batch-progress {
+  margin: 16px 0 0;
+}
+
+.batch-review-progress {
+  width: 100%;
+  margin: 18px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--brand-100);
 }
 
 @media (min-width: 700px) {
