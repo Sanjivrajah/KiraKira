@@ -1,8 +1,6 @@
 import { AlertTriangle, ArrowUpRight, CircleAlert, CircleHelp, Sparkles } from "lucide-react";
 import Link from "next/link";
-import type { dashboardInsights } from "@/data/mock-dashboard";
-
-type Insight = (typeof dashboardInsights)[number];
+import type { DashboardInsight } from "@/lib/dashboard/derive";
 
 const icons = {
   warning: AlertTriangle,
@@ -11,7 +9,7 @@ const icons = {
   brand: Sparkles,
 };
 
-export function InsightsPanel({ insights }: { insights: Insight[] }) {
+export function InsightsPanel({ insights }: { insights: DashboardInsight[] }) {
   return (
     <section className="panel insights-panel" aria-labelledby="insights-title">
       <div className="panel-heading">

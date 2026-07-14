@@ -26,12 +26,12 @@ export function MobileNav() {
               <button aria-label="Close more navigation" onClick={closeMore} type="button"><X aria-hidden="true" size={20} /></button>
             </div>
             <nav>
-              {moreItems.map(({ label, href, icon: Icon }) => {
+              {moreItems.map(({ label, href, icon: Icon, availability }) => {
                 const active = isNavigationItemActive(pathname, href);
                 return (
                   <Link className={active ? "active" : undefined} href={href} key={href} onClick={closeMore} aria-current={active ? "page" : undefined}>
                     <Icon aria-hidden="true" size={20} />
-                    <span>{label}</span>
+                    <span>{label}{availability === "preview" ? <small className="nav-preview-badge">Preview</small> : null}</span>
                   </Link>
                 );
               })}

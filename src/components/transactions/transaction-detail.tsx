@@ -18,6 +18,7 @@ import { useDeleteTransaction, useTransaction, useUpdateTransaction } from "@/ho
 import { useBusiness } from "@/hooks/use-business";
 import { transactionFormSchema } from "@/lib/validation/transaction";
 import type { Transaction } from "@/types";
+import { DEMO_BUSINESS } from "@/data/demo";
 import { sourceLabels, statusLabels } from "./transaction-list";
 
 const editSchema = transactionFormSchema.omit({ source: true }).extend({
@@ -32,7 +33,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "medium"
 
 export function TransactionDetail({ id }: { id: string }) {
   const router = useRouter();
-  const businessId = useBusiness().data?.id || "business_demo";
+  const businessId = useBusiness().data?.id || DEMO_BUSINESS.id;
   const transactionQuery = useTransaction(businessId, id);
   const updateTransaction = useUpdateTransaction();
   const deleteTransaction = useDeleteTransaction();

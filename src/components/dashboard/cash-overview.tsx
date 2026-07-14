@@ -1,10 +1,11 @@
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { MoneyDisplay } from "@/components/shared/money-display";
-import type { CashFlowPoint } from "@/data/mock-dashboard";
+import { formatMoney } from "@/lib/format/money";
+import type { CashFlowPoint } from "@/lib/dashboard/derive";
 
 export function CashOverview({ data }: { data: CashFlowPoint[] }) {
-  const maxValue = Math.max(...data.flatMap((point) => [point.income, point.expenses]));
+  const maxValue = Math.max(1, ...data.flatMap((point) => [point.income, point.expenses]));
   const current = data.at(-1);
 
   return (
@@ -14,7 +15,7 @@ export function CashOverview({ data }: { data: CashFlowPoint[] }) {
           <p className="section-kicker">Last 6 months</p>
           <h2 id="cash-overview-title">Cash overview</h2>
         </div>
-        <Link className="text-button" href="/cash-flow">Details <ArrowUpRight aria-hidden="true" size={16} /></Link>
+        <Link className="text-button" href="/cash-flow">About preview <ArrowUpRight aria-hidden="true" size={16} /></Link>
       </div>
 
       <div className="chart-legend" aria-hidden="true">
@@ -22,7 +23,7 @@ export function CashOverview({ data }: { data: CashFlowPoint[] }) {
         <span><i className="expenses" />Expenses</span>
       </div>
 
-      <div className="cash-chart" role="img" aria-label={data.map((point) => `${point.month}: income RM ${point.income}, expenses RM ${point.expenses}, net cash flow RM ${point.net}`).join(". ")}>
+      <div className="cash-chart" role="img" aria-label={data.map((point) => `${point.month}: income ${formatMoney(point.income)}, expenses ${formatMoney(point.expenses)}, net cash flow ${formatMoney(point.net)}`).join(". ")}>
         {data.map((point) => (
           <div className="chart-column" key={point.month}>
             <div className="bar-pair" aria-hidden="true">
@@ -36,8 +37,8 @@ export function CashOverview({ data }: { data: CashFlowPoint[] }) {
 
       {current ? (
         <div className="net-cash-summary">
-          <span>July net cash flow</span>
-          <MoneyDisplay amount={current.net} prefix="+" />
+          <span>{current.month} net cash flow</span>
+          <MoneyDisplay amount={current.net} prefix={current.net > 0 ? "+" : ""} />
         </div>
       ) : null}
     </section>

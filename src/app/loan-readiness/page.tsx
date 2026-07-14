@@ -1,5 +1,5 @@
 import { FeaturePlaceholder } from "@/components/shared/feature-placeholder";
 
 export default function LoanReadinessPage() {
-  return <FeaturePlaceholder title="Loan readiness" description="See which business records may help you prepare for financing." emptyTitle="Your readiness estimate is not available yet" emptyDescription="A transparent educational score will appear here after transaction, invoice, and business-profile data are connected." />;
+  return <FeaturePlaceholder title="Loan readiness" description="A detailed financing-preparation workspace is planned for a later session." emptyTitle="Loan-readiness details coming next" emptyDescription="The dashboard score is a demo estimate based on current local records. It is not a financing decision or bank approval." />;
 }

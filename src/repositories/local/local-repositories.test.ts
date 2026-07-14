@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { BrowserStorage } from "@/lib/storage/browser-storage";
 import { STORAGE_KEYS } from "@/lib/storage/storage-keys";
-import { mockInvoices } from "@/data/mock-invoices";
-import { mockTransactions } from "@/data/mock-transactions";
+import { DEMO_INVOICES, DEMO_TRANSACTIONS } from "@/data/demo";
 import type { Payment, Reminder } from "@/types";
 import { LocalInvoiceRepository, LocalPaymentRepository, LocalReminderRepository, LocalTransactionRepository } from "@/repositories";
 
@@ -17,14 +16,14 @@ describe("local repositories", () => {
 
   it("returns empty lists and initializes demo fixtures deterministically", async () => {
     expect(await transactions.list({ businessId: "business_demo" })).toEqual([]);
-    expect(await transactions.initializeDemo({ businessId: "business_demo", fixtures: mockTransactions })).toMatchObject(mockTransactions);
+    expect(await transactions.initializeDemo({ businessId: "business_demo", fixtures: DEMO_TRANSACTIONS })).toMatchObject(DEMO_TRANSACTIONS);
     localStorage.setItem(STORAGE_KEYS.transactions, "[]");
-    expect(await transactions.initializeDemo({ businessId: "business_demo", fixtures: mockTransactions })).toEqual([]);
+    expect(await transactions.initializeDemo({ businessId: "business_demo", fixtures: DEMO_TRANSACTIONS })).toEqual([]);
   });
 
   it("creates, reads, updates, deletes, and isolates transactions by business", async () => {
-    const first = { ...mockTransactions[0], id: "txn_new" };
-    const second = { ...mockTransactions[0], id: "txn_other", businessId: "business_other" };
+    const first = { ...DEMO_TRANSACTIONS[0], id: "txn_new" };
+    const second = { ...DEMO_TRANSACTIONS[0], id: "txn_other", businessId: "business_other" };
     await transactions.create({ transaction: first });
     await transactions.create({ transaction: second });
     expect(await transactions.list({ businessId: "business_demo" })).toMatchObject([first]);
@@ -38,8 +37,8 @@ describe("local repositories", () => {
   it("handles malformed JSON and invalid records without leaking errors", async () => {
     localStorage.setItem(STORAGE_KEYS.transactions, "not-json");
     expect(await transactions.list({ businessId: "business_demo" })).toEqual([]);
-    localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify([{ id: "bad" }, mockTransactions[0]]));
-    expect(await transactions.list({ businessId: "business_demo" })).toMatchObject([mockTransactions[0]]);
+    localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify([{ id: "bad" }, DEMO_TRANSACTIONS[0]]));
+    expect(await transactions.list({ businessId: "business_demo" })).toMatchObject([DEMO_TRANSACTIONS[0]]);
   });
 
   it("maps storage write failures to the application error model", () => {
@@ -48,7 +47,7 @@ describe("local repositories", () => {
   });
 
   it("persists invoice status and resets invoice data", async () => {
-    await invoices.initializeDemo({ businessId: "business_demo", fixtures: mockInvoices });
+    await invoices.initializeDemo({ businessId: "business_demo", fixtures: DEMO_INVOICES });
     const updated = await invoices.update({ businessId: "business_demo", invoiceId: "inv_1022", changes: { status: "sent" } });
     expect(updated.status).toBe("sent");
     expect((await invoices.getById({ businessId: "business_demo", invoiceId: "inv_1022" }))?.status).toBe("sent");

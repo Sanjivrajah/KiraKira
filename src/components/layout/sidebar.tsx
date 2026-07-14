@@ -20,7 +20,7 @@ export function Sidebar({ businessName = "Your business", businessType = "Local 
       </div>
 
       <nav className="sidebar-nav">
-        {primaryNavigation.map(({ label, href, icon: Icon }) => {
+        {primaryNavigation.map(({ label, href, icon: Icon, availability }) => {
           const active = isNavigationItemActive(pathname, href);
           return (
             <Link
@@ -30,7 +30,8 @@ export function Sidebar({ businessName = "Your business", businessType = "Local 
               aria-current={active ? "page" : undefined}
             >
               <Icon aria-hidden="true" size={18} />
-              {label}
+              <span>{label}</span>
+              {availability === "preview" ? <small className="nav-preview-badge">Preview</small> : null}
             </Link>
           );
         })}

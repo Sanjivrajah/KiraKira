@@ -1,9 +1,10 @@
 import { browserStorage, type KeyValueStorage } from "@/lib/storage/browser-storage";
 import { STORAGE_KEYS } from "@/lib/storage/storage-keys";
+import { DEMO_AUTH_ERROR_EMAIL, DEMO_USER } from "@/data/demo";
 import type { AuthService, AuthSession, AuthUser, SignInInput, SignUpInput } from "@/types";
 
-export const DEMO_AUTH_ERROR_EMAIL = "error@niagaai.demo";
-export const DEMO_USER_EMAIL = "lina@niagaai.demo";
+export { DEMO_AUTH_ERROR_EMAIL } from "@/data/demo";
+export const DEMO_USER_EMAIL = DEMO_USER.email;
 
 export class MockAuthError extends Error {
   constructor(message: string) {
@@ -37,7 +38,7 @@ export class MockAuthService implements AuthService {
     if (email === DEMO_AUTH_ERROR_EMAIL) throw new MockAuthError("This demo account is set to fail. Try another email address.");
     const users = this.storage.get<AuthUser[]>(STORAGE_KEYS.authUsers, []);
     const existing = users.find((user) => user.email === email);
-    const user = existing ?? { id: makeLocalUserId(email), email, name: displayNameFromEmail(email) };
+    const user = existing ?? (email === DEMO_USER.email ? DEMO_USER : { id: makeLocalUserId(email), email, name: displayNameFromEmail(email) });
     if (!existing) this.storage.set(STORAGE_KEYS.authUsers, [user, ...users]);
     return this.persistSession({ user, expiresAt: null });
   }

@@ -1,4 +1,4 @@
-import { mockInvoices } from "@/data/mock-invoices";
+import { DEMO_INVOICES } from "@/data/demo";
 import { calculateInvoiceTotals } from "@/lib/invoices/calculations";
 import type { InvoiceRepository, ReminderRepository } from "@/repositories/contracts";
 import type { Invoice } from "@/types";
@@ -8,7 +8,7 @@ type NewInvoice = Omit<Invoice, "id" | "createdAt" | "updatedAt" | "subtotal" | 
 
 export class InvoiceService {
   constructor(private readonly repository: InvoiceRepository, private readonly reminders: ReminderRepository) {}
-  initializeDemo(businessId: string) { return this.repository.initializeDemo({ businessId, fixtures: mockInvoices }); }
+  initializeDemo(businessId: string) { return this.repository.initializeDemo({ businessId, fixtures: DEMO_INVOICES }); }
   list(businessId: string) { return this.repository.list({ businessId }); }
   getById(businessId: string, invoiceId: string) { return this.repository.getById({ businessId, invoiceId }); }
   async nextInvoiceNumber(businessId: string) {

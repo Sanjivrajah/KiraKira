@@ -22,7 +22,7 @@ export function FeaturePlaceholder({
   return (
     <AuthGate gate="dashboard">
       <AppShell>
-        <PageHeader eyebrow="Frontend demo" title={title} description={description} action={action} />
+        <PageHeader eyebrow="Demo preview · Coming next" title={title} description={description} action={action} />
         <EmptyState title={emptyTitle} description={emptyDescription} />
       </AppShell>
     </AuthGate>

@@ -11,6 +11,7 @@ import { useTransactions, useUpdateTransaction } from "@/hooks/use-transactions"
 import { useBusiness } from "@/hooks/use-business";
 import { emptyTransactionFilters, filterAndSortTransactions, type TransactionFilters, type TransactionSort } from "@/lib/transactions/query";
 import type { Transaction, TransactionSourceType, TransactionStatus } from "@/types";
+import { DEMO_BUSINESS } from "@/data/demo";
 
 export const sourceLabels: Record<TransactionSourceType, string> = {
   receipt: "Receipt", voice: "Voice", manual: "Manual", csv: "CSV",
@@ -31,7 +32,7 @@ function Counterparty({ transaction }: { transaction: Transaction }) {
 }
 
 export function TransactionList() {
-  const businessId = useBusiness().data?.id || "business_demo";
+  const businessId = useBusiness().data?.id || DEMO_BUSINESS.id;
   const transactionsQuery = useTransactions(businessId);
   const updateTransaction = useUpdateTransaction();
   const transactions = transactionsQuery.data ?? noTransactions;

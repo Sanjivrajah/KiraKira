@@ -12,8 +12,10 @@ import { MoneyDisplay } from "@/components/shared/money-display";
 import { useDeleteInvoice, useInvoice, useUpdateInvoice } from "@/hooks/use-invoices";
 import { useBusiness } from "@/hooks/use-business";
 import { getEffectiveInvoiceStatus, parseLocalDate } from "@/lib/invoices/calculations";
+import { formatMoney } from "@/lib/format/money";
 import type { InvoiceStatus } from "@/types";
 import { invoiceStatusLabels } from "./invoice-list";
+import { DEMO_BUSINESS } from "@/data/demo";
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "long" });
 const dateTimeFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "medium", timeStyle: "short" });
@@ -21,7 +23,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "medium"
 export function InvoiceDetail({ id }: { id: string }) {
   const router = useRouter();
   const business = useBusiness().data;
-  const businessId = business?.id || "business_demo";
+  const businessId = business?.id || DEMO_BUSINESS.id;
   const invoiceQuery = useInvoice(businessId, id);
   const updateInvoice = useUpdateInvoice();
   const deleteInvoice = useDeleteInvoice();
@@ -76,7 +78,7 @@ export function InvoiceDetail({ id }: { id: string }) {
 
           <div className="saved-invoice-parties"><section><span>Bill to</span><h2 id="saved-invoice-title">{invoice.customerName}</h2><p>{invoice.customerEmail || "Customer email not provided"}</p><p>{invoice.buyerTin ? `TIN: ${invoice.buyerTin}` : "Buyer TIN not provided"}</p></section><dl><div><dt>Invoice number</dt><dd>{invoice.invoiceNumber}</dd></div><div><dt>Issue date</dt><dd>{dateFormatter.format(parseLocalDate(invoice.issueDate))}</dd></div><div><dt>Due date</dt><dd>{dateFormatter.format(parseLocalDate(invoice.dueDate))}</dd></div><div><dt>Status</dt><dd><span className={`status-badge ${effectiveStatus}`}>{invoiceStatusLabels[effectiveStatus]}</span></dd></div></dl></div>
 
-          <div className="saved-invoice-items"><div className="saved-item-row saved-item-heading"><span>Description</span><span>Qty</span><span>Unit price</span><span>Tax</span><span>Amount</span></div>{invoice.items.map((item) => <div className="saved-item-row" key={item.id}><span><strong>{item.description}</strong><small>{item.quantity} × RM{item.unitPrice.toFixed(2)} · {item.taxRate}% tax</small></span><span>{item.quantity}</span><MoneyDisplay amount={item.unitPrice} /><span>{item.taxRate}%</span><MoneyDisplay amount={item.quantity * item.unitPrice} /></div>)}</div>
+          <div className="saved-invoice-items"><div className="saved-item-row saved-item-heading"><span>Description</span><span>Qty</span><span>Unit price</span><span>Tax</span><span>Amount</span></div>{invoice.items.map((item) => <div className="saved-item-row" key={item.id}><span><strong>{item.description}</strong><small>{item.quantity} × {formatMoney(item.unitPrice)} · {item.taxRate}% tax</small></span><span>{item.quantity}</span><MoneyDisplay amount={item.unitPrice} /><span>{item.taxRate}%</span><MoneyDisplay amount={item.quantity * item.unitPrice} /></div>)}</div>
 
           <div className="saved-invoice-footer"><div>{invoice.notes ? <section><h3>Notes</h3><p>{invoice.notes}</p></section> : null}{invoice.paymentTerms ? <section><h3>Payment terms</h3><p>{invoice.paymentTerms}</p></section> : null}</div><dl><div><dt>Subtotal</dt><dd><MoneyDisplay amount={invoice.subtotal} /></dd></div><div><dt>Tax</dt><dd><MoneyDisplay amount={invoice.tax} /></dd></div><div className="invoice-total"><dt>Total</dt><dd><MoneyDisplay amount={invoice.total} /></dd></div></dl></div>
           <p className="invoice-local-disclosure">Browser-local invoice preview only. This invoice has not been submitted to MyInvois.</p>

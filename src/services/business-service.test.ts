@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { BrowserStorage } from "@/lib/storage/browser-storage";
 import { LocalBusinessMembershipRepository, LocalBusinessRepository } from "@/repositories";
 import { BusinessService } from "./business-service";
+import { DEMO_BUSINESS, DEMO_USER } from "@/data/demo";
 
 describe("BusinessService", () => {
   const storage = new BrowserStorage();
@@ -17,5 +18,11 @@ describe("BusinessService", () => {
     const business = await service.saveForUser("user-one", input);
     expect(await service.getForUser("user-one")).toEqual(business);
     expect(await service.getForUser("user-two")).toBeNull();
+  });
+
+  it("seeds the deliberate demo business for the deliberate demo user", async () => {
+    expect(await service.getForUser(DEMO_USER.id)).toEqual(DEMO_BUSINESS);
+    expect(await service.getForUser(DEMO_USER.id)).toEqual(DEMO_BUSINESS);
+    expect(await businesses.list()).toHaveLength(1);
   });
 });

@@ -1,5 +1,12 @@
 import Link from "next/link";
-import type { QuickAction } from "@/data/mock-dashboard";
+import type { LucideIcon } from "lucide-react";
+
+export interface QuickAction {
+  label: string;
+  description: string;
+  href: string;
+  icon: LucideIcon;
+}
 
 export function QuickActions({ actions }: { actions: QuickAction[] }) {
   return (

@@ -1,4 +1,5 @@
 import type { BusinessMembershipRepository, BusinessRepository } from "@/repositories/contracts";
+import { DEMO_BUSINESS, DEMO_USER } from "@/data/demo";
 import type { Business, BusinessInput } from "@/types";
 
 export class BusinessService {
@@ -9,8 +10,10 @@ export class BusinessService {
 
   async getForUser(userId: string) {
     let membership = (await this.memberships.listForUser({ userId }))[0];
-    if (!membership && userId === "demo-lina" && await this.businesses.getById({ businessId: "business_demo" })) {
-      membership = await this.createMembership(userId, "business_demo");
+    if (!membership && userId === DEMO_USER.id) {
+      const business = await this.businesses.getById({ businessId: DEMO_BUSINESS.id })
+        ?? await this.businesses.create({ business: DEMO_BUSINESS });
+      membership = await this.createMembership(userId, business.id);
     }
     return membership ? this.businesses.getById({ businessId: membership.businessId }) : null;
   }
@@ -21,7 +24,7 @@ export class BusinessService {
     if (existing) {
       return this.businesses.update({ businessId: existing.id, changes: this.toBusiness(input, existing.id, existing.createdAt, now) });
     }
-    const businessId = userId === "demo-lina" ? "business_demo" : `business_${userId}`;
+    const businessId = userId === DEMO_USER.id ? DEMO_BUSINESS.id : `business_${userId}`;
     const stored = await this.businesses.getById({ businessId });
     const business = stored
       ? await this.businesses.update({ businessId, changes: this.toBusiness(input, businessId, stored.createdAt, now) })

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { FileSpreadsheet, Landmark, MessageCircle, UploadCloud } from "lucide-react";
 import { TextareaField } from "@/components/forms/textarea-field";
+import { DEMO_WHATSAPP_ORDER_MESSAGE } from "@/data/demo";
 
 const sourceCopy = {
   csv: {
@@ -23,7 +24,7 @@ const sourceCopy = {
 
 export function DemoSourceInput({ source, onContinue, onBack }: { source: "csv" | "bank_statement" | "whatsapp"; onContinue: () => void; onBack: () => void }) {
   const [fileName, setFileName] = useState("");
-  const [message, setMessage] = useState("Hi Kak Lina, can I order 40 lunch boxes for Friday? Total RM850. I’ll transfer the deposit today.");
+  const [message, setMessage] = useState(DEMO_WHATSAPP_ORDER_MESSAGE);
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (source === "whatsapp") {

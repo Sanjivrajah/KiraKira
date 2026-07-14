@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { BrandWordmark } from "@/components/shared/brand-mark";
 import { ArrowRight, BarChart3, BookOpenCheck, ReceiptText, Sparkles } from "lucide-react";
+import { formatMoney } from "@/lib/format/money";
+import { DEMO_WELCOME_SNAPSHOT } from "@/data/demo";
 
 const benefits = [
   { icon: ReceiptText, title: "Record with less fuss", text: "Keep sales and spending together in one clear workspace." },
@@ -27,9 +29,9 @@ export default function WelcomePage() {
           <small>No bank connection, real account, or payment details required.</small>
         </div>
         <div className="welcome-visual" aria-label="Sample cash overview">
-          <div className="mini-card mini-balance"><span>Cash balance</span><strong>RM 5,169.60</strong><small>Healthy cash flow</small></div>
-          <div className="mini-row"><span className="mini-icon">↑</span><div><strong>Nasi lemak sales</strong><small>Today · DuitNow</small></div><b>+ RM 480</b></div>
-          <div className="mini-row"><span className="mini-icon expense">↓</span><div><strong>Grocery purchase</strong><small>Yesterday · Cash</small></div><b>− RM 126.40</b></div>
+          <div className="mini-card mini-balance"><span>Cash balance</span><strong>{formatMoney(DEMO_WELCOME_SNAPSHOT.balance)}</strong><small>Illustrative demo balance</small></div>
+          <div className="mini-row"><span className="mini-icon">↑</span><div><strong>Nasi lemak sales</strong><small>Sample · DuitNow</small></div><b>+ {formatMoney(DEMO_WELCOME_SNAPSHOT.income)}</b></div>
+          <div className="mini-row"><span className="mini-icon expense">↓</span><div><strong>Grocery purchase</strong><small>Sample · Cash</small></div><b>− {formatMoney(DEMO_WELCOME_SNAPSHOT.expense)}</b></div>
           <div className="visual-accent">Simple records.<br />Useful clarity.</div>
         </div>
       </section>

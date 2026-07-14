@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { FormField } from "@/components/forms/form-field";
 import { SelectField } from "@/components/forms/select-field";
 import { businessSchema, type BusinessFormValues } from "@/lib/validation/business";
+import { DEMO_BUSINESS } from "@/data/demo";
 import type { BusinessInput } from "@/types";
 
 const businessTypes = [
@@ -40,7 +41,7 @@ export function BusinessForm({ initialValues, onReview }: {
           error={errors.name?.message}
           label="Business name"
           maxLength={100}
-          placeholder="e.g. Warung Kak Lina"
+          placeholder={`e.g. ${DEMO_BUSINESS.name}`}
           {...register("name")}
         />
         <SelectField

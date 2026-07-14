@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, Check, Circle, Plus, ReceiptText, Save, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { FormField } from "@/components/forms/form-field";
 import { SelectField } from "@/components/forms/select-field";
@@ -13,7 +14,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { useCreateInvoice } from "@/hooks/use-invoices";
 import { useBusiness } from "@/hooks/use-business";
 import { calculateInvoiceTotals, getInvoiceReadinessChecks, parseLocalDate } from "@/lib/invoices/calculations";
+import { formatMoney } from "@/lib/format/money";
 import { invoiceFormSchema, type InvoiceFormValues, type ValidInvoiceFormValues } from "@/lib/validation/invoice";
+import { DEMO_BUSINESS } from "@/data/demo";
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { day: "numeric", month: "long", year: "numeric" });
 const isoDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -23,17 +26,18 @@ function makeItemId() {
   return `item_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export function InvoiceBuilder() {
+export function InvoiceBuilder({ now }: { now: string }) {
   const createInvoice = useCreateInvoice();
   const router = useRouter();
   const business = useBusiness().data ?? null;
-  const today = new Date();
-  const due = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 14);
+  const today = useMemo(() => new Date(now), [now]);
+  const due = useMemo(() => new Date(today.getFullYear(), today.getMonth(), today.getDate() + 14), [today]);
+  const suggestedInvoiceNumber = `INV-${isoDate(today).replaceAll("-", "")}`;
   const { control, register, handleSubmit, formState: { errors, isSubmitting }, setError } = useForm<InvoiceFormValues, unknown, ValidInvoiceFormValues>({
     resolver: zodResolver(invoiceFormSchema),
     defaultValues: {
-      invoiceNumber: "INV-1024", customerName: "", customerEmail: "", buyerTin: "", issueDate: isoDate(today), dueDate: isoDate(due), status: "draft",
-      items: [{ id: makeItemId(), description: "", quantity: 1, unitPrice: 0, taxRate: 0 }], notes: "", paymentTerms: "Payment due within 14 days.",
+      invoiceNumber: suggestedInvoiceNumber, customerName: "", customerEmail: "", buyerTin: "", issueDate: isoDate(today), dueDate: isoDate(due), status: "draft",
+      items: [{ id: "item_initial", description: "", quantity: 1, unitPrice: 0, taxRate: 0 }], notes: "", paymentTerms: "Payment due within 14 days.",
     },
   });
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
@@ -50,7 +54,7 @@ export function InvoiceBuilder() {
     try {
       await createInvoice.mutateAsync({
       ...values,
-      businessId: business?.id || "business_demo",
+      businessId: business?.id || DEMO_BUSINESS.id,
       customerId: null,
       currency: "MYR",
       amountPaid: 0,
@@ -77,7 +81,7 @@ export function InvoiceBuilder() {
         </div>
 
         <aside className="invoice-preview-column">
-          <section className="invoice-preview panel" aria-label="Invoice preview"><div className="invoice-preview-brand"><div><BrandMark /><strong>{business?.name || "Your business"}</strong></div><span>Invoice</span></div><div className="invoice-preview-meta"><div><span>Bill to</span><strong>{watched.customerName || "Customer name"}</strong><small>{watched.customerEmail || "Customer email"}</small></div><dl><div><dt>Invoice no.</dt><dd>{watched.invoiceNumber || "—"}</dd></div><div><dt>Issue date</dt><dd>{watched.issueDate ? dateFormatter.format(parseLocalDate(watched.issueDate)) : "—"}</dd></div><div><dt>Due date</dt><dd>{watched.dueDate ? dateFormatter.format(parseLocalDate(watched.dueDate)) : "—"}</dd></div></dl></div><div className="preview-items"><div className="preview-item-row heading"><span>Description</span><span>Amount</span></div>{items.map((item, index) => <div className="preview-item-row" key={fields[index]?.id || index}><span><strong>{item.description || `Item ${index + 1}`}</strong><small>{item.quantity || 0} × RM{item.unitPrice.toFixed(2)} · {item.taxRate}% tax</small></span><MoneyDisplay amount={item.quantity * item.unitPrice} /></div>)}</div><dl className="invoice-totals"><div><dt>Subtotal</dt><dd><MoneyDisplay amount={totals.subtotal} /></dd></div><div><dt>Tax</dt><dd><MoneyDisplay amount={totals.tax} /></dd></div><div className="invoice-total"><dt>Total</dt><dd><MoneyDisplay amount={totals.total} /></dd></div></dl>{watched.paymentTerms ? <p className="preview-terms"><strong>Payment terms</strong>{watched.paymentTerms}</p> : null}</section>
+          <section className="invoice-preview panel" aria-label="Invoice preview"><div className="invoice-preview-brand"><div><BrandMark /><strong>{business?.name || "Your business"}</strong></div><span>Invoice</span></div><div className="invoice-preview-meta"><div><span>Bill to</span><strong>{watched.customerName || "Customer name"}</strong><small>{watched.customerEmail || "Customer email"}</small></div><dl><div><dt>Invoice no.</dt><dd>{watched.invoiceNumber || "—"}</dd></div><div><dt>Issue date</dt><dd>{watched.issueDate ? dateFormatter.format(parseLocalDate(watched.issueDate)) : "—"}</dd></div><div><dt>Due date</dt><dd>{watched.dueDate ? dateFormatter.format(parseLocalDate(watched.dueDate)) : "—"}</dd></div></dl></div><div className="preview-items"><div className="preview-item-row heading"><span>Description</span><span>Amount</span></div>{items.map((item, index) => <div className="preview-item-row" key={fields[index]?.id || index}><span><strong>{item.description || `Item ${index + 1}`}</strong><small>{item.quantity || 0} × {formatMoney(item.unitPrice)} · {item.taxRate}% tax</small></span><MoneyDisplay amount={item.quantity * item.unitPrice} /></div>)}</div><dl className="invoice-totals"><div><dt>Subtotal</dt><dd><MoneyDisplay amount={totals.subtotal} /></dd></div><div><dt>Tax</dt><dd><MoneyDisplay amount={totals.tax} /></dd></div><div className="invoice-total"><dt>Total</dt><dd><MoneyDisplay amount={totals.total} /></dd></div></dl>{watched.paymentTerms ? <p className="preview-terms"><strong>Payment terms</strong>{watched.paymentTerms}</p> : null}</section>
           <section className="readiness-card panel"><div className="readiness-heading"><div><p className="section-kicker">E-invoice readiness</p><h2>{readyCount} of {readiness.length} checks ready</h2></div><span>{Math.round((readyCount / readiness.length) * 100)}%</span></div><ul>{readiness.map((item) => <li key={item.label}>{item.ready ? <Check aria-hidden="true" size={15} /> : <Circle aria-hidden="true" size={14} />}<span>{item.label}</span></li>)}</ul><p className="readiness-disclosure">This is a frontend readiness check only. The invoice has not been submitted to MyInvois.</p></section>
         </aside>
       </form>

@@ -10,19 +10,21 @@ import { LoadingState } from "@/components/shared/loading-state";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useBusiness } from "@/hooks/use-business";
 import { useMarkReminderSent, useReminders } from "@/hooks/use-reminders";
+import { useDialogFocus } from "@/hooks/use-dialog-focus";
 import { daysFromDueDate, getEffectiveInvoiceStatus, parseLocalDate } from "@/lib/invoices/calculations";
+import { formatMoney } from "@/lib/format/money";
 import type { Invoice } from "@/types";
+import { DEMO_BUSINESS } from "@/data/demo";
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { day: "numeric", month: "long", year: "numeric" });
-const moneyFormatter = new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR", minimumFractionDigits: 0, maximumFractionDigits: 2 });
 const noInvoices: Invoice[] = [];
 
 export function makeReminderMessage(invoice: Invoice) {
-  return `Hi ${invoice.customerName}, this is a friendly reminder that Invoice ${invoice.invoiceNumber} for ${moneyFormatter.format(invoice.total)} ${daysFromDueDate(invoice.dueDate) > 0 ? "was due" : "is due"} on ${dateFormatter.format(parseLocalDate(invoice.dueDate))}. Please let us know if you need another copy of the invoice.`;
+  return `Hi ${invoice.customerName}, this is a friendly reminder that Invoice ${invoice.invoiceNumber} for ${formatMoney(invoice.total)} ${daysFromDueDate(invoice.dueDate) > 0 ? "was due" : "is due"} on ${dateFormatter.format(parseLocalDate(invoice.dueDate))}. Please let us know if you need another copy of the invoice.`;
 }
 
 export function ReminderList() {
-  const businessId = useBusiness().data?.id || "business_demo";
+  const businessId = useBusiness().data?.id || DEMO_BUSINESS.id;
   const invoicesQuery = useInvoices(businessId);
   const remindersQuery = useReminders(businessId);
   const markReminderSent = useMarkReminderSent();

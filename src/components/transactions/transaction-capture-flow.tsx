@@ -17,6 +17,7 @@ import { ReceiptUploader, type ReceiptBatchResult } from "./receipt-uploader";
 import { TransactionReviewForm, type TransactionDraft } from "./transaction-review-form";
 import { TransactionSuccessState } from "./transaction-success-state";
 import { VoiceRecorderDemo } from "./voice-recorder-demo";
+import { DEMO_BUSINESS, DEMO_USER } from "@/data/demo";
 
 type Stage = "select" | "input" | "processing" | "review" | "success";
 
@@ -55,8 +56,8 @@ function makeDraft(source: TransactionSourceType): TransactionDraft {
 
 export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: TransactionSourceType }) {
   const createTransaction = useCreateTransaction();
-  const businessId = useBusiness().data?.id || "business_demo";
-  const userId = useAuth().session?.user.id || "user_demo";
+  const businessId = useBusiness().data?.id || DEMO_BUSINESS.id;
+  const userId = useAuth().session?.user.id || DEMO_USER.id;
   const [source, setSource] = useState<TransactionSourceType | null>(initialMethod ?? null);
   const [stage, setStage] = useState<Stage>(initialMethod === "manual" ? "review" : initialMethod ? "input" : "select");
   const [draft, setDraft] = useState<TransactionDraft>(() => makeDraft(initialMethod ?? "manual"));

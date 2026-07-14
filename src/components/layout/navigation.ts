@@ -15,6 +15,7 @@ export interface NavigationItem {
   shortLabel?: string;
   href: string;
   icon: LucideIcon;
+  availability?: "preview";
 }
 
 export const primaryNavigation: NavigationItem[] = [
@@ -22,10 +23,10 @@ export const primaryNavigation: NavigationItem[] = [
   { label: "Transactions", shortLabel: "Records", href: "/transactions", icon: ReceiptText },
   { label: "Invoices", href: "/invoices", icon: FileText },
   { label: "Payment reminders", href: "/reminders", icon: HandCoins },
-  { label: "Cash flow", href: "/cash-flow", icon: TrendingUp },
-  { label: "Loan readiness", href: "/loan-readiness", icon: Landmark },
-  { label: "Inventory", href: "/inventory", icon: Boxes },
-  { label: "Settings", href: "/settings", icon: Settings },
+  { label: "Cash flow", href: "/cash-flow", icon: TrendingUp, availability: "preview" },
+  { label: "Loan readiness", href: "/loan-readiness", icon: Landmark, availability: "preview" },
+  { label: "Inventory", href: "/inventory", icon: Boxes, availability: "preview" },
+  { label: "Settings", href: "/settings", icon: Settings, availability: "preview" },
 ];
 
 export function isNavigationItemActive(pathname: string, href: string) {

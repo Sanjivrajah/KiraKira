@@ -11,6 +11,7 @@ import { useInvoices, useUpdateInvoice } from "@/hooks/use-invoices";
 import { useBusiness } from "@/hooks/use-business";
 import { getEffectiveInvoiceStatus, parseLocalDate } from "@/lib/invoices/calculations";
 import type { EffectiveInvoiceStatus, Invoice, InvoiceStatus } from "@/types";
+import { DEMO_BUSINESS } from "@/data/demo";
 
 export const invoiceStatusLabels: Record<EffectiveInvoiceStatus, string> = {
   draft: "Draft", sent: "Sent", partially_paid: "Partially paid", paid: "Paid", void: "Void", overdue: "Overdue",
@@ -22,7 +23,7 @@ const displayDate = (date: string) => dateFormatter.format(parseLocalDate(date))
 const noInvoices: Invoice[] = [];
 
 export function InvoiceList({ initialMessage = "" }: { initialMessage?: string }) {
-  const businessId = useBusiness().data?.id || "business_demo";
+  const businessId = useBusiness().data?.id || DEMO_BUSINESS.id;
   const invoicesQuery = useInvoices(businessId);
   const updateInvoice = useUpdateInvoice();
   const invoices = invoicesQuery.data ?? noInvoices;

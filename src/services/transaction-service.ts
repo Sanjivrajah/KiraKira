@@ -1,4 +1,4 @@
-import { mockTransactions } from "@/data/mock-transactions";
+import { DEMO_TRANSACTIONS } from "@/data/demo";
 import type { TransactionRepository } from "@/repositories/contracts";
 import type { Transaction } from "@/types";
 import { makeEntityId } from "./id";
@@ -7,7 +7,7 @@ type NewTransaction = Omit<Transaction, "id" | "createdAt" | "updatedAt">;
 
 export class TransactionService {
   constructor(private readonly repository: TransactionRepository) {}
-  initializeDemo(businessId: string) { return this.repository.initializeDemo({ businessId, fixtures: mockTransactions }); }
+  initializeDemo(businessId: string) { return this.repository.initializeDemo({ businessId, fixtures: DEMO_TRANSACTIONS }); }
   list(businessId: string) { return this.repository.list({ businessId }); }
   getById(businessId: string, transactionId: string) { return this.repository.getById({ businessId, transactionId }); }
   create(input: NewTransaction) {

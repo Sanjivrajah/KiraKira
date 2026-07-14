@@ -2,14 +2,14 @@ import { act, render, renderHook, screen, waitFor } from "@testing-library/react
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers";
-import { mockTransactions } from "@/data/mock-transactions";
+import { DEMO_TRANSACTIONS } from "@/data/demo";
 import { useCreateTransaction, useDeleteTransaction, useTransactions, useUpdateTransaction } from "@/hooks/use-transactions";
 import { clearQueryCache, createQueryClient } from "@/lib/query/query-client";
 import { queryKeys } from "@/lib/query/query-keys";
 import { services } from "@/services";
 import { createQueryWrapper } from "@/test/render";
 
-const fixture = mockTransactions[0];
+const fixture = DEMO_TRANSACTIONS[0];
 const createInput = fixture;
 
 describe("TanStack Query integration", () => {

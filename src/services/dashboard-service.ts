@@ -1,4 +1,4 @@
-import { calculateMonthlyMetrics } from "@/lib/transactions/query";
+import { deriveCashFlow, deriveDashboardMetrics } from "@/lib/dashboard/derive";
 import type { InvoiceRepository, TransactionRepository } from "@/repositories/contracts";
 
 export class DashboardService {
@@ -9,9 +9,10 @@ export class DashboardService {
       this.invoices.list({ businessId }),
     ]);
     return {
-      transactions,
+      transactions: transactions.toSorted((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)),
       invoices,
-      metrics: calculateMonthlyMetrics(transactions, referenceDate),
+      metrics: deriveDashboardMetrics(transactions, invoices, referenceDate),
+      cashFlow: deriveCashFlow(transactions, referenceDate),
       reviewCount: transactions.filter((item) => item.status === "needs_review").length,
       outstandingInvoices: invoices.filter((item) => item.status === "sent" || item.status === "partially_paid"),
     };
