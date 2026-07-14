@@ -69,7 +69,12 @@ describe("transaction storage", () => {
   });
 
   it("ignores malformed records without discarding valid ones", () => {
-    localStorage.setItem(TRANSACTIONS_STORAGE_KEY, JSON.stringify([{ id: "bad" }, sample]));
+    localStorage.setItem(TRANSACTIONS_STORAGE_KEY, JSON.stringify([
+      { id: "bad" },
+      { ...sample, description: "x".repeat(161) },
+      { ...sample, date: "not-a-date" },
+      sample,
+    ]));
     expect(getTransactions()).toEqual([sample]);
   });
 });

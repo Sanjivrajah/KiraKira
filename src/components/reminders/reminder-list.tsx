@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { BellRing, CheckCircle2, Clock3, Eye, FilePlus2, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { PageHeader } from "@/components/shared/page-header";
 import { mockInvoices } from "@/data/mock-invoices";
 import { daysFromDueDate, getEffectiveInvoiceStatus, parseLocalDate } from "@/lib/invoices/calculations";
 import { initializeInvoices } from "@/lib/invoices/storage";
 import { getReminders, markInvoiceReminded } from "@/lib/reminders/storage";
+import { useDialogFocus } from "@/hooks/use-dialog-focus";
 import type { Invoice, InvoiceReminder } from "@/types/finance";
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { day: "numeric", month: "long", year: "numeric" });
@@ -23,6 +24,8 @@ export function ReminderList() {
   const [reminders, setReminders] = useState<InvoiceReminder[]>(() => getReminders());
   const [preview, setPreview] = useState<Invoice | null>(null);
   const [message, setMessage] = useState("");
+  const closePreview = useCallback(() => setPreview(null), []);
+  const previewRef = useDialogFocus<HTMLElement>(preview !== null, closePreview);
 
   const dueInvoices = useMemo(() => invoices
     .filter((invoice) => {
@@ -62,7 +65,7 @@ export function ReminderList() {
         return <article className={`reminder-card ${days > 0 ? "overdue" : "upcoming"}`} key={invoice.id}><div className="reminder-card-top"><span className={`status-badge ${days > 0 ? "overdue" : "sent"}`}>{days > 0 ? "Overdue" : "Upcoming"}</span><span className={`reminder-state ${reminder ? "done" : ""}`}>{reminder ? "Reminded" : "Not reminded"}</span></div><h2>{invoice.customerName}</h2><p className="reminder-invoice-number">{invoice.invoiceNumber}</p><MoneyDisplay amount={invoice.total} /><dl><div><dt>Due date</dt><dd>{dateFormatter.format(parseLocalDate(invoice.dueDate))}</dd></div><div><dt>{days > 0 ? "Days overdue" : "Time remaining"}</dt><dd>{days > 0 ? `${days} ${days === 1 ? "day" : "days"}` : days === 0 ? "Due today" : `${Math.abs(days)} ${Math.abs(days) === 1 ? "day" : "days"}`}</dd></div></dl>{reminder ? <p className="last-reminded"><CheckCircle2 aria-hidden="true" size={15} />Marked {dateFormatter.format(new Date(reminder.remindedAt))}</p> : null}<div className="reminder-actions"><button className="button button-secondary" onClick={() => setPreview(invoice)} type="button"><Eye aria-hidden="true" size={17} />Preview message</button><button className="button button-primary" onClick={() => markReminded(invoice)} type="button"><CheckCircle2 aria-hidden="true" size={17} />{reminder ? "Mark again" : "Mark as reminded"}</button></div></article>;
       })}</div>}
 
-      {preview ? <div className="dialog-backdrop" onMouseDown={() => setPreview(null)}><section aria-describedby="reminder-preview-description" aria-labelledby="reminder-preview-title" aria-modal="true" className="dialog-panel reminder-preview-dialog" onMouseDown={(event) => event.stopPropagation()} role="dialog"><button aria-label="Close reminder preview" className="dialog-close" onClick={() => setPreview(null)} type="button"><X aria-hidden="true" size={19} /></button><p className="section-kicker">Message preview</p><h2 id="reminder-preview-title">Friendly payment reminder</h2><p id="reminder-preview-description">Review the wording below. This preview will not be sent.</p><blockquote>{makeReminderMessage(preview)}</blockquote><div className="dialog-actions"><button className="button button-secondary" onClick={() => setPreview(null)} type="button">Close</button><button className="button button-primary" onClick={() => markReminded(preview)} type="button"><CheckCircle2 aria-hidden="true" size={17} />Mark as reminded</button></div></section></div> : null}
+      {preview ? <div className="dialog-backdrop" onMouseDown={closePreview}><section aria-describedby="reminder-preview-description" aria-labelledby="reminder-preview-title" aria-modal="true" className="dialog-panel reminder-preview-dialog" onMouseDown={(event) => event.stopPropagation()} ref={previewRef} role="dialog" tabIndex={-1}><button aria-label="Close reminder preview" className="dialog-close" onClick={closePreview} type="button"><X aria-hidden="true" size={19} /></button><p className="section-kicker">Message preview</p><h2 id="reminder-preview-title">Friendly payment reminder</h2><p id="reminder-preview-description">Review the wording below. This preview will not be sent.</p><blockquote>{makeReminderMessage(preview)}</blockquote><div className="dialog-actions"><button className="button button-secondary" onClick={closePreview} type="button">Close</button><button className="button button-primary" onClick={() => markReminded(preview)} type="button"><CheckCircle2 aria-hidden="true" size={17} />Mark as reminded</button></div></section></div> : null}
     </>
   );
 }

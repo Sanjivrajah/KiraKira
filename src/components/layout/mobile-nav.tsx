@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { Menu, Plus, X } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { useDialogFocus } from "@/hooks/use-dialog-focus";
 import { isNavigationItemActive, primaryNavigation } from "./navigation";
 
 export function MobileNav() {
@@ -12,21 +13,23 @@ export function MobileNav() {
   const mainItems = primaryNavigation.slice(0, 3);
   const moreItems = primaryNavigation.slice(3);
   const moreActive = moreItems.some((item) => isNavigationItemActive(pathname, item.href));
+  const closeMore = useCallback(() => setMoreOpen(false), []);
+  const menuRef = useDialogFocus<HTMLElement>(moreOpen, closeMore);
 
   return (
     <>
       {moreOpen ? (
-        <div className="mobile-more-backdrop" onClick={() => setMoreOpen(false)}>
-          <section className="mobile-more-menu" aria-label="More navigation" onClick={(event) => event.stopPropagation()}>
+        <div className="mobile-more-backdrop" onClick={closeMore}>
+          <section aria-label="More navigation" aria-modal="true" className="mobile-more-menu" onClick={(event) => event.stopPropagation()} ref={menuRef} role="dialog" tabIndex={-1}>
             <div className="mobile-more-heading">
               <div><span>Workspace</span><strong>More tools</strong></div>
-              <button aria-label="Close more navigation" onClick={() => setMoreOpen(false)} type="button"><X aria-hidden="true" size={20} /></button>
+              <button aria-label="Close more navigation" onClick={closeMore} type="button"><X aria-hidden="true" size={20} /></button>
             </div>
             <nav>
               {moreItems.map(({ label, href, icon: Icon }) => {
                 const active = isNavigationItemActive(pathname, href);
                 return (
-                  <Link className={active ? "active" : undefined} href={href} key={href} onClick={() => setMoreOpen(false)} aria-current={active ? "page" : undefined}>
+                  <Link className={active ? "active" : undefined} href={href} key={href} onClick={closeMore} aria-current={active ? "page" : undefined}>
                     <Icon aria-hidden="true" size={20} />
                     <span>{label}</span>
                   </Link>

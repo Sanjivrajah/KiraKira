@@ -21,7 +21,12 @@ describe("invoice storage", () => {
   });
 
   it("ignores malformed records and generates the next invoice number", () => {
-    localStorage.setItem(INVOICES_STORAGE_KEY, JSON.stringify([{ id: "bad" }, sample]));
+    localStorage.setItem(INVOICES_STORAGE_KEY, JSON.stringify([
+      { id: "bad" },
+      { ...sample, customerName: "x".repeat(101) },
+      { ...sample, items: Array.from({ length: 51 }, (_, index) => ({ ...sample.items[0], id: `item_${index}` })) },
+      sample,
+    ]));
     expect(getInvoices()).toEqual([sample]);
     expect(makeInvoiceNumber()).toBe("INV-1025");
   });

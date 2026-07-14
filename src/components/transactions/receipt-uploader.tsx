@@ -6,6 +6,8 @@ import { FileImage, Images, UploadCloud, X } from "lucide-react";
 import type { ReceiptExtraction } from "@/lib/openai/receipt-schema";
 
 const MAX_RECEIPTS = 10;
+const MAX_RECEIPT_BYTES = 10 * 1024 * 1024;
+const EXTRACTION_TIMEOUT_MS = 45_000;
 
 interface QueuedReceipt {
   file: File;
@@ -27,17 +29,22 @@ export function ReceiptUploader({ onExtracted, onBack }: {
   const [error, setError] = useState("");
   const receiptsRef = useRef<QueuedReceipt[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const extractingRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     receiptsRef.current = receipts;
   }, [receipts]);
 
   useEffect(() => () => {
+    abortRef.current?.abort();
     receiptsRef.current.forEach((receipt) => URL.revokeObjectURL(receipt.preview));
   }, []);
 
   const chooseFiles = (selected: FileList | File[]) => {
-    const candidates = Array.from(selected).filter((file) => ["image/jpeg", "image/png", "image/webp"].includes(file.type));
+    const files = Array.from(selected);
+    const supported = files.filter((file) => ["image/jpeg", "image/png", "image/webp"].includes(file.type));
+    const candidates = supported.filter((file) => file.size > 0 && file.size <= MAX_RECEIPT_BYTES);
     setReceipts((current) => {
       const existing = new Set(current.map((receipt) => receipt.id));
       const available = MAX_RECEIPTS - current.length;
@@ -48,7 +55,10 @@ export function ReceiptUploader({ onExtracted, onBack }: {
         .map(({ file, id }) => ({ file, id, preview: URL.createObjectURL(file) }));
       return [...current, ...additions];
     });
-    setError(candidates.length === 0 ? "Use JPG, PNG, or WEBP receipt images." : "");
+    if (files.length > MAX_RECEIPTS) setError(`Choose up to ${MAX_RECEIPTS} receipts at a time.`);
+    else if (supported.length === 0) setError("Use JPG, PNG, or WEBP receipt images.");
+    else if (candidates.length !== supported.length) setError("Each receipt must be between 1 byte and 10 MB.");
+    else setError("");
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -61,7 +71,8 @@ export function ReceiptUploader({ onExtracted, onBack }: {
   };
 
   const extractReceipts = async () => {
-    if (receipts.length === 0) return;
+    if (receipts.length === 0 || extractingRef.current) return;
+    extractingRef.current = true;
     setError("");
     const extractions: ReceiptExtraction[] = [];
     const failures: ReceiptBatchResult["failures"] = [];
@@ -69,17 +80,35 @@ export function ReceiptUploader({ onExtracted, onBack }: {
     for (const [index, receipt] of receipts.entries()) {
       setProgress({ current: index + 1, total: receipts.length });
       try {
+        const controller = new AbortController();
+        abortRef.current = controller;
+        const timeout = window.setTimeout(() => controller.abort(), EXTRACTION_TIMEOUT_MS);
         const formData = new FormData();
         formData.set("image", receipt.file);
-        const response = await fetch("/api/vision/receipts", { method: "POST", body: formData });
-        const body = await response.json() as { extraction?: ReceiptExtraction; error?: string };
-        if (!response.ok || !body.extraction) throw new Error(body.error || "Could not read this receipt.");
-        extractions.push(body.extraction);
+        try {
+          const response = await fetch("/api/vision/receipts", { method: "POST", body: formData, signal: controller.signal });
+          const body = await response.json().catch(() => ({})) as { extraction?: ReceiptExtraction; error?: string };
+          if (!response.ok || !body.extraction) {
+            if (response.status === 429) throw new Error("Receipt extraction is busy. Wait a moment and try again.");
+            if (response.status === 503) throw new Error("Receipt extraction is not configured right now.");
+            throw new Error(body.error || `Could not read this receipt (${response.status}).`);
+          }
+          extractions.push(body.extraction);
+        } finally {
+          window.clearTimeout(timeout);
+        }
       } catch (cause) {
-        failures.push({ fileName: receipt.file.name, message: cause instanceof Error ? cause.message : "Could not read this receipt." });
+        failures.push({
+          fileName: receipt.file.name,
+          message: cause instanceof DOMException && cause.name === "AbortError"
+            ? "Receipt extraction timed out. Try again on a stronger connection."
+            : cause instanceof Error ? cause.message : "Could not read this receipt.",
+        });
       }
     }
 
+    abortRef.current = null;
+    extractingRef.current = false;
     setProgress(null);
     if (extractions.length === 0) {
       setError(failures[0]?.message || "We could not read these receipts.");

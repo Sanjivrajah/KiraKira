@@ -66,10 +66,10 @@ export function TransactionReviewForm({ draft, onBack, onConfirm, saveError, bat
           <SelectField error={errors.type?.message} label="Transaction type" options={typeOptions} {...register("type")} />
           <FormField error={errors.date?.message} label="Date" type="date" {...register("date")} />
           <FormField error={errors.amount?.message} hint="Enter the value in Malaysian ringgit." inputMode="decimal" label="Amount (RM)" min="0.01" step="0.01" type="number" {...register("amount", { valueAsNumber: true })} />
-          <FormField error={errors.category?.message} label="Category" placeholder={type === "income" ? "e.g. Sales" : "e.g. Inventory"} {...register("category")} />
-          <TextareaField className="review-wide" error={errors.description?.message} label="Description" rows={3} {...register("description")} />
-          <FormField error={errors.counterpartyName?.message} label={type === "income" ? "Customer name (optional)" : "Merchant name (optional)"} {...register("counterpartyName")} />
-          <FormField error={errors.paymentMethod?.message} label="Payment method (optional)" placeholder="e.g. Cash or DuitNow QR" {...register("paymentMethod")} />
+          <FormField error={errors.category?.message} label="Category" maxLength={60} placeholder={type === "income" ? "e.g. Sales" : "e.g. Inventory"} {...register("category")} />
+          <TextareaField className="review-wide" error={errors.description?.message} label="Description" maxLength={160} rows={3} {...register("description")} />
+          <FormField error={errors.counterpartyName?.message} label={type === "income" ? "Customer name (optional)" : "Merchant name (optional)"} maxLength={100} {...register("counterpartyName")} />
+          <FormField error={errors.paymentMethod?.message} label="Payment method (optional)" maxLength={60} placeholder="e.g. Cash or DuitNow QR" {...register("paymentMethod")} />
           <SelectField error={errors.source?.message} hint="You can correct the source if needed." label="Source" options={sourceOptions} {...register("source")} />
           <div className="review-status-field">
             <span>Review status</span>

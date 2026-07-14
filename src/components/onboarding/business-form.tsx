@@ -39,6 +39,7 @@ export function BusinessForm({ initialValues, onReview }: {
           autoComplete="organization"
           error={errors.name?.message}
           label="Business name"
+          maxLength={100}
           placeholder="e.g. Warung Kak Lina"
           {...register("name")}
         />

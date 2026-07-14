@@ -2,22 +2,24 @@ import type { Invoice } from "@/types/finance";
 
 export const INVOICES_STORAGE_KEY = "niagaai_invoices";
 const invoiceStatuses = new Set(["draft", "sent", "paid", "overdue"]);
+const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+const isBoundedString = (value: unknown, maximum: number) => typeof value === "string" && value.length <= maximum;
 
 function isInvoice(value: unknown): value is Invoice {
   if (!value || typeof value !== "object") return false;
   const invoice = value as Record<string, unknown>;
-  if (!Array.isArray(invoice.items) || invoice.items.length === 0) return false;
+  if (!Array.isArray(invoice.items) || invoice.items.length === 0 || invoice.items.length > 50) return false;
   const itemsAreValid = invoice.items.every((value) => {
     if (!value || typeof value !== "object") return false;
     const item = value as Record<string, unknown>;
-    return typeof item.id === "string" && typeof item.description === "string" &&
-      typeof item.quantity === "number" && Number.isFinite(item.quantity) &&
-      typeof item.unitPrice === "number" && Number.isFinite(item.unitPrice) &&
-      typeof item.taxRate === "number" && Number.isFinite(item.taxRate);
+    return isBoundedString(item.id, 120) && isBoundedString(item.description, 140) &&
+      typeof item.quantity === "number" && Number.isFinite(item.quantity) && item.quantity > 0 && item.quantity <= 100_000 &&
+      typeof item.unitPrice === "number" && Number.isFinite(item.unitPrice) && item.unitPrice >= 0 && item.unitPrice <= 10_000_000 &&
+      typeof item.taxRate === "number" && Number.isFinite(item.taxRate) && item.taxRate >= 0 && item.taxRate <= 100;
   });
-  return itemsAreValid && typeof invoice.id === "string" && typeof invoice.invoiceNumber === "string" &&
-    typeof invoice.customerName === "string" && typeof invoice.issueDate === "string" &&
-    typeof invoice.dueDate === "string" && invoiceStatuses.has(String(invoice.status)) &&
+  return itemsAreValid && isBoundedString(invoice.id, 120) && isBoundedString(invoice.invoiceNumber, 40) &&
+    isBoundedString(invoice.customerName, 100) && typeof invoice.issueDate === "string" && isoDatePattern.test(invoice.issueDate) &&
+    typeof invoice.dueDate === "string" && isoDatePattern.test(invoice.dueDate) && invoiceStatuses.has(String(invoice.status)) &&
     typeof invoice.subtotal === "number" && Number.isFinite(invoice.subtotal) &&
     typeof invoice.tax === "number" && Number.isFinite(invoice.tax) &&
     typeof invoice.total === "number" && Number.isFinite(invoice.total) &&

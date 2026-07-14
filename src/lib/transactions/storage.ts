@@ -5,21 +5,22 @@ export const TRANSACTIONS_STORAGE_KEY = "niagaai_transactions";
 const transactionTypes = new Set(["income", "expense"]);
 const transactionSources = new Set(["receipt", "voice", "manual", "csv", "bank_statement", "whatsapp"]);
 const transactionStatuses = new Set(["processing", "needs_review", "reviewed"]);
+const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+const isBoundedString = (value: unknown, maximum: number) => typeof value === "string" && value.length <= maximum;
 
 function isTransaction(value: unknown): value is Transaction {
   if (!value || typeof value !== "object") return false;
   const item = value as Record<string, unknown>;
   return (
-    typeof item.id === "string" &&
+    isBoundedString(item.id, 120) &&
     transactionTypes.has(String(item.type)) &&
-    typeof item.amount === "number" &&
-    Number.isFinite(item.amount) &&
-    typeof item.date === "string" &&
-    typeof item.category === "string" &&
-    typeof item.description === "string" &&
+    typeof item.amount === "number" && Number.isFinite(item.amount) && item.amount >= 0 && item.amount <= 10_000_000 &&
+    typeof item.date === "string" && isoDatePattern.test(item.date) &&
+    isBoundedString(item.category, 60) &&
+    isBoundedString(item.description, 160) &&
     transactionSources.has(String(item.source)) &&
     transactionStatuses.has(String(item.status)) &&
-    typeof item.createdAt === "string"
+    isBoundedString(item.createdAt, 40)
   );
 }
 

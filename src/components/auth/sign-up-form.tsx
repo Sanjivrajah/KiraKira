@@ -35,16 +35,17 @@ export function SignUpForm() {
 
   return (
     <form className="auth-form" noValidate onSubmit={submit}>
-      <FormField autoComplete="name" error={errors.name?.message} label="Your name" {...register("name")} />
-      <FormField autoComplete="email" error={errors.email?.message} label="Email address" type="email" {...register("email")} />
+      <FormField autoComplete="name" error={errors.name?.message} label="Your name" maxLength={80} {...register("name")} />
+      <FormField autoComplete="email" error={errors.email?.message} label="Email address" maxLength={254} type="email" {...register("email")} />
       <PasswordField
         autoComplete="new-password"
         error={errors.password?.message}
         hint="Use 8 or more characters with at least one letter and one number."
         label="Password"
+        maxLength={128}
         {...register("password")}
       />
-      <PasswordField autoComplete="new-password" error={errors.confirmPassword?.message} label="Confirm password" {...register("confirmPassword")} />
+      <PasswordField autoComplete="new-password" error={errors.confirmPassword?.message} label="Confirm password" maxLength={128} {...register("confirmPassword")} />
       <div className="checkbox-field">
         <input aria-describedby={errors.terms ? "terms-error" : undefined} aria-invalid={errors.terms ? true : undefined} id="terms" type="checkbox" {...register("terms")} />
         <label htmlFor="terms">I understand this is a browser-only demo and does not create a real account.</label>

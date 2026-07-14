@@ -4,12 +4,13 @@ const email = z
   .string()
   .trim()
   .min(1, "Enter your email address.")
+  .max(254, "Keep the email address under 254 characters.")
   .email("Enter a valid email address.")
   .transform((value) => value.toLowerCase());
 
 export const signInSchema = z.object({
   email,
-  password: z.string().min(1, "Enter your password.").min(8, "Use at least 8 characters."),
+  password: z.string().min(1, "Enter your password.").min(8, "Use at least 8 characters.").max(128, "Keep the password under 128 characters."),
 });
 
 export const signUpSchema = z
@@ -23,9 +24,10 @@ export const signUpSchema = z
     password: z
       .string()
       .min(8, "Use at least 8 characters.")
+      .max(128, "Keep the password under 128 characters.")
       .regex(/[A-Za-z]/, "Include at least one letter.")
       .regex(/\d/, "Include at least one number."),
-    confirmPassword: z.string().min(1, "Confirm your password."),
+    confirmPassword: z.string().min(1, "Confirm your password.").max(128, "Keep the password under 128 characters."),
     terms: z.boolean().refine((value) => value, "Accept the demo terms to continue."),
   })
   .refine((values) => values.password === values.confirmPassword, {

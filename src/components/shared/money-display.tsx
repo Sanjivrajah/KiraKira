@@ -15,9 +15,11 @@ export function MoneyDisplay({
   className = "",
   prefix = "",
 }: MoneyDisplayProps) {
+  const displayAmount = Number.isFinite(amount) ? myrFormatter.format(amount) : "Amount unavailable";
+
   return (
-    <span className={`money-display ${className}`.trim()}>
-      {prefix}{myrFormatter.format(amount)}
+    <span className={`money-display ${className}`.trim()} title={displayAmount}>
+      {Number.isFinite(amount) ? prefix : ""}{displayAmount}
     </span>
   );
 }
