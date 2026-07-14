@@ -25,24 +25,35 @@ export function useDialogFocus<T extends HTMLElement>(open: boolean, onClose: ()
     window.requestAnimationFrame(() => focusable()[0]?.focus());
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (!dialog) return;
       if (event.key === "Escape") {
         event.preventDefault();
         onClose();
         return;
       }
       if (event.key !== "Tab") return;
+
       const items = focusable();
       if (!items.length) {
         event.preventDefault();
-        dialog?.focus();
+        dialog.focus();
         return;
       }
+
       const first = items[0];
       const last = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
+      const active = document.activeElement;
+
+      if (!(active instanceof Node) || !dialog.contains(active)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
+
+      if (event.shiftKey && active === first) {
         event.preventDefault();
         last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+      } else if (!event.shiftKey && active === last) {
         event.preventDefault();
         first.focus();
       }
