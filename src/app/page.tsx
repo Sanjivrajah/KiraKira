@@ -1,127 +1,43 @@
-import { ArrowUpRight, FileText, Plus, ReceiptText } from "lucide-react";
-import { AppShell } from "@/components/layout/app-shell";
-import { MetricCard } from "@/components/dashboard/metric-card";
-import { PageHeader } from "@/components/shared/page-header";
-import { MoneyDisplay } from "@/components/shared/money-display";
+import Link from "next/link";
+import { ArrowRight, BarChart3, BookOpenCheck, ReceiptText, Sparkles } from "lucide-react";
 
-const activities = [
-  {
-    title: "Nasi lemak sales",
-    meta: "Today · DuitNow",
-    amount: 480,
-    type: "income" as const,
-  },
-  {
-    title: "Grocery purchase",
-    meta: "Yesterday · Cash",
-    amount: 126.4,
-    type: "expense" as const,
-  },
-  {
-    title: "Catering deposit",
-    meta: "12 Jul · Bank transfer",
-    amount: 850,
-    type: "income" as const,
-  },
+const benefits = [
+  { icon: ReceiptText, title: "Record with less fuss", text: "Keep sales and spending together in one clear workspace." },
+  { icon: BarChart3, title: "See your cash flow", text: "Understand what came in, what went out, and what is still due." },
+  { icon: BookOpenCheck, title: "Build better records", text: "Prepare more complete business information one step at a time." },
 ];
 
-export default function Home() {
+export default function WelcomePage() {
   return (
-    <AppShell>
-      <PageHeader
-        eyebrow="Monday, 13 July"
-        title="Selamat pagi, Lina"
-        description="Here’s how Warung Kak Lina is doing today."
-        action={
-          <button className="button button-primary" type="button">
-            <Plus aria-hidden="true" size={18} />
-            Add record
-          </button>
-        }
-      />
-
-      <section className="metrics-grid" aria-label="Business overview">
-        <MetricCard
-          label="Money in"
-          value="RM 8,450.00"
-          trend="12.4% this month"
-          tone="positive"
-        />
-        <MetricCard
-          label="Money out"
-          value="RM 3,280.40"
-          trend="4.1% this month"
-          tone="neutral"
-        />
-        <MetricCard
-          label="Cash balance"
-          value="RM 5,169.60"
-          trend="Healthy cash flow"
-          tone="brand"
-        />
-        <MetricCard
-          label="Still to collect"
-          value="RM 1,240.00"
-          trend="2 invoices due"
-          tone="warning"
-        />
+    <main className="welcome-page">
+      <nav className="welcome-nav" aria-label="Welcome navigation">
+        <Link className="brand-lockup" href="/"><span className="brand-mark">N</span>NiagaAI</Link>
+        <Link className="button button-secondary welcome-signin" href="/login">Sign in</Link>
+      </nav>
+      <section className="welcome-hero">
+        <div className="welcome-copy">
+          <p className="demo-badge"><Sparkles aria-hidden="true" size={15} /> Demo experience</p>
+          <h1>Your business, made <span>clearer.</span></h1>
+          <p>NiagaAI helps Malaysian small-business owners organise everyday money records and understand what comes next.</p>
+          <div className="welcome-actions">
+            <Link className="button button-primary" href="/signup">Get started <ArrowRight aria-hidden="true" size={18} /></Link>
+            <Link className="button button-secondary" href="/login">I already have a demo account</Link>
+          </div>
+          <small>No bank connection, real account, or payment details required.</small>
+        </div>
+        <div className="welcome-visual" aria-label="Sample cash overview">
+          <div className="mini-card mini-balance"><span>Cash balance</span><strong>RM 5,169.60</strong><small>Healthy cash flow</small></div>
+          <div className="mini-row"><span className="mini-icon">↑</span><div><strong>Nasi lemak sales</strong><small>Today · DuitNow</small></div><b>+ RM 480</b></div>
+          <div className="mini-row"><span className="mini-icon expense">↓</span><div><strong>Grocery purchase</strong><small>Yesterday · Cash</small></div><b>− RM 126.40</b></div>
+          <div className="visual-accent">Simple records.<br />Useful clarity.</div>
+        </div>
       </section>
-
-      <div className="content-grid">
-        <section className="panel activity-panel" aria-labelledby="activity-title">
-          <div className="panel-heading">
-            <div>
-              <p className="section-kicker">Latest updates</p>
-              <h2 id="activity-title">Recent activity</h2>
-            </div>
-            <button className="text-button" type="button">
-              View all <ArrowUpRight aria-hidden="true" size={16} />
-            </button>
-          </div>
-
-          <div className="activity-list">
-            {activities.map((activity) => (
-              <article className="activity-row" key={activity.title}>
-                <span className={`activity-icon ${activity.type}`}>
-                  <ReceiptText aria-hidden="true" size={18} />
-                </span>
-                <div className="activity-copy">
-                  <h3>{activity.title}</h3>
-                  <p>{activity.meta}</p>
-                </div>
-                <MoneyDisplay
-                  amount={activity.amount}
-                  className={activity.type}
-                  prefix={activity.type === "income" ? "+" : "−"}
-                />
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <aside className="panel next-step" aria-labelledby="next-step-title">
-          <span className="next-step-icon">
-            <FileText aria-hidden="true" size={22} />
-          </span>
-          <p className="section-kicker">Set up in minutes</p>
-          <h2 id="next-step-title">Your business profile is 80% ready</h2>
-          <p>
-            Add your tax identification number to prepare records for future
-            e-invoicing.
-          </p>
-          <div className="progress" aria-label="Business profile 80% complete">
-            <span style={{ width: "80%" }} />
-          </div>
-          <button className="button button-secondary" type="button">
-            Complete profile
-          </button>
-        </aside>
-      </div>
-
-      <p className="foundation-note">
-        Frontend foundation preview · Product features will be connected in the
-        next phases.
-      </p>
-    </AppShell>
+      <section className="benefits" aria-labelledby="benefits-title">
+        <div><p className="eyebrow">Built for everyday business</p><h2 id="benefits-title">Start with the essentials</h2></div>
+        <div className="benefit-grid">
+          {benefits.map(({ icon: Icon, title, text }) => <article key={title}><Icon aria-hidden="true" size={21} /><h3>{title}</h3><p>{text}</p></article>)}
+        </div>
+      </section>
+    </main>
   );
 }
