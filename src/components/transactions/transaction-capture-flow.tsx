@@ -6,8 +6,9 @@ import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { useCreateTransaction } from "@/hooks/use-transactions";
 import type { ReceiptExtraction } from "@/lib/openai/receipt-schema";
+import { useBusiness } from "@/hooks/use-business";
+import { useAuth } from "@/components/auth/auth-provider";
 import type { ValidTransactionFormValues } from "@/lib/validation/transaction";
-import { useNiagaStore } from "@/store/use-niaga-store";
 import type { Transaction, TransactionSourceType } from "@/types";
 import { DemoSourceInput } from "./demo-source-input";
 import { InputMethodSelector } from "./input-method-selector";
@@ -54,8 +55,8 @@ function makeDraft(source: TransactionSourceType): TransactionDraft {
 
 export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: TransactionSourceType }) {
   const createTransaction = useCreateTransaction();
-  const businessId = useNiagaStore((state) => state.business?.id) || "business_demo";
-  const userId = useNiagaStore((state) => state.user?.id) || "user_demo";
+  const businessId = useBusiness().data?.id || "business_demo";
+  const userId = useAuth().session?.user.id || "user_demo";
   const [source, setSource] = useState<TransactionSourceType | null>(initialMethod ?? null);
   const [stage, setStage] = useState<Stage>(initialMethod === "manual" ? "review" : initialMethod ? "input" : "select");
   const [draft, setDraft] = useState<TransactionDraft>(() => makeDraft(initialMethod ?? "manual"));

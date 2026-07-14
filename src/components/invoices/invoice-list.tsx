@@ -8,8 +8,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { useInvoices, useUpdateInvoice } from "@/hooks/use-invoices";
+import { useBusiness } from "@/hooks/use-business";
 import { getEffectiveInvoiceStatus, parseLocalDate } from "@/lib/invoices/calculations";
-import { useNiagaStore } from "@/store/use-niaga-store";
 import type { EffectiveInvoiceStatus, Invoice, InvoiceStatus } from "@/types";
 
 export const invoiceStatusLabels: Record<EffectiveInvoiceStatus, string> = {
@@ -22,7 +22,7 @@ const displayDate = (date: string) => dateFormatter.format(parseLocalDate(date))
 const noInvoices: Invoice[] = [];
 
 export function InvoiceList({ initialMessage = "" }: { initialMessage?: string }) {
-  const businessId = useNiagaStore((state) => state.business?.id) || "business_demo";
+  const businessId = useBusiness().data?.id || "business_demo";
   const invoicesQuery = useInvoices(businessId);
   const updateInvoice = useUpdateInvoice();
   const invoices = invoicesQuery.data ?? noInvoices;

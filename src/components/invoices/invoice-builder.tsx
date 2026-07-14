@@ -11,9 +11,9 @@ import { BrandMark } from "@/components/shared/brand-mark";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { PageHeader } from "@/components/shared/page-header";
 import { useCreateInvoice } from "@/hooks/use-invoices";
+import { useBusiness } from "@/hooks/use-business";
 import { calculateInvoiceTotals, getInvoiceReadinessChecks, parseLocalDate } from "@/lib/invoices/calculations";
 import { invoiceFormSchema, type InvoiceFormValues, type ValidInvoiceFormValues } from "@/lib/validation/invoice";
-import { useNiagaStore } from "@/store/use-niaga-store";
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { day: "numeric", month: "long", year: "numeric" });
 const isoDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -26,7 +26,7 @@ function makeItemId() {
 export function InvoiceBuilder() {
   const createInvoice = useCreateInvoice();
   const router = useRouter();
-  const business = useNiagaStore((state) => state.business);
+  const business = useBusiness().data ?? null;
   const today = new Date();
   const due = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 14);
   const { control, register, handleSubmit, formState: { errors, isSubmitting }, setError } = useForm<InvoiceFormValues, unknown, ValidInvoiceFormValues>({

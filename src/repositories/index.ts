@@ -1,4 +1,5 @@
 import { LocalBusinessRepository } from "./local/local-business-repository";
+import { LocalBusinessMembershipRepository } from "./local/local-business-membership-repository";
 import { LocalInvoiceRepository } from "./local/local-invoice-repository";
 import { LocalPaymentRepository } from "./local/local-payment-repository";
 import { LocalReminderRepository } from "./local/local-reminder-repository";
@@ -6,6 +7,7 @@ import { LocalTransactionRepository } from "./local/local-transaction-repository
 
 export const repositories = {
   businesses: new LocalBusinessRepository(),
+  memberships: new LocalBusinessMembershipRepository(),
   transactions: new LocalTransactionRepository(),
   invoices: new LocalInvoiceRepository(),
   payments: new LocalPaymentRepository(),
@@ -13,4 +15,4 @@ export const repositories = {
 };
 
 export * from "./contracts";
-export { LocalBusinessRepository, LocalInvoiceRepository, LocalPaymentRepository, LocalReminderRepository, LocalTransactionRepository };
+export { LocalBusinessMembershipRepository, LocalBusinessRepository, LocalInvoiceRepository, LocalPaymentRepository, LocalReminderRepository, LocalTransactionRepository };

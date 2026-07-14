@@ -22,12 +22,14 @@ import {
   quickActions,
 } from "@/data/mock-dashboard";
 import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
-import { useNiagaStore } from "@/store/use-niaga-store";
+import { useAuth } from "@/components/auth/auth-provider";
+import { useBusiness } from "@/hooks/use-business";
 
 function DashboardContent() {
-  const user = useNiagaStore((state) => state.user);
-  const business = useNiagaStore((state) => state.business);
-  const firstName = user?.name.split(" ")[0] || "there";
+  const { session } = useAuth();
+  const business = useBusiness().data;
+  const user = session?.user;
+  const firstName = user?.name?.split(" ")[0] || "there";
   const businessName = business?.name || "your business";
   const businessId = business?.id || "business_demo";
   const summary = useDashboardSummary(businessId);

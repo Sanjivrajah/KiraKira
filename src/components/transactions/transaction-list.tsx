@@ -8,8 +8,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { useTransactions, useUpdateTransaction } from "@/hooks/use-transactions";
+import { useBusiness } from "@/hooks/use-business";
 import { emptyTransactionFilters, filterAndSortTransactions, type TransactionFilters, type TransactionSort } from "@/lib/transactions/query";
-import { useNiagaStore } from "@/store/use-niaga-store";
 import type { Transaction, TransactionSourceType, TransactionStatus } from "@/types";
 
 export const sourceLabels: Record<TransactionSourceType, string> = {
@@ -31,7 +31,7 @@ function Counterparty({ transaction }: { transaction: Transaction }) {
 }
 
 export function TransactionList() {
-  const businessId = useNiagaStore((state) => state.business?.id) || "business_demo";
+  const businessId = useBusiness().data?.id || "business_demo";
   const transactionsQuery = useTransactions(businessId);
   const updateTransaction = useUpdateTransaction();
   const transactions = transactionsQuery.data ?? noTransactions;

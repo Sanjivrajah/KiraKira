@@ -1,5 +1,6 @@
 export const queryKeys = {
   business: (businessId: string) => ["business", businessId] as const,
+  businessForUser: (userId: string) => ["business", "user", userId] as const,
   transactions: {
     all: ["transactions"] as const,
     list: (businessId: string) => ["transactions", businessId, "list"] as const,

@@ -1,13 +1,12 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@/test/render";
-import { initialSession, useNiagaStore } from "@/store/use-niaga-store";
 import { SignInForm } from "./sign-in-form";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
 
 describe("SignInForm", () => {
-  beforeEach(() => useNiagaStore.setState({ ...initialSession, hasHydrated: true }));
+  beforeEach(() => localStorage.clear());
 
   it("shows accessible field errors for invalid values", async () => {
     render(<SignInForm />);
