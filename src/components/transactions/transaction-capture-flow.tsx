@@ -4,7 +4,7 @@ import { ArrowLeft, LockKeyhole } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
-import { useCreateTransaction } from "@/hooks/use-transactions";
+import { useCreateTransaction, useTransaction, useUpdateTransaction } from "@/hooks/use-transactions";
 import type { ReceiptExtraction } from "@/lib/openai/receipt-schema";
 import { useBusiness } from "@/hooks/use-business";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -90,12 +90,15 @@ function makeReceiptDraft(extraction: ReceiptExtraction): TransactionDraft {
   };
 }
 
-export function TransactionCaptureFlow({ initialMethod, demoScenario }: {
+export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTransactionId }: {
   initialMethod?: TransactionSourceType;
   demoScenario?: "ambiguous-receipt";
+  reviewTransactionId?: string;
 }) {
   const createTransaction = useCreateTransaction();
+  const updateTransaction = useUpdateTransaction();
   const businessId = useBusiness().data?.id || DEMO_BUSINESS.id;
+  const reviewedTransaction = useTransaction(businessId, reviewTransactionId);
   const userId = useAuth().session?.user.id || DEMO_USER.id;
   const [source, setSource] = useState<TransactionSourceType | null>(initialMethod ?? null);
   const [stage, setStage] = useState<Stage>(demoScenario ? "review" : initialMethod === "manual" ? "review" : initialMethod ? "input" : "select");
@@ -287,8 +290,12 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario }: {
 
   const confirm = async (values: ValidTransactionFormValues) => {
     setSaveError("");
+    if (reviewTransactionId && !reviewedTransaction.data) {
+      setSaveError("We couldn’t load this record. Return to Records and open it again.");
+      return;
+    }
     try {
-      const transaction = await createTransaction.mutateAsync({
+      const transactionValues = {
         businessId,
         createdBy: userId,
         type: values.type,
@@ -304,8 +311,15 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario }: {
         sourceType: values.source,
         status: "confirmed",
         items: [],
-      });
-      const reviewedAt = transaction.createdAt;
+      } satisfies Omit<Transaction, "id" | "createdAt" | "updatedAt">;
+      const transaction = reviewedTransaction.data
+        ? await updateTransaction.mutateAsync({
+            ...reviewedTransaction.data,
+            ...transactionValues,
+            sourceDocumentId: reviewedTransaction.data.sourceDocumentId,
+          })
+        : await createTransaction.mutateAsync(transactionValues);
+      const reviewedAt = reviewedTransaction.data ? transaction.updatedAt : transaction.createdAt;
       const approvedRun = activeProvenance
         ? approveExtractionRun(activeProvenance.extractionRun, {
             type: values.type,
@@ -362,7 +376,7 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario }: {
         {stage === "input" && source === "voice" ? <VoiceRecorder onBack={restart} onExtracted={reviewVoiceTransaction} /> : null}
         {stage === "input" && (source === "csv" || source === "bank_statement" || source === "whatsapp") ? <DemoSourceInput onBack={restart} onContinue={() => setStage("processing")} onImported={reviewImportedTransactions} source={source} /> : null}
         {stage === "processing" ? <ProcessingState onCancel={restart} onComplete={() => setStage("review")} /> : null}
-        {stage === "review" ? <TransactionReviewForm batchNotice={batchNotice || undefined} batchProgress={source === "receipt" && receiptExtractions.length > 1 ? { current: receiptIndex + 1, total: receiptExtractions.length, label: "receipt" } : importDrafts.length > 1 ? { current: importIndex + 1, total: importDrafts.length, label: "transaction" } : undefined} disclosure={reviewDisclosure} draft={draft} onBack={restart} onConfirm={confirm} onReject={restart} reviewHints={reviewHints} saveError={saveError} saving={createTransaction.isPending} sourceEvidence={sourceEvidence} /> : null}
+        {stage === "review" ? <TransactionReviewForm batchNotice={batchNotice || undefined} batchProgress={source === "receipt" && receiptExtractions.length > 1 ? { current: receiptIndex + 1, total: receiptExtractions.length, label: "receipt" } : importDrafts.length > 1 ? { current: importIndex + 1, total: importDrafts.length, label: "transaction" } : undefined} disclosure={reviewDisclosure} draft={draft} onBack={restart} onConfirm={confirm} onReject={restart} reviewHints={reviewHints} saveError={saveError} saving={createTransaction.isPending || updateTransaction.isPending || (Boolean(reviewTransactionId) && reviewedTransaction.isPending)} sourceEvidence={sourceEvidence} /> : null}
         {stage === "success" && saved ? <TransactionSuccessState approvalTimeline={approvalTimeline} onAddAnother={restart} onNextItem={receiptExtractions.length ? reviewNextReceipt : importDrafts.length ? reviewNextImport : undefined} remainingItems={receiptExtractions.length ? Math.max(0, receiptExtractions.length - receiptIndex - 1) : Math.max(0, importDrafts.length - importIndex - 1)} nextItemLabel={receiptExtractions.length ? "receipt" : "transaction"} transaction={saved} /> : null}
       </div>
     </>

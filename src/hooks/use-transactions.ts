@@ -22,13 +22,15 @@ export function useTransactions(businessId: string) {
   });
 }
 
-export function useTransaction(businessId: string, transactionId: string) {
+export function useTransaction(businessId: string, transactionId?: string) {
   return useQuery({
-    queryKey: queryKeys.transactions.detail(businessId, transactionId),
+    queryKey: queryKeys.transactions.detail(businessId, transactionId ?? "pending-review"),
     queryFn: async () => {
+      if (!transactionId) return null;
       await services.transactions.initializeDemo(businessId);
       return services.transactions.getById(businessId, transactionId);
     },
+    enabled: Boolean(transactionId),
   });
 }
 

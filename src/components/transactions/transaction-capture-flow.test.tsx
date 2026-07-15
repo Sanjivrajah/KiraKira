@@ -29,13 +29,15 @@ describe("TransactionCaptureFlow", () => {
   });
 
   it("runs the deterministic evidence correction through approval and audit history", async () => {
-    render(<TransactionCaptureFlow demoScenario="ambiguous-receipt" initialMethod="receipt" />);
+    render(<TransactionCaptureFlow demoScenario="ambiguous-receipt" initialMethod="receipt" reviewTransactionId="txn_002" />);
 
     expect(screen.getByText((content) => content.includes("TOTAL RM 86.40"))).toBeInTheDocument();
     expect(screen.getByLabelText("Amount (RM)")).toHaveValue(68.4);
 
     fireEvent.change(screen.getByLabelText("Amount (RM)"), { target: { value: "86.40" } });
-    fireEvent.click(screen.getByRole("button", { name: "Approve record" }));
+    const approveButton = screen.getByRole("button", { name: "Approve record" });
+    await waitFor(() => expect(approveButton).toBeEnabled());
+    fireEvent.click(approveButton);
 
     expect(await screen.findByRole("heading", { name: "Record approved" })).toBeInTheDocument();
     expect(screen.getByText("Amount corrected")).toBeInTheDocument();
@@ -45,5 +47,8 @@ describe("TransactionCaptureFlow", () => {
     expect(JSON.parse(localStorage.getItem(FRONTEND_STORAGE_KEYS.extractionRuns) || "[]")).toEqual([
       expect.objectContaining({ status: "approved", reviewedBy: "demo-lina", changedFields: [expect.objectContaining({ fieldPath: "total.amount" })] }),
     ]);
+    const records = await repositories.transactions.list({ businessId: "business_demo" });
+    expect(records).toHaveLength(6);
+    expect(records.find((record) => record.id === "txn_002")).toMatchObject({ status: "confirmed", total: 86.4 });
   });
 });
