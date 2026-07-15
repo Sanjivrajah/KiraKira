@@ -1,12 +1,8 @@
 import {
-  Boxes,
+  Building2,
   FileText,
-  Gauge,
-  HandCoins,
-  Landmark,
+  Inbox,
   ReceiptText,
-  Settings,
-  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 
@@ -19,14 +15,10 @@ export interface NavigationItem {
 }
 
 export const primaryNavigation: NavigationItem[] = [
-  { label: "Dashboard", shortLabel: "Home", href: "/dashboard", icon: Gauge },
-  { label: "Transactions", shortLabel: "Records", href: "/transactions", icon: ReceiptText },
-  { label: "Invoices", href: "/invoices", icon: FileText },
-  { label: "Payment reminders", href: "/reminders", icon: HandCoins },
-  { label: "Cash flow", href: "/cash-flow", icon: TrendingUp, availability: "preview" },
-  { label: "Loan readiness", href: "/loan-readiness", icon: Landmark, availability: "preview" },
-  { label: "Inventory", href: "/inventory", icon: Boxes, availability: "preview" },
-  { label: "Settings", href: "/settings", icon: Settings, availability: "preview" },
+  { label: "Evidence inbox", shortLabel: "Evidence", href: "/dashboard", icon: Inbox },
+  { label: "Records", href: "/transactions", icon: ReceiptText },
+  { label: "e-Invoice preparation", shortLabel: "e-Invoice", href: "/invoices", icon: FileText },
+  { label: "Business details", shortLabel: "Business", href: "/settings", icon: Building2 },
 ];
 
 export function isNavigationItemActive(pathname: string, href: string) {

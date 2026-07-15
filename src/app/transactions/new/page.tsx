@@ -10,11 +10,19 @@ export default async function NewTransactionPage({ searchParams }: PageProps<"/t
   const requestedMethod = typeof query.method === "string" && sources.has(query.method as TransactionSourceType)
     ? query.method as TransactionSourceType
     : undefined;
+  const demoScenario = requestedMethod === "receipt" && query.demo === "ambiguous"
+    ? "ambiguous-receipt" as const
+    : undefined;
+  const reviewTransactionId = typeof query.reviewId === "string"
+    ? query.reviewId
+    : demoScenario
+      ? "txn_002"
+      : undefined;
 
   return (
     <AuthGate gate="dashboard">
       <AppShell>
-        <TransactionCaptureFlow initialMethod={requestedMethod} />
+        <TransactionCaptureFlow demoScenario={demoScenario} initialMethod={requestedMethod} reviewTransactionId={reviewTransactionId} />
       </AppShell>
     </AuthGate>
   );

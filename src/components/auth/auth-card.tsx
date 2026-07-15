@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { BrandWordmark } from "@/components/shared/brand-mark";
+import { authMode } from "@/services/auth";
 
 export function AuthCard({ eyebrow, title, description, children }: {
   eyebrow: string;
@@ -19,7 +20,7 @@ export function AuthCard({ eyebrow, title, description, children }: {
         <p className="auth-description">{description}</p>
         {children}
       </section>
-      <p className="demo-footnote">Demo experience · No real account or password is created.</p>
+      {authMode === "demo" ? <p className="demo-footnote">Demo experience · No real account or password is created.</p> : null}
     </main>
   );
 }

@@ -7,23 +7,28 @@ import { useForm } from "react-hook-form";
 import { FieldError } from "@/components/forms/field-error";
 import { FormField } from "@/components/forms/form-field";
 import { signUpSchema, type SignUpValues } from "@/lib/validation/auth";
+import { AuthServiceError } from "@/services/auth";
 import { useAuth } from "./auth-provider";
 import { PasswordField } from "./password-field";
 
 export function SignUpForm() {
-  const { signUp } = useAuth();
-  const [success, setSuccess] = useState(false);
+  const { mode, signUp } = useAuth();
+  const [message, setMessage] = useState<{ tone: "error" | "success"; text: string } | null>(null);
   const { register, handleSubmit, resetField, formState: { errors, isSubmitting } } = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
     defaultValues: { name: "", email: "", password: "", confirmPassword: "", terms: false },
   });
 
   const submit = handleSubmit(async (values) => {
-    setSuccess(false);
-    await signUp({ name: values.name, email: values.email, password: values.password });
-    resetField("password");
-    resetField("confirmPassword");
-    setSuccess(true);
+    setMessage(null);
+    try {
+      await signUp({ name: values.name, email: values.email, password: values.password });
+      resetField("password");
+      resetField("confirmPassword");
+      setMessage({ tone: "success", text: mode === "supabase" ? "Account created. Opening your workspace…" : "Account created. Let’s set up your business…" });
+    } catch (error) {
+      setMessage({ tone: "error", text: error instanceof AuthServiceError ? error.message : "We could not create the account. Check the details and try again." });
+    }
   });
 
   return (
@@ -41,12 +46,12 @@ export function SignUpForm() {
       <PasswordField autoComplete="new-password" error={errors.confirmPassword?.message} label="Confirm password" maxLength={128} {...register("confirmPassword")} />
       <div className="checkbox-field">
         <input aria-describedby={errors.terms ? "terms-error" : undefined} aria-invalid={errors.terms ? true : undefined} id="terms" type="checkbox" {...register("terms")} />
-        <label htmlFor="terms">I understand this is a browser-only demo and does not create a real account.</label>
+        <label htmlFor="terms">{mode === "supabase" ? "I understand this account is for the NiagaAI prototype workspace." : "I understand this is a browser-only demo and does not create a real account."}</label>
       </div>
       <FieldError id="terms-error" message={errors.terms?.message} />
-      {success ? <p className="form-message success" aria-live="polite">Account created. Let’s set up your business…</p> : null}
+      {message ? <p className={`form-message ${message.tone}`} aria-live="polite">{message.text}</p> : null}
       <button className="button button-primary button-full" disabled={isSubmitting} type="submit">
-        {isSubmitting ? "Creating account…" : "Create demo account"}
+        {isSubmitting ? "Creating account…" : mode === "supabase" ? "Create account" : "Create demo account"}
       </button>
       <p className="auth-switch">Already have a demo account? <Link href="/login">Sign in</Link></p>
     </form>

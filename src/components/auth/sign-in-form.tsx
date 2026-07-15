@@ -6,12 +6,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { FormField } from "@/components/forms/form-field";
 import { signInSchema, type SignInValues } from "@/lib/validation/auth";
+import { AuthServiceError } from "@/services/auth";
 import { useAuth } from "./auth-provider";
-import { MockAuthError } from "@/services/auth/mock-auth-service";
 import { PasswordField } from "./password-field";
 
 export function SignInForm() {
-  const { signIn } = useAuth();
+  const { mode, signIn } = useAuth();
   const [message, setMessage] = useState<{ tone: "error" | "success"; text: string } | null>(null);
   const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
@@ -24,7 +24,7 @@ export function SignInForm() {
       await signIn(values);
       setMessage({ tone: "success", text: "Signed in. Opening your workspace…" });
     } catch (error) {
-      setMessage({ tone: "error", text: error instanceof MockAuthError ? error.message : "We could not sign in to this demo account." });
+      setMessage({ tone: "error", text: error instanceof AuthServiceError ? error.message : "We could not sign in. Check the details and try again." });
     }
   });
 
@@ -50,18 +50,20 @@ export function SignInForm() {
       <button className="button button-primary button-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? "Signing in…" : "Sign in"}
       </button>
-      <button
-        className="demo-helper"
-        disabled={isSubmitting}
-        onClick={() => {
-          setValue("email", "lina@niagaai.demo", { shouldValidate: true });
-          setValue("password", "demo1234", { shouldValidate: true });
-        }}
-        type="button"
-      >
-        Fill demo details
-      </button>
-      <p className="auth-switch">New to NiagaAI? <Link href="/signup">Create a demo account</Link></p>
+      {mode === "demo" ? (
+        <button
+          className="demo-helper"
+          disabled={isSubmitting}
+          onClick={() => {
+            setValue("email", "lina@niagaai.demo", { shouldValidate: true });
+            setValue("password", "demo1234", { shouldValidate: true });
+          }}
+          type="button"
+        >
+          Fill demo details
+        </button>
+      ) : null}
+      <p className="auth-switch">New to NiagaAI? <Link href="/signup">Create an account</Link></p>
     </form>
   );
 }

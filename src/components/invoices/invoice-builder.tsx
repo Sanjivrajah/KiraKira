@@ -1,11 +1,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, Check, ChevronRight, Circle, Plus, Save, Trash2, UserPlus } from "lucide-react";
+import { AlertCircle, ChevronRight, Circle, Plus, Save, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
-import type { CommercialDocument, Party } from "@/domain";
+import { partySchema, type CommercialDocument, type Party } from "@/domain";
 import { FormField } from "@/components/forms/form-field";
 import { SelectField } from "@/components/forms/select-field";
 import { TextareaField } from "@/components/forms/textarea-field";
@@ -15,10 +15,13 @@ import { DEMO_BUSINESS, DEMO_CUSTOMERS } from "@/data/demo";
 import { FRONTEND_STORAGE_KEYS } from "@/frontend/storage";
 import {
   GENERAL_PUBLIC_PARTY_VIEW_MODEL,
+  businessOnboardingToDomain,
+  businessOnboardingViewModelSchema,
+  createInvoicePreparationResult,
   invoiceBuilderToDomain,
+  invoicePreparationFieldTarget,
+  invoicePreparationFixLabel,
   partyEditorToDomain,
-  readinessGroupReady,
-  type FrontendReadinessViewModel,
   type PartyEditorViewModel,
 } from "@/frontend/view-models";
 import { useBusiness } from "@/hooks/use-business";
@@ -40,22 +43,23 @@ function initialParties(): Party[] {
   if (stored.length) return stored;
   const now = "2026-07-15T00:00:00.000Z";
   return [
-    ...DEMO_CUSTOMERS.map((customer) => partyEditorToDomain({
+    ...DEMO_CUSTOMERS.map((customer) => partySchema.parse({
       id: customer.id,
       kind: "business",
       legalName: customer.name,
-      tin: customer.tin || "EI00000000010",
-      registrationScheme: "brn",
-      registrationValue: "NA",
-      email: customer.email || "",
-      phone: "",
-      addressLine1: "Address pending review",
-      addressLine2: "",
-      city: "City pending review",
-      postcode: "",
-      stateCode: "17",
-      countryCode: "MY",
-    }, { id: customer.id, now })),
+      roles: ["buyer", "customer"],
+      taxIdentifiers: customer.tin ? [{ scheme: "tin", value: customer.tin, issuingCountryCode: "MY" }] : [],
+      registrationIdentifiers: [{ scheme: "brn", value: "NA", issuingCountryCode: "MY" }],
+      ...(customer.email ? { email: customer.email } : {}),
+      billingAddress: {
+        addressLines: ["Address pending review"],
+        city: "City pending review",
+        stateCode: "17",
+        countryCode: "MY",
+      },
+      createdAt: now,
+      updatedAt: now,
+    })),
     partyEditorToDomain(GENERAL_PUBLIC_PARTY_VIEW_MODEL, { now }),
   ];
 }
@@ -109,28 +113,96 @@ export function InvoiceBuilder({ now }: { now: string }) {
   }));
   const totals = calculateInvoiceTotals(items);
   const adjustmentDocument = Boolean(watched.documentType && !["invoice", "self_billed_invoice"].includes(watched.documentType));
-  const readiness: FrontendReadinessViewModel = {
-    bookkeeping: [
-      { id: "seller-name", label: "Seller legal name", ready: Boolean(business?.legalName || business?.name), severity: "error", fieldPath: "business.legalName", message: "Complete the business legal name in onboarding." },
-      { id: "seller-registration", label: "Seller registration", ready: Boolean(business?.registrationNumber), severity: "warning", fieldPath: "business.registrationNumber", message: "Add the seller registration number before submission." },
-    ],
-    invoice: [
-      { id: "buyer", label: "Customer details", ready: Boolean(selectedBuyer), severity: "error", fieldPath: "buyerId", message: "Choose or create a customer." },
-      { id: "line-description", label: "Item descriptions", ready: items.length > 0 && items.every((item) => item.description.trim().length >= 2), severity: "error", fieldPath: "items.0.description", message: "Describe every invoice item." },
-      { id: "original-reference", label: "Original document reference", ready: !adjustmentDocument || Boolean(watched.originalDocumentReference?.trim()), severity: "error", fieldPath: "originalDocumentReference", message: "Adjustment documents require an original reference." },
-    ],
-    myInvoisSubmission: [
-      { id: "buyer-tin", label: "Buyer TIN", ready: Boolean(selectedBuyer?.taxIdentifiers.some((identifier) => identifier.scheme === "tin")), severity: "error", fieldPath: "buyerId", message: "Choose a buyer with a TIN." },
-      { id: "buyer-address", label: "Customer address", ready: Boolean(selectedBuyer?.billingAddress), severity: "error", fieldPath: "buyerId", message: "Add the customer’s billing address." },
-      { id: "classification", label: "Classification codes", ready: Boolean(watched.items?.every((item) => item?.classificationCode)), severity: "error", fieldPath: "items.0.classificationCode", message: "Choose a classification for every item." },
-      { id: "tax-type", label: "Tax type codes", ready: Boolean(watched.items?.every((item) => item?.taxTypeCode)), severity: "error", fieldPath: "items.0.taxTypeCode", message: "Choose a tax type for every item." },
-    ],
+  const sourceBusiness = business ?? DEMO_BUSINESS;
+  const businessInput = businessOnboardingViewModelSchema.safeParse({
+    legalName: sourceBusiness.legalName || sourceBusiness.name,
+    tradingName: sourceBusiness.tradingName || sourceBusiness.name,
+    businessType: sourceBusiness.type,
+    entityType: sourceBusiness.entityType || "sole_proprietorship",
+    preferredLanguage: sourceBusiness.preferredLanguage,
+    registrationScheme: sourceBusiness.registrationScheme || "brn",
+    registrationNumber: sourceBusiness.registrationNumber || "",
+    tin: sourceBusiness.tin || "",
+    sstRegistration: sourceBusiness.sstRegistration || "",
+    msicCode: sourceBusiness.msicCode || "",
+    businessActivityDescription: sourceBusiness.businessActivityDescription || "",
+    addressLine1: sourceBusiness.addressLine1 || "",
+    addressLine2: sourceBusiness.addressLine2 || "",
+    city: sourceBusiness.city || "",
+    postcode: sourceBusiness.postcode || "",
+    stateCode: sourceBusiness.stateCode || "17",
+    countryCode: sourceBusiness.countryCode || "MY",
+    email: sourceBusiness.email || "",
+    phone: sourceBusiness.phone || "",
+  });
+  let complianceBusiness;
+  try {
+    complianceBusiness = businessInput.success
+      ? businessOnboardingToDomain(businessInput.data, {
+        id: sourceBusiness.id,
+        now,
+        createdAt: sourceBusiness.createdAt,
+      })
+      : undefined;
+  } catch {
+    complianceBusiness = undefined;
+  }
+  const draftInput = {
+    documentType: watched.documentType || "invoice",
+    invoiceNumber: watched.invoiceNumber || "",
+    issueDate: watched.issueDate || "",
+    issueTime: watched.issueTime || "09:00",
+    dueDate: watched.dueDate || "",
+    buyerId: watched.buyerId || "",
+    originalDocumentReference: watched.originalDocumentReference || "",
+    paymentModeCode: watched.paymentModeCode || "03",
+    bankAccountIdentifier: watched.bankAccountIdentifier || "",
+    paymentTerms: watched.paymentTerms || "",
+    notes: watched.notes || "",
+    lines: (watched.items ?? []).map((item, index) => ({
+      id: item?.id || fields[index]?.id || `item_${index}`,
+      description: item?.description || "",
+      quantity: String(item?.quantity ?? ""),
+      unitPrice: String(item?.unitPrice ?? ""),
+      classificationCode: item?.classificationCode || "",
+      unitCode: item?.unitCode || "",
+      taxTypeCode: item?.taxTypeCode || "",
+      taxRate: String(item?.taxRate ?? ""),
+      exemptionReason: item?.exemptionReason || "",
+      discountAmount: String(item?.discountAmount ?? ""),
+      chargeAmount: String(item?.chargeAmount ?? ""),
+    })),
   };
+  let preparationResult;
+  try {
+    const document = invoiceBuilderToDomain(draftInput, {
+      id: `document_check_${now.replace(/\W/g, "")}`,
+      businessId: sourceBusiness.id,
+      supplierPartyId: `party_${sourceBusiness.id}`,
+      now,
+    });
+    preparationResult = createInvoicePreparationResult({
+      document,
+      business: complianceBusiness,
+      buyer: selectedBuyer,
+      now,
+    });
+  } catch {
+    preparationResult = undefined;
+  }
+  const recordIssues = preparationResult?.allIssues.filter((issue) => issue.category !== "myinvois") ?? [];
+  const eInvoiceIssues = preparationResult?.allIssues.filter((issue) => issue.category === "myinvois") ?? [];
 
   const focusField = (fieldPath: string) => {
     const input = document.querySelector<HTMLElement>(`[name="${fieldPath}"]`);
+    input?.closest("details")?.setAttribute("open", "");
     input?.focus();
     input?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  };
+
+  const fixPreparationIssue = (fieldPath: string | undefined) => {
+    if (!fieldPath) return router.push("/onboarding");
+    focusField(fieldPath);
   };
 
   const createBuyer = () => {
@@ -283,16 +355,25 @@ export function InvoiceBuilder({ now }: { now: string }) {
 
       <aside className="invoice-preview-column">
         <section className="invoice-preview panel" aria-label="Invoice preview"><p className="section-kicker">Live preview</p><h2>{watched.invoiceNumber || "New document"}</h2><p><strong>Buyer:</strong> {selectedBuyer?.legalName || "Choose a buyer"}</p><div className="preview-items">{items.map((item, index) => <div className="preview-item-row" key={fields[index]?.id}><span>{item.description || `Item ${index + 1}`}</span><MoneyDisplay amount={item.quantity * item.unitPrice - item.discountAmount + item.chargeAmount} /></div>)}</div><dl className="invoice-totals"><div><dt>Subtotal</dt><dd><MoneyDisplay amount={totals.subtotal} /></dd></div><div><dt>Tax</dt><dd><MoneyDisplay amount={totals.tax} /></dd></div><div className="invoice-total"><dt>Total</dt><dd><MoneyDisplay amount={totals.total} /></dd></div></dl></section>
-        <section className="readiness-card panel" aria-labelledby="readiness-heading"><p className="section-kicker">7 · Final check</p><h2 id="readiness-heading">Before you save</h2>
-          {(Object.entries(readiness) as Array<[keyof FrontendReadinessViewModel, FrontendReadinessViewModel[keyof FrontendReadinessViewModel]]>).map(([key, actions]) => {
-            const prerequisites = key === "myInvoisSubmission"
-              ? [...readiness.bookkeeping, ...readiness.invoice]
-              : [];
-            const groupReady = readinessGroupReady(actions, prerequisites);
-            const groupLabel = key === "bookkeeping" ? "Business details" : key === "invoice" ? "Document details" : "MyInvois details";
-            return <div className="readiness-group" key={key}><h3>{groupLabel} <span>{groupReady ? "Ready" : "Needs action"}</span></h3>{key === "myInvoisSubmission" && !readinessGroupReady(prerequisites) ? <p className="readiness-prerequisite">Complete the business and document details above first.</p> : null}<ul>{actions.map((action) => <li key={action.id}>{action.ready ? <Check aria-hidden="true" size={15} /> : <Circle aria-hidden="true" size={14} />}<button disabled={action.ready || action.fieldPath.startsWith("business.")} onClick={() => focusField(action.fieldPath)} type="button"><strong>{action.label}</strong>{!action.ready ? <small>{action.message}</small> : null}</button></li>)}</ul></div>;
-          })}
-          <p className="readiness-disclosure">This check is only a guide. Nothing has been sent to MyInvois.</p>
+        <section className="readiness-card panel" aria-labelledby="readiness-heading"><p className="section-kicker">7 · Preparation checks</p><h2 id="readiness-heading">e-Invoice preparation</h2>
+          <div className="preparation-status-list" aria-label="Preparation status">
+            <div><span>Owner approval</span><strong>Pending</strong></div>
+            <div><span>Niaga record checks</span><strong>{preparationResult ? (recordIssues.length ? "Needs attention" : "Passed") : "Waiting for details"}</strong></div>
+            <div><span>e-Invoice preparation</span><strong>{preparationResult ? (eInvoiceIssues.length ? `${eInvoiceIssues.length} to fix` : "Niaga checks passed") : "Waiting for details"}</strong></div>
+            <div><span>MyInvois status</span><strong>Not submitted</strong></div>
+          </div>
+          {!preparationResult ? <p className="readiness-prerequisite">Complete the required invoice fields to run Niaga checks.</p> : null}
+          {preparationResult && !preparationResult.allIssues.length ? <div className="preparation-pass"><ShieldCheck aria-hidden="true" size={18} /><div><strong>Niaga checks passed</strong><span>No issues found by the current internal rules.</span></div></div> : null}
+          {preparationResult?.allIssues.length ? <ul className="preparation-issue-list">{preparationResult.allIssues.map((issue) => {
+            const target = invoicePreparationFieldTarget(issue);
+            return <li className={`preparation-issue ${issue.severity}`} key={`${issue.ruleId}-${issue.fieldPath}`}>
+              {issue.severity === "error" ? <AlertCircle aria-hidden="true" size={17} /> : <Circle aria-hidden="true" size={16} />}
+              <div><strong>Niaga check</strong><p>{issue.message}</p><small>Why it matters: this field supports an accurate record and e-Invoice preparation.</small><small>Reference: {issue.sourceReferenceLabel}</small>
+                <button onClick={() => fixPreparationIssue(target)} type="button">{invoicePreparationFixLabel(issue)}</button>
+              </div>
+            </li>;
+          })}</ul> : null}
+          <p className="readiness-disclosure"><strong>MyInvois status: Not submitted.</strong> These are Niaga’s internal preparation checks, not official MyInvois validation.</p>
         </section>
       </aside>
     </form>

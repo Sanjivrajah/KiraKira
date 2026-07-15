@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useQueryClient } from "@tanstack/react-query";
 import { clearQueryCache } from "@/lib/query/query-client";
 import { services } from "@/services";
-import { mockAuthService } from "@/services/auth/mock-auth-service";
+import { authMode, authService, type AuthMode } from "@/services/auth";
 import { useNiagaStore } from "@/store/use-niaga-store";
 import type { AuthService, AuthSession, SignInInput, SignUpInput } from "@/types";
 
@@ -12,6 +12,7 @@ export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
 interface AuthContextValue {
   status: AuthStatus;
+  mode: AuthMode;
   session: AuthSession | null;
   signIn(input: SignInInput): Promise<void>;
   signUp(input: SignUpInput): Promise<void>;
@@ -23,7 +24,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 type ResettableAuthService = AuthService & { reset?: () => Promise<void> };
 
-export function AuthProvider({ children, service = mockAuthService }: { children: ReactNode; service?: ResettableAuthService }) {
+export function AuthProvider({ children, service = authService, mode = authMode }: { children: ReactNode; service?: ResettableAuthService; mode?: AuthMode }) {
   const queryClient = useQueryClient();
   const resetTemporaryUi = useNiagaStore((state) => state.resetTemporaryUi);
   const [session, setSession] = useState<AuthSession | null>(null);
@@ -59,7 +60,7 @@ export function AuthProvider({ children, service = mockAuthService }: { children
     else await service.signOut();
   }, [queryClient, resetTemporaryUi, service]);
 
-  const value = useMemo(() => ({ status, session, signIn, signUp, signOut, resetDemo }), [resetDemo, session, signIn, signOut, signUp, status]);
+  const value = useMemo(() => ({ status, mode, session, signIn, signUp, signOut, resetDemo }), [mode, resetDemo, session, signIn, signOut, signUp, status]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

@@ -57,16 +57,33 @@ describe("Session 7 invoice builder", () => {
     expect(screen.getByLabelText("Exemption reason")).toHaveValue("Approved exemption");
   });
 
-  it("navigates from a readiness error to the exact field", () => {
+  it("navigates from a Niaga check to the exact field", () => {
     render(<InvoiceBuilder now="2026-07-15T09:00:00.000Z" />);
-    fireEvent.click(screen.getByRole("button", { name: /Item descriptions/ }));
-    expect(screen.getByLabelText("Description")).toHaveFocus();
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Consulting service" } });
+    fireEvent.click(screen.getByText("Tax, classification and adjustments"));
+    fireEvent.change(screen.getByLabelText("Classification code"), { target: { value: "999" } });
+    fireEvent.click(screen.getByRole("button", { name: "Choose classification" }));
+    expect(screen.getByLabelText("Classification code")).toHaveFocus();
   });
 
-  it("does not claim MyInvois readiness while invoice blockers remain", () => {
+  it("separates internal preparation checks from official MyInvois status", () => {
     render(<InvoiceBuilder now="2026-07-15T09:00:00.000Z" />);
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Consulting service" } });
 
-    expect(screen.getByRole("heading", { name: /MyInvois details Needs action/ })).toBeInTheDocument();
-    expect(screen.getByText("Complete the business and document details above first.")).toBeInTheDocument();
+    expect(screen.getAllByText("MyInvois status").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Not submitted").length).toBeGreaterThan(0);
+    expect(screen.getByText(/internal preparation checks, not official MyInvois validation/)).toBeInTheDocument();
+    expect(screen.getAllByText("Niaga check").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Reference: MyInvois/).length).toBeGreaterThan(0);
+  });
+
+  it("offers an exact customer fix when a buyer TIN is missing", () => {
+    render(<InvoiceBuilder now="2026-07-15T09:00:00.000Z" />);
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Catering service" } });
+    fireEvent.change(screen.getByLabelText("Customer"), { target: { value: "customer_suria_events" } });
+
+    expect(screen.getByText("Buyer TIN is required for this scenario.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Check customer" }));
+    expect(screen.getByLabelText("Customer")).toHaveFocus();
   });
 });

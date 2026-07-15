@@ -8,7 +8,9 @@ import {
   financialTransactionSchema,
   transactionLineSchema,
   type EInvoiceTreatment,
+  type ExtractionRun,
   type FinancialTransaction,
+  type TransactionSourceLink,
 } from "@/domain";
 import type { TransactionSourceType } from "@/types";
 
@@ -30,6 +32,8 @@ export function transactionReviewToDomain(input: TransactionReviewViewModel, met
   businessId: string;
   userId: string;
   now: string;
+  sourceLinks?: TransactionSourceLink[];
+  extractionRun?: ExtractionRun;
 }): FinancialTransaction {
   if (!input.amount || input.amount <= 0) throw new Error("Transaction amount must be greater than zero.");
   const currency = currencyCodeSchema.parse("MYR");
@@ -51,7 +55,8 @@ export function transactionReviewToDomain(input: TransactionReviewViewModel, met
     totalExcludingTax,
     totalIncludingTax,
   });
-  const confidenceValues = Object.values(input.fieldConfidence);
+  const confidenceValues = metadata.extractionRun?.fields.map((field) => field.confidence)
+    ?? Object.values(input.fieldConfidence);
   const confidenceScore = confidenceValues.length
     ? confidenceValues.reduce((sum, confidence) => sum + confidence, 0) / confidenceValues.length
     : undefined;
@@ -63,7 +68,11 @@ export function transactionReviewToDomain(input: TransactionReviewViewModel, met
     transactionDate: input.date,
     accountingDate: input.date,
     counterpartyNameSnapshot: input.counterpartyName || undefined,
-    sourceLinks: [],
+    sourceLinks: metadata.sourceLinks ?? (metadata.extractionRun ? [{
+      sourceDocumentId: metadata.extractionRun.sourceDocumentId,
+      extractionRunId: metadata.extractionRun.id,
+      relationship: "primary",
+    }] : []),
     description: input.description,
     categoryCode: input.category,
     currency,

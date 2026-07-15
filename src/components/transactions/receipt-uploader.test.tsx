@@ -21,6 +21,23 @@ describe("ReceiptUploader hardening", () => {
     const input = container.querySelector("input[type='file']") as HTMLInputElement;
 
     expect(input).toHaveAttribute("multiple");
-    expect(screen.getByRole("button", { name: /Extract receipts/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Prepare receipts/ })).toBeDisabled();
+  });
+
+  it("opens the deterministic sample without calling an external provider", () => {
+    const onExtracted = vi.fn();
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    render(<ReceiptUploader onBack={vi.fn()} onExtracted={onExtracted} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Use sample evidence" }));
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(onExtracted).toHaveBeenCalledWith(expect.objectContaining({
+      failures: [],
+      extractions: [expect.objectContaining({
+        total: expect.objectContaining({ value: 68.4, evidenceText: "TOTAL RM 86.40" }),
+      })],
+    }));
+    fetchSpy.mockRestore();
   });
 });

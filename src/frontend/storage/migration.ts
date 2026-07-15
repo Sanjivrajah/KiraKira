@@ -28,6 +28,8 @@ export const FRONTEND_STORAGE_KEYS = {
   parties: "niagaai_domain_parties",
   transactions: "niagaai_domain_transactions",
   documents: "niagaai_domain_documents",
+  sourceDocuments: "niagaai_domain_source_documents",
+  extractionRuns: "niagaai_domain_extraction_runs",
 } as const;
 
 export interface FrontendMigrationReport {
@@ -256,4 +258,3 @@ export function runFrontendStorageMigration(storage: KeyValueStorage = browserSt
 export function clearFrontendDomainStorage(storage: KeyValueStorage = browserStorage): void {
   Object.values(FRONTEND_STORAGE_KEYS).forEach((key) => storage.remove(key));
 }
-

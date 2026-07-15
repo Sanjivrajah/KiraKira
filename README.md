@@ -18,6 +18,7 @@ Create invoice → Check totals and readiness → Save locally → Preview remin
 Phase 0 through Phase 2 of `plan_frontend_first.md` are complete.
 
 - Responsive public welcome, sign-in, sign-up, onboarding, and dashboard routes
+- Supabase Auth support with browser-local demo auth fallback when Supabase env vars are absent
 - React Hook Form and Zod validation with accessible field feedback
 - A versioned Zustand session persisted to local storage
 - Hydration-aware client route guards
@@ -37,7 +38,7 @@ Phase 0 through Phase 2 of `plan_frontend_first.md` are complete.
 - Transparent frontend-only e-invoice readiness checks
 - Upcoming and overdue reminder previews with locally persisted reminder history
 
-Authentication, database persistence, MyInvois submission, and production financial storage remain out of scope. Receipt images and PDF bank statements use the configured OpenAI API. Voice notes use ElevenLabs for transcription and OpenAI for structured transaction extraction. CSV imports are parsed locally without an AI call.
+Database persistence, MyInvois submission, and production financial storage remain out of scope. Receipt images and PDF bank statements use the configured OpenAI API. Voice notes use ElevenLabs for transcription and OpenAI for structured transaction extraction. CSV imports are parsed locally without an AI call.
 
 ## Demo Access
 
@@ -49,6 +50,17 @@ Password: demo1234
 ```
 
 The password only demonstrates form validation. It is never compared with a server value, placed in global state, or persisted. The documented email `error@niagaai.demo` triggers the deterministic mock sign-in error.
+
+## Supabase Auth
+
+Set both browser-safe Supabase values in `.env.local` to switch sign-in and sign-up from the local demo service to Supabase Auth:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your-key
+```
+
+Use the browser-safe Supabase publishable key, never a secret or service-role key. With Supabase enabled, the app stores the Supabase browser session under `niagaai_supabase_auth` and keeps the current browser-local business, transaction, invoice, and reminder repositories unchanged.
 
 ## Local Persistence and Security
 
