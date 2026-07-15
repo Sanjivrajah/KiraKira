@@ -4,11 +4,12 @@ import { LocalInvoiceRepository } from "./local/local-invoice-repository";
 import { LocalPaymentRepository } from "./local/local-payment-repository";
 import { LocalReminderRepository } from "./local/local-reminder-repository";
 import { LocalTransactionRepository } from "./local/local-transaction-repository";
+import { LegacyTransactionRepositoryAdapter } from "./supabase/legacy-transaction-repository-adapter";
 
 export const repositories = {
   businesses: new LocalBusinessRepository(),
   memberships: new LocalBusinessMembershipRepository(),
-  transactions: new LocalTransactionRepository(),
+  transactions: new LegacyTransactionRepositoryAdapter(),
   invoices: new LocalInvoiceRepository(),
   payments: new LocalPaymentRepository(),
   reminders: new LocalReminderRepository(),

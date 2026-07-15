@@ -350,12 +350,12 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
           checksRerunAt: isoDateTimeSchema.parse(reviewedAt),
         }));
       }
-      const existing = browserStorage.get<FinancialTransaction[]>(FRONTEND_STORAGE_KEYS.transactions, []);
-      browserStorage.set(FRONTEND_STORAGE_KEYS.transactions, [domain, ...existing.filter((item) => item.id !== domain.id)]);
+      // Note: we no longer manually write to FRONTEND_STORAGE_KEYS.transactions
+      // because useCreateTransaction handles it via React Query and Supabase.
       setSaved(transaction);
       setStage("success");
-    } catch {
-      setSaveError("We couldn’t save to browser storage. Check that local storage is available, then try again.");
+    } catch (err: any) {
+      setSaveError(err.message || "We couldn’t save this transaction. Please try again.");
     }
   };
 
