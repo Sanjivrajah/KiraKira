@@ -1,6 +1,6 @@
 import type { Address } from "../addresses";
 import type { AuditableEntity, BusinessId, CurrencyCode } from "../common";
-import type { BusinessComplianceProfile } from "./compliance-profile";
+import type { BusinessComplianceProfile, MyInvoisIntegrationConfiguration } from "./compliance-profile";
 
 export type BusinessEntityType =
   | "sole_proprietorship"
@@ -32,4 +32,6 @@ export interface Business extends Omit<AuditableEntity, "id"> {
   defaultCurrency: CurrencyCode;
   preferredLanguage: PreferredLanguage;
   timezone: string;
+  myInvois?: MyInvoisIntegrationConfiguration;
 }
+

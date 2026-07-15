@@ -14,4 +14,14 @@ export const addressSchema = z
     stateCode: addressTextSchema(20).optional(),
     countryCode: countryCodeSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((address, ctx) => {
+    if (address.countryCode === "MY" && !address.stateCode) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["stateCode"],
+        message: "State code is required for Malaysian addresses.",
+      });
+    }
+  });
+

@@ -17,5 +17,4 @@ export interface BusinessComplianceProfile {
   tourismTaxRegistration?: TaxIdentifier;
   msicCode?: string;
   businessActivityDescription?: string;
-  myInvois?: MyInvoisIntegrationConfiguration;
 }

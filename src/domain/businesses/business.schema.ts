@@ -47,7 +47,6 @@ export const businessComplianceProfileSchema = z
       .optional(),
     msicCode: z.string().regex(/^\d{5}$/, "MSIC code must contain five digits.").optional(),
     businessActivityDescription: z.string().trim().min(2).max(300).optional(),
-    myInvois: myInvoisIntegrationConfigurationSchema.optional(),
   })
   .strict();
 
@@ -88,5 +87,45 @@ export const businessDomainSchema = z
     createdBy: userIdSchema.optional(),
     updatedBy: userIdSchema.optional(),
     version: z.number().int().nonnegative().optional(),
+    myInvois: myInvoisIntegrationConfigurationSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((business, ctx) => {
+    if (business.myInvois) {
+      if (!business.contact.phone) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["contact", "phone"],
+          message: "Contact phone is required when MyInvois integration is enabled.",
+        });
+      }
+      if (!business.compliance.tin) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["compliance", "tin"],
+          message: "TIN is required when MyInvois integration is enabled.",
+        });
+      }
+      if (!business.compliance.registration) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["compliance", "registration"],
+          message: "Registration identifier is required when MyInvois integration is enabled.",
+        });
+      }
+      if (!business.compliance.msicCode) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["compliance", "msicCode"],
+          message: "MSIC code is required when MyInvois integration is enabled.",
+        });
+      }
+      if (!business.compliance.businessActivityDescription) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["compliance", "businessActivityDescription"],
+          message: "Business activity description is required when MyInvois integration is enabled.",
+        });
+      }
+    }
+  });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  addressSchema,
   businessDomainSchema,
   decimalStringSchema,
   isoDateSchema,
@@ -7,6 +8,7 @@ import {
   localTimeSchema,
   moneyValueSchema,
   partySchema,
+  projectBusinessAsSupplierParty,
   registrationIdentifierSchema,
   taxIdentifierSchema,
 } from ".";
@@ -154,11 +156,11 @@ describe("business contracts", () => {
         sstRegistrations: [{ scheme: "sst", value: "W10-1808-32000001", issuingCountryCode: "MY" }],
         msicCode: "56101",
         businessActivityDescription: "Food and beverage services",
-        myInvois: {
-          environment: "sandbox",
-          clientIdSecretRef: "secret://myinvois/client-id",
-          clientSecretSecretRef: "secret://myinvois/client-secret",
-        },
+      },
+      myInvois: {
+        environment: "sandbox",
+        clientIdSecretRef: "secret://myinvois/client-id",
+        clientSecretSecretRef: "secret://myinvois/client-secret",
       },
     });
 
@@ -172,13 +174,152 @@ describe("business contracts", () => {
         compliance: {
           tin: { scheme: "sst", value: "W10-123" },
           sstRegistrations: [],
-          myInvois: {
-            environment: "sandbox",
-            clientIdSecretRef: "actual-client-id",
-            clientSecretSecretRef: "actual-secret",
-          },
+        },
+        myInvois: {
+          environment: "sandbox",
+          clientIdSecretRef: "actual-client-id",
+          clientSecretSecretRef: "actual-secret",
         },
       }).success,
     ).toBe(false);
+  });
+
+  it("rejects myInvois-enabled business without phone", () => {
+    const result = businessDomainSchema.safeParse({
+      ...validBusiness,
+      contact: { email: "lina@example.com" },
+      compliance: {
+        tin: { scheme: "tin", value: "IG56003500070", issuingCountryCode: "MY" },
+        registration: { scheme: "brn", value: "202601012345", issuingCountryCode: "MY" },
+        sstRegistrations: [],
+        msicCode: "56101",
+        businessActivityDescription: "Food and beverage services",
+      },
+      myInvois: {
+        environment: "sandbox",
+        clientIdSecretRef: "secret://myinvois/client-id",
+        clientSecretSecretRef: "secret://myinvois/client-secret",
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((i) => i.path.join("."));
+      expect(paths).toContain("contact.phone");
+    }
+  });
+
+  it("rejects myInvois-enabled business without TIN", () => {
+    const result = businessDomainSchema.safeParse({
+      ...validBusiness,
+      compliance: {
+        registration: { scheme: "brn", value: "202601012345", issuingCountryCode: "MY" },
+        sstRegistrations: [],
+        msicCode: "56101",
+        businessActivityDescription: "Food and beverage services",
+      },
+      myInvois: {
+        environment: "sandbox",
+        clientIdSecretRef: "secret://myinvois/client-id",
+        clientSecretSecretRef: "secret://myinvois/client-secret",
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((i) => i.path.join("."));
+      expect(paths).toContain("compliance.tin");
+    }
+  });
+
+  it("allows business without phone when myInvois is not configured", () => {
+    const result = businessDomainSchema.safeParse({
+      ...validBusiness,
+      contact: { email: "lina@example.com" },
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("address country-conditional validation", () => {
+  it("rejects Malaysian address without stateCode", () => {
+    const result = addressSchema.safeParse({
+      addressLines: ["1 Jalan Test"],
+      city: "Kuala Lumpur",
+      postcode: "50000",
+      countryCode: "MY",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].path).toContain("stateCode");
+    }
+  });
+
+  it("allows non-Malaysian address without stateCode", () => {
+    const result = addressSchema.safeParse({
+      addressLines: ["1 Market Street"],
+      city: "Singapore",
+      postcode: "048946",
+      countryCode: "SG",
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("supplier projection", () => {
+  const business = businessDomainSchema.parse({
+    id: "test_business",
+    legalName: "Test Sdn. Bhd.",
+    entityType: "private_limited_company",
+    compliance: {
+      tin: { scheme: "tin", value: "C2584563222", issuingCountryCode: "MY" },
+      registration: { scheme: "brn", value: "202601012345", issuingCountryCode: "MY" },
+      sstRegistrations: [{ scheme: "sst", value: "W10-1808-32000001", issuingCountryCode: "MY" }],
+      msicCode: "56101",
+      businessActivityDescription: "Food services",
+    },
+    contact: { email: "test@example.com", phone: "+60312345678" },
+    address: {
+      addressLines: ["1 Jalan Test"],
+      city: "Shah Alam",
+      postcode: "40100",
+      stateCode: "10",
+      countryCode: "MY",
+    },
+    defaultCurrency: "MYR",
+    preferredLanguage: "en",
+    timezone: "Asia/Kuala_Lumpur",
+    createdAt: "2026-07-14T08:30:00.000Z",
+    updatedAt: "2026-07-14T08:30:00.000Z",
+  });
+
+  it("produces a Party with correct identifiers", () => {
+    const party = projectBusinessAsSupplierParty(business);
+
+    expect(party.kind).toBe("business");
+    expect(party.legalName).toBe("Test Sdn. Bhd.");
+    expect(party.roles).toEqual(["supplier", "seller"]);
+    expect(party.taxIdentifiers).toHaveLength(2);
+    expect(party.taxIdentifiers[0].scheme).toBe("tin");
+    expect(party.taxIdentifiers[1].scheme).toBe("sst");
+    expect(party.registrationIdentifiers).toHaveLength(1);
+    expect(party.registrationIdentifiers[0].scheme).toBe("brn");
+    expect(party.phone).toBe("+60312345678");
+    expect(party.billingAddress).toEqual(business.address);
+  });
+
+  it("maps sole_proprietorship to individual party kind", () => {
+    const sole = { ...business, entityType: "sole_proprietorship" as const };
+    const party = projectBusinessAsSupplierParty(sole);
+    expect(party.kind).toBe("individual");
+  });
+
+  it("maps government_entity to government_entity party kind", () => {
+    const gov = { ...business, entityType: "government_entity" as const };
+    const party = projectBusinessAsSupplierParty(gov);
+    expect(party.kind).toBe("government_entity");
   });
 });
