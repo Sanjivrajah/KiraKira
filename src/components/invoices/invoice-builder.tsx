@@ -115,13 +115,13 @@ export function InvoiceBuilder({ now }: { now: string }) {
       { id: "seller-registration", label: "Seller registration", ready: Boolean(business?.registrationNumber), severity: "warning", fieldPath: "business.registrationNumber", message: "Add the seller registration number before submission." },
     ],
     invoice: [
-      { id: "buyer", label: "Structured buyer", ready: Boolean(selectedBuyer), severity: "error", fieldPath: "buyerId", message: "Choose or create a buyer." },
+      { id: "buyer", label: "Customer details", ready: Boolean(selectedBuyer), severity: "error", fieldPath: "buyerId", message: "Choose or create a customer." },
       { id: "line-description", label: "Item descriptions", ready: items.length > 0 && items.every((item) => item.description.trim().length >= 2), severity: "error", fieldPath: "items.0.description", message: "Describe every invoice item." },
       { id: "original-reference", label: "Original document reference", ready: !adjustmentDocument || Boolean(watched.originalDocumentReference?.trim()), severity: "error", fieldPath: "originalDocumentReference", message: "Adjustment documents require an original reference." },
     ],
     myInvoisSubmission: [
       { id: "buyer-tin", label: "Buyer TIN", ready: Boolean(selectedBuyer?.taxIdentifiers.some((identifier) => identifier.scheme === "tin")), severity: "error", fieldPath: "buyerId", message: "Choose a buyer with a TIN." },
-      { id: "buyer-address", label: "Buyer address", ready: Boolean(selectedBuyer?.billingAddress), severity: "error", fieldPath: "buyerId", message: "Add a structured buyer address." },
+      { id: "buyer-address", label: "Customer address", ready: Boolean(selectedBuyer?.billingAddress), severity: "error", fieldPath: "buyerId", message: "Add the customer’s billing address." },
       { id: "classification", label: "Classification codes", ready: Boolean(watched.items?.every((item) => item?.classificationCode)), severity: "error", fieldPath: "items.0.classificationCode", message: "Choose a classification for every item." },
       { id: "tax-type", label: "Tax type codes", ready: Boolean(watched.items?.every((item) => item?.taxTypeCode)), severity: "error", fieldPath: "items.0.taxTypeCode", message: "Choose a tax type for every item." },
     ],
@@ -208,11 +208,11 @@ export function InvoiceBuilder({ now }: { now: string }) {
   };
 
   return <>
-    <PageHeader eyebrow="Invoice builder" title="Create commercial document" description="Build the invoice progressively, then resolve each readiness group before submission work begins." />
+    <PageHeader eyebrow="Sales documents" title="Create an invoice or note" description="Add the customer and items. We’ll show what still needs attention before you save." />
     <form className="invoice-builder-grid" noValidate onSubmit={handleSubmit(submit)}>
       <div className="invoice-form-column">
         <section className="panel invoice-form-section" aria-labelledby="basic-details-heading">
-          <p className="section-kicker">1 · Basic details</p><h2 id="basic-details-heading">Document identity</h2>
+          <p className="section-kicker">1 · Basic details</p><h2 id="basic-details-heading">Document details</h2>
           <div className="review-form-grid">
             <SelectField error={errors.documentType?.message} label="Document type" options={documentTypes} {...register("documentType")} />
             <SelectField error={errors.status?.message} label="Starting status" options={[{ value: "draft", label: "Draft" }, { value: "sent", label: "Sent" }]} {...register("status")} />
@@ -225,7 +225,7 @@ export function InvoiceBuilder({ now }: { now: string }) {
         </section>
 
         <section className="panel invoice-form-section" aria-labelledby="buyer-heading">
-          <p className="section-kicker">2 · Buyer</p><h2 id="buyer-heading">Structured customer</h2>
+          <p className="section-kicker">2 · Customer</p><h2 id="buyer-heading">Customer details</h2>
           <div className="buyer-toolbar">
             <SelectField error={errors.buyerId?.message} label="Customer" options={parties.map((party) => ({ value: party.id, label: party.legalName }))} value={watched.buyerId || ""} {...register("buyerId")} />
             <button className="button button-secondary" onClick={() => setShowBuyerEditor((open) => !open)} type="button"><UserPlus aria-hidden="true" size={17} />Create customer</button>
@@ -283,15 +283,16 @@ export function InvoiceBuilder({ now }: { now: string }) {
 
       <aside className="invoice-preview-column">
         <section className="invoice-preview panel" aria-label="Invoice preview"><p className="section-kicker">Live preview</p><h2>{watched.invoiceNumber || "New document"}</h2><p><strong>Buyer:</strong> {selectedBuyer?.legalName || "Choose a buyer"}</p><div className="preview-items">{items.map((item, index) => <div className="preview-item-row" key={fields[index]?.id}><span>{item.description || `Item ${index + 1}`}</span><MoneyDisplay amount={item.quantity * item.unitPrice - item.discountAmount + item.chargeAmount} /></div>)}</div><dl className="invoice-totals"><div><dt>Subtotal</dt><dd><MoneyDisplay amount={totals.subtotal} /></dd></div><div><dt>Tax</dt><dd><MoneyDisplay amount={totals.tax} /></dd></div><div className="invoice-total"><dt>Total</dt><dd><MoneyDisplay amount={totals.total} /></dd></div></dl></section>
-        <section className="readiness-card panel" aria-labelledby="readiness-heading"><p className="section-kicker">7 · Review and readiness</p><h2 id="readiness-heading">Actionable readiness</h2>
+        <section className="readiness-card panel" aria-labelledby="readiness-heading"><p className="section-kicker">7 · Final check</p><h2 id="readiness-heading">Before you save</h2>
           {(Object.entries(readiness) as Array<[keyof FrontendReadinessViewModel, FrontendReadinessViewModel[keyof FrontendReadinessViewModel]]>).map(([key, actions]) => {
             const prerequisites = key === "myInvoisSubmission"
               ? [...readiness.bookkeeping, ...readiness.invoice]
               : [];
             const groupReady = readinessGroupReady(actions, prerequisites);
-            return <div className="readiness-group" key={key}><h3>{key === "myInvoisSubmission" ? "MyInvois submission" : key[0].toUpperCase() + key.slice(1)} <span>{groupReady ? "Ready" : "Needs action"}</span></h3>{key === "myInvoisSubmission" && !readinessGroupReady(prerequisites) ? <p className="readiness-prerequisite">Resolve the bookkeeping and invoice blockers above first.</p> : null}<ul>{actions.map((action) => <li key={action.id}>{action.ready ? <Check aria-hidden="true" size={15} /> : <Circle aria-hidden="true" size={14} />}<button disabled={action.ready || action.fieldPath.startsWith("business.")} onClick={() => focusField(action.fieldPath)} type="button"><strong>{action.label}</strong>{!action.ready ? <small>{action.message}</small> : null}</button></li>)}</ul></div>;
+            const groupLabel = key === "bookkeeping" ? "Business details" : key === "invoice" ? "Document details" : "MyInvois details";
+            return <div className="readiness-group" key={key}><h3>{groupLabel} <span>{groupReady ? "Ready" : "Needs action"}</span></h3>{key === "myInvoisSubmission" && !readinessGroupReady(prerequisites) ? <p className="readiness-prerequisite">Complete the business and document details above first.</p> : null}<ul>{actions.map((action) => <li key={action.id}>{action.ready ? <Check aria-hidden="true" size={15} /> : <Circle aria-hidden="true" size={14} />}<button disabled={action.ready || action.fieldPath.startsWith("business.")} onClick={() => focusField(action.fieldPath)} type="button"><strong>{action.label}</strong>{!action.ready ? <small>{action.message}</small> : null}</button></li>)}</ul></div>;
           })}
-          <p className="readiness-disclosure">Local readiness only. Nothing has been submitted to MyInvois.</p>
+          <p className="readiness-disclosure">This check is only a guide. Nothing has been sent to MyInvois.</p>
         </section>
       </aside>
     </form>
