@@ -1,18 +1,27 @@
-import type { CurrencyCode, DecimalString, MoneyValue } from "./money";
-import { decimalStringSchema } from "./money";
+import { decimalStringSchema, type CurrencyCode, type DecimalString, type MoneyValue } from "./money";
 
 interface ParsedDecimal {
   coefficient: bigint;
   scale: number;
 }
 
-const powerOfTen = (exponent: number) => BigInt(`1${"0".repeat(exponent)}`);
+function assertFractionDigits(fractionDigits: number) {
+  if (!Number.isInteger(fractionDigits) || fractionDigits < 0 || fractionDigits > 20) {
+    throw new RangeError("Fraction digits must be an integer between 0 and 20.");
+  }
+}
 
-function parse(value: DecimalString): ParsedDecimal {
+function powerOfTen(exponent: number): bigint {
+  return BigInt(`1${"0".repeat(exponent)}`);
+}
+
+function parseDecimal(value: DecimalString): ParsedDecimal {
   const negative = value.startsWith("-");
-  const [whole, fraction = ""] = (negative ? value.slice(1) : value).split(".");
-  const coefficient = BigInt(`${whole}${fraction}` || "0") * (negative ? BigInt(-1) : BigInt(1));
-  return { coefficient, scale: fraction.length };
+  const unsigned = negative ? value.slice(1) : value;
+  const [whole, fraction = ""] = unsigned.split(".");
+  const digits = `${whole}${fraction}`.replace(/^0+(?=\d)/, "");
+  const sign = negative ? BigInt(-1) : BigInt(1);
+  return { coefficient: BigInt(digits || "0") * sign, scale: fraction.length };
 }
 
 function align(left: ParsedDecimal, right: ParsedDecimal): [bigint, bigint, number] {
@@ -24,10 +33,15 @@ function align(left: ParsedDecimal, right: ParsedDecimal): [bigint, bigint, numb
   ];
 }
 
-function roundParsed(value: ParsedDecimal, fractionDigits: number): ParsedDecimal {
+function roundCoefficient(value: ParsedDecimal, fractionDigits: number): ParsedDecimal {
+  assertFractionDigits(fractionDigits);
   if (value.scale <= fractionDigits) {
-    return { coefficient: value.coefficient * powerOfTen(fractionDigits - value.scale), scale: fractionDigits };
+    return {
+      coefficient: value.coefficient * powerOfTen(fractionDigits - value.scale),
+      scale: fractionDigits,
+    };
   }
+
   const divisor = powerOfTen(value.scale - fractionDigits);
   const quotient = value.coefficient / divisor;
   const remainder = value.coefficient % divisor;
@@ -39,26 +53,33 @@ function roundParsed(value: ParsedDecimal, fractionDigits: number): ParsedDecima
   };
 }
 
-function format(value: ParsedDecimal): DecimalString {
+function formatDecimal(value: ParsedDecimal): DecimalString {
   const negative = value.coefficient < BigInt(0);
-  const digits = (negative ? -value.coefficient : value.coefficient).toString().padStart(value.scale + 1, "0");
-  const amount = value.scale === 0 ? digits : `${digits.slice(0, -value.scale)}.${digits.slice(-value.scale)}`;
-  return decimalStringSchema.parse(`${negative ? "-" : ""}${amount}`);
+  const absolute = negative ? -value.coefficient : value.coefficient;
+  const digits = absolute.toString().padStart(value.scale + 1, "0");
+  const formatted = value.scale === 0
+    ? digits
+    : `${digits.slice(0, -value.scale)}.${digits.slice(-value.scale)}`;
+  return decimalStringSchema.parse(`${negative ? "-" : ""}${formatted}`);
 }
 
-export function compareDecimalValues(left: DecimalString, right: DecimalString): number {
-  const [leftCoefficient, rightCoefficient] = align(parse(left), parse(right));
-  return leftCoefficient < rightCoefficient ? -1 : leftCoefficient > rightCoefficient ? 1 : 0;
+function multiplyParsed(left: DecimalString, right: DecimalString): ParsedDecimal {
+  const parsedLeft = parseDecimal(left);
+  const parsedRight = parseDecimal(right);
+  return {
+    coefficient: parsedLeft.coefficient * parsedRight.coefficient,
+    scale: parsedLeft.scale + parsedRight.scale,
+  };
 }
 
 export function addDecimalValues(left: DecimalString, right: DecimalString): DecimalString {
-  const [leftCoefficient, rightCoefficient, scale] = align(parse(left), parse(right));
-  return format({ coefficient: leftCoefficient + rightCoefficient, scale });
+  const [leftCoefficient, rightCoefficient, scale] = align(parseDecimal(left), parseDecimal(right));
+  return formatDecimal({ coefficient: leftCoefficient + rightCoefficient, scale });
 }
 
 export function subtractDecimalValues(left: DecimalString, right: DecimalString): DecimalString {
-  const [leftCoefficient, rightCoefficient, scale] = align(parse(left), parse(right));
-  return format({ coefficient: leftCoefficient - rightCoefficient, scale });
+  const [leftCoefficient, rightCoefficient, scale] = align(parseDecimal(left), parseDecimal(right));
+  return formatDecimal({ coefficient: leftCoefficient - rightCoefficient, scale });
 }
 
 export function multiplyDecimalValues(
@@ -66,16 +87,28 @@ export function multiplyDecimalValues(
   right: DecimalString,
   fractionDigits = 2,
 ): DecimalString {
-  const parsedLeft = parse(left);
-  const parsedRight = parse(right);
-  return format(roundParsed({
-    coefficient: parsedLeft.coefficient * parsedRight.coefficient,
-    scale: parsedLeft.scale + parsedRight.scale,
-  }, fractionDigits));
+  return formatDecimal(roundCoefficient(multiplyParsed(left, right), fractionDigits));
+}
+
+export function compareDecimalValues(left: DecimalString, right: DecimalString): number {
+  const [leftCoefficient, rightCoefficient] = align(parseDecimal(left), parseDecimal(right));
+  return leftCoefficient < rightCoefficient ? -1 : leftCoefficient > rightCoefficient ? 1 : 0;
 }
 
 export function roundDecimalValue(value: DecimalString, fractionDigits = 2): DecimalString {
-  return format(roundParsed(parse(value), fractionDigits));
+  return formatDecimal(roundCoefficient(parseDecimal(value), fractionDigits));
+}
+
+export function percentageOfMoney(
+  value: MoneyValue,
+  percentage: DecimalString,
+  fractionDigits = 2,
+): MoneyValue {
+  const product = multiplyParsed(value.amount, percentage);
+  return {
+    amount: formatDecimal(roundCoefficient({ coefficient: product.coefficient, scale: product.scale + 2 }, fractionDigits)),
+    currency: value.currency,
+  };
 }
 
 export function sumMoneyValues(
@@ -84,21 +117,11 @@ export function sumMoneyValues(
   fractionDigits = 2,
 ): MoneyValue {
   if (values.some((value) => value.currency !== currency)) {
-    throw new RangeError("All money values must use the requested currency.");
+    throw new RangeError("All money values in a calculation must use the requested currency.");
   }
-  const amount = values.reduce(
-    (total, value) => addDecimalValues(total, value.amount),
+  const total = values.reduce<DecimalString>(
+    (sum, value) => addDecimalValues(sum, value.amount),
     decimalStringSchema.parse("0"),
   );
-  return { amount: roundDecimalValue(amount, fractionDigits), currency };
-}
-
-export function percentageOfMoney(
-  baseAmount: MoneyValue,
-  percentage: DecimalString,
-  fractionDigits = 2,
-): MoneyValue {
-  const product = multiplyDecimalValues(baseAmount.amount, percentage, fractionDigits + 2);
-  const amount = multiplyDecimalValues(product, decimalStringSchema.parse("0.01"), fractionDigits);
-  return { amount, currency: baseAmount.currency };
+  return { amount: roundDecimalValue(total, fractionDigits), currency };
 }

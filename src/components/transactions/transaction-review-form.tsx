@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, CheckCircle2, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { FormField } from "@/components/forms/form-field";
 import { SelectField } from "@/components/forms/select-field";
@@ -22,6 +22,11 @@ export interface TransactionDraft {
   fieldConfidence?: Record<string, number>;
 }
 
+export type TransactionReviewHints = Partial<Record<
+  "type" | "date" | "amount" | "category" | "description" | "counterpartyName" | "paymentMethod",
+  string
+>>;
+
 const typeOptions = [{ label: "Money in", value: "income" }, { label: "Money out", value: "expense" }];
 const sourceOptions = [
   { label: "Receipt photo", value: "receipt" },
@@ -32,7 +37,7 @@ const sourceOptions = [
   { label: "WhatsApp order", value: "whatsapp" },
 ];
 
-export function TransactionReviewForm({ draft, onBack, onConfirm, onReject, saveError, saving = false, batchProgress, batchNotice, disclosure, sourceEvidence }: {
+export function TransactionReviewForm({ draft, onBack, onConfirm, onReject, saveError, saving = false, batchProgress, batchNotice, disclosure, sourceEvidence, reviewHints }: {
   draft: TransactionDraft;
   onBack: () => void;
   onConfirm: (values: ValidTransactionFormValues) => void;
@@ -42,6 +47,7 @@ export function TransactionReviewForm({ draft, onBack, onConfirm, onReject, save
   batchNotice?: string;
   disclosure?: { title: string; description: string };
   sourceEvidence?: { label: string; text: string };
+  reviewHints?: TransactionReviewHints;
   onReject?: () => void;
 }) {
   const { control, register, handleSubmit, formState: { errors, isSubmitting } } = useForm<TransactionFormValues, unknown, ValidTransactionFormValues>({
@@ -57,7 +63,7 @@ export function TransactionReviewForm({ draft, onBack, onConfirm, onReject, save
         <div>
           <p className="section-kicker">Review · Step 3 of 3</p>
           <h2 id="transaction-review-title">Check the transaction details</h2>
-          <p>Generated values start as needing review. Edit anything below, then confirm to mark the record reviewed.</p>
+          <p>Check the highlighted details, make any corrections, then approve the record.</p>
         </div>
         <span className="status-badge needs_review"><AlertCircle aria-hidden="true" size={14} />Needs review</span>
       </div>
@@ -65,19 +71,24 @@ export function TransactionReviewForm({ draft, onBack, onConfirm, onReject, save
       {batchProgress ? <p className="batch-review-progress">Reviewing {batchProgress.label} {batchProgress.current} of {batchProgress.total}</p> : null}
       {batchNotice ? <div className="form-alert" role="alert"><AlertCircle aria-hidden="true" size={18} /><span>{batchNotice}</span></div> : null}
 
-      <div className="demo-disclosure"><ShieldCheck aria-hidden="true" size={18} /><p><strong>{disclosure?.title || (draft.source === "receipt" ? "AI-proposed extraction" : "Owner-entered transaction")}</strong><span>{disclosure?.description || (draft.source === "receipt" ? "OpenAI processed the image. Check every value before confirming." : "Check every value before confirming this transaction.")}</span></p></div>
-      {sourceEvidence ? <div className="transcript-preview"><span>{sourceEvidence.label}</span><p>“{sourceEvidence.text}”</p></div> : null}
+      {disclosure || sourceEvidence ? (
+        <details className="review-evidence">
+          <summary>Original source and processing details <ChevronDown aria-hidden="true" size={17} /></summary>
+          {disclosure ? <p><strong>{disclosure.title}</strong> {disclosure.description}</p> : null}
+          {sourceEvidence ? <blockquote><span>{sourceEvidence.label}</span>“{sourceEvidence.text}”</blockquote> : null}
+        </details>
+      ) : null}
       {draft.fieldConfidence && Object.keys(draft.fieldConfidence).length ? <div className="confidence-grid" aria-label="Extraction confidence by field">{Object.entries(draft.fieldConfidence).map(([field, confidence]) => <span className={confidence < 0.8 ? "low-confidence" : ""} key={field}><strong>{field}</strong>{Math.round(confidence * 100)}%{confidence < 0.8 ? " · Check carefully" : ""}</span>)}</div> : null}
 
       <form noValidate onSubmit={handleSubmit(onConfirm)}>
         <div className="review-form-grid">
-          <SelectField error={errors.type?.message} label="Transaction type" options={typeOptions} {...register("type")} />
-          <FormField error={errors.date?.message} label="Date" type="date" {...register("date")} />
-          <FormField error={errors.amount?.message} hint="Enter the value in Malaysian ringgit." inputMode="decimal" label="Amount (RM)" min="0.01" step="0.01" type="number" {...register("amount", { valueAsNumber: true })} />
-          <FormField error={errors.category?.message} label="Category" maxLength={60} placeholder={type === "income" ? "e.g. Sales" : "e.g. Inventory"} {...register("category")} />
-          <TextareaField className="review-wide" error={errors.description?.message} label="Description" maxLength={160} rows={3} {...register("description")} />
-          <FormField error={errors.counterpartyName?.message} label={type === "income" ? "Customer name (optional)" : "Merchant name (optional)"} maxLength={100} {...register("counterpartyName")} />
-          <FormField error={errors.paymentMethod?.message} label="Payment method (optional)" maxLength={60} placeholder="e.g. Cash or DuitNow QR" {...register("paymentMethod")} />
+          <SelectField error={errors.type?.message} hint={reviewHints?.type} label="Transaction type" options={typeOptions} {...register("type")} />
+          <FormField error={errors.date?.message} hint={reviewHints?.date} label="Date" type="date" {...register("date")} />
+          <FormField error={errors.amount?.message} hint={reviewHints?.amount || "Enter the value in Malaysian ringgit."} inputMode="decimal" label="Amount (RM)" min="0.01" step="0.01" type="number" {...register("amount", { valueAsNumber: true })} />
+          <FormField error={errors.category?.message} hint={reviewHints?.category} label="Category" maxLength={60} placeholder={type === "income" ? "e.g. Sales" : "e.g. Inventory"} {...register("category")} />
+          <TextareaField className="review-wide" error={errors.description?.message} hint={reviewHints?.description} label="Description" maxLength={160} rows={3} {...register("description")} />
+          <FormField error={errors.counterpartyName?.message} hint={reviewHints?.counterpartyName} label={type === "income" ? "Customer name (optional)" : "Merchant name (optional)"} maxLength={100} {...register("counterpartyName")} />
+          <FormField error={errors.paymentMethod?.message} hint={reviewHints?.paymentMethod} label="Payment method (optional)" maxLength={60} placeholder="e.g. Cash or DuitNow QR" {...register("paymentMethod")} />
           <SelectField error={errors.source?.message} hint="You can correct the source if needed." label="Source" options={sourceOptions} {...register("source")} />
           <SelectField error={errors.eInvoiceTreatment?.message} label="E-Invoice treatment" options={[
             { value: "undetermined", label: "Undetermined" },

@@ -49,8 +49,10 @@ export function RecentTransactions({ transactions }: { transactions: Transaction
                 <h3>{transaction.description}</h3>
                 <p>{dateFormatter.format(new Date(`${transaction.date}T00:00:00`))} · {transaction.category}</p>
               </div>
-              <span className="transaction-source">{sourceLabels[transaction.sourceType]}</span>
-              <span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span>
+              <div className="transaction-meta">
+                <span className="transaction-source">{sourceLabels[transaction.sourceType]}</span>
+                <span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span>
+              </div>
               <MoneyDisplay amount={transaction.total} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} />
             </article>
           ))}
