@@ -1,19 +1,19 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
 
 let browserClient: SupabaseClient | null = null;
 
 export function isSupabaseAuthConfigured() {
-  return Boolean(supabaseUrl && supabaseAnonKey);
+  return Boolean(supabaseUrl && supabasePublishableKey);
 }
 
 export function getSupabaseBrowserClient() {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Supabase auth is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+  if (!supabaseUrl || !supabasePublishableKey) {
+    throw new Error("Supabase auth is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.");
   }
-  browserClient ??= createClient(supabaseUrl, supabaseAnonKey, {
+  browserClient ??= createClient(supabaseUrl, supabasePublishableKey, {
     auth: {
       autoRefreshToken: true,
       detectSessionInUrl: true,

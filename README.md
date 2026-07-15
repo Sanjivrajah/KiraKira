@@ -57,10 +57,10 @@ Set both browser-safe Supabase values in `.env.local` to switch sign-in and sign
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your-key
 ```
 
-Use the Supabase anon key, not the service-role key. With Supabase enabled, the app stores the Supabase browser session under `niagaai_supabase_auth` and keeps the current browser-local business, transaction, invoice, and reminder repositories unchanged.
+Use the browser-safe Supabase publishable key, never a secret or service-role key. With Supabase enabled, the app stores the Supabase browser session under `niagaai_supabase_auth` and keeps the current browser-local business, transaction, invoice, and reminder repositories unchanged.
 
 ## Local Persistence and Security
 
