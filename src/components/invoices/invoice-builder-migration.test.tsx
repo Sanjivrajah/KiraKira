@@ -62,4 +62,11 @@ describe("Session 7 invoice builder", () => {
     fireEvent.click(screen.getByRole("button", { name: /Item descriptions/ }));
     expect(screen.getByLabelText("Description")).toHaveFocus();
   });
+
+  it("does not claim MyInvois readiness while invoice blockers remain", () => {
+    render(<InvoiceBuilder now="2026-07-15T09:00:00.000Z" />);
+
+    expect(screen.getByRole("heading", { name: /MyInvois submission Needs action/ })).toBeInTheDocument();
+    expect(screen.getByText("Resolve the bookkeeping and invoice blockers above first.")).toBeInTheDocument();
+  });
 });

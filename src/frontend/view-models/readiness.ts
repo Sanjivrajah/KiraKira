@@ -14,7 +14,11 @@ export interface FrontendReadinessViewModel {
   myInvoisSubmission: ReadinessAction[];
 }
 
-export function readinessGroupReady(actions: ReadinessAction[]): boolean {
-  return actions.every((action) => action.severity !== "error" || action.ready);
+export function readinessGroupReady(
+  actions: ReadinessAction[],
+  prerequisites: ReadinessAction[] = [],
+): boolean {
+  return [...prerequisites, ...actions].every(
+    (action) => action.severity !== "error" || action.ready,
+  );
 }
-

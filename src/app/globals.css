@@ -3541,6 +3541,7 @@ legend {
 .readiness-group { margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--line); }
 .readiness-group h3 { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; font-size: 12px; }
 .readiness-group h3 span { color: var(--ink-500); font-size: 9px; text-transform: uppercase; }
+.readiness-prerequisite { margin: 8px 0 0; color: var(--warning); font-size: 10px; font-weight: 620; line-height: 1.45; }
 .readiness-group ul { margin: 12px 0; }
 .readiness-group li { align-items: flex-start; }
 .readiness-group li button { display: grid; gap: 3px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; text-align: left; }
