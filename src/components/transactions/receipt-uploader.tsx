@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { FileImage, Images, UploadCloud, X } from "lucide-react";
+import { DEMO_REVIEW_RECEIPT_EXTRACTION } from "@/data/demo/demo-review-receipt";
 import type { ReceiptExtraction } from "@/lib/openai/receipt-schema";
 
 const MAX_RECEIPTS = 10;
@@ -161,9 +162,23 @@ export function ReceiptUploader({ onExtracted, onBack }: {
 
       {progress ? <p className="batch-progress" role="status"><FileImage aria-hidden="true" size={17} />Reading receipt {progress.current} of {progress.total}…</p> : null}
       {error ? <p className="form-alert" role="alert">{error}</p> : null}
+      <div className="demo-evidence-shortcut">
+        <div>
+          <strong>Need a reliable demo?</strong>
+          <span>Open a sanitized receipt with one amount that needs your check.</span>
+        </div>
+        <button
+          className="button button-secondary"
+          disabled={progress !== null}
+          onClick={() => onExtracted({ extractions: [DEMO_REVIEW_RECEIPT_EXTRACTION], failures: [] })}
+          type="button"
+        >
+          Use sample evidence
+        </button>
+      </div>
       <div className="capture-actions">
         <button className="button button-secondary" disabled={progress !== null} onClick={onBack} type="button">Back</button>
-        <button className="button button-primary" disabled={receipts.length === 0 || progress !== null} onClick={extractReceipts} type="button">{progress ? `Reading ${progress.current}/${progress.total}…` : `Extract ${receipts.length || ""} receipt${receipts.length === 1 ? "" : "s"}`}</button>
+        <button className="button button-primary" disabled={receipts.length === 0 || progress !== null} onClick={extractReceipts} type="button">{progress ? `Reading ${progress.current}/${progress.total}…` : `Prepare ${receipts.length || ""} receipt${receipts.length === 1 ? "" : "s"}`}</button>
       </div>
     </section>
   );

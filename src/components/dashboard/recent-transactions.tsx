@@ -14,9 +14,9 @@ const sourceLabels: Record<TransactionSourceType, string> = {
 
 const statusLabels: Record<TransactionStatus, string> = {
   draft: "Draft",
-  needs_review: "Review",
-  confirmed: "Reviewed",
-  failed: "Failed",
+  needs_review: "Needs your check",
+  confirmed: "Owner-approved",
+  failed: "Needs attention",
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { day: "numeric", month: "short" });
@@ -27,16 +27,16 @@ export function RecentTransactions({ transactions }: { transactions: Transaction
       <div className="panel-heading">
         <div>
           <p className="section-kicker">Latest records</p>
-          <h2 id="recent-transactions-title">Recent transactions</h2>
+          <h2 id="recent-transactions-title">Recent records</h2>
         </div>
         <Link className="text-button" href="/transactions">View all <ArrowUpRight aria-hidden="true" size={16} /></Link>
       </div>
 
       {transactions.length === 0 ? (
         <div className="dashboard-empty">
-          <p>No transactions yet</p>
-          <span>Add your first sale or expense to see it here.</span>
-          <Link className="button button-secondary" href="/transactions/new">Add transaction</Link>
+          <p>No records yet</p>
+          <span>Add evidence for your first sale or expense to see it here.</span>
+          <Link className="button button-secondary" href="/transactions/new">Add evidence</Link>
         </div>
       ) : (
         <div className="transaction-list">

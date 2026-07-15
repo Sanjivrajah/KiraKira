@@ -18,10 +18,21 @@ import { TransactionReviewForm, type TransactionDraft, type TransactionReviewHin
 import { TransactionSuccessState } from "./transaction-success-state";
 import { VoiceRecorder, type VoiceTransactionResult } from "./voice-recorder";
 import { DEMO_BUSINESS, DEMO_USER } from "@/data/demo";
-import { FRONTEND_STORAGE_KEYS } from "@/frontend/storage";
-import { transactionReviewToDomain } from "@/frontend/view-models";
+import {
+  DEMO_REVIEW_RECEIPT_EXTRACTION,
+  DEMO_REVIEW_EXTRACTION_RUN,
+  DEMO_REVIEW_RECEIPT_TEXT,
+  DEMO_REVIEW_SOURCE_DOCUMENT,
+} from "@/data/demo/demo-review-receipt";
+import { FRONTEND_STORAGE_KEYS, persistReviewProvenance } from "@/frontend/storage";
+import {
+  approveExtractionRun,
+  deriveApprovalAuditTimeline,
+  transactionReviewToDomain,
+  type ApprovalAuditEvent,
+} from "@/frontend/view-models";
 import { browserStorage } from "@/lib/storage/browser-storage";
-import type { FinancialTransaction } from "@/domain";
+import { isoDateTimeSchema, type ExtractionRun, type FinancialTransaction, type SourceDocument } from "@/domain";
 
 type Stage = "select" | "input" | "processing" | "review" | "success";
 
@@ -58,13 +69,39 @@ function makeDraft(source: TransactionSourceType): TransactionDraft {
   }
 }
 
-export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: TransactionSourceType }) {
+function makeReceiptDraft(extraction: ReceiptExtraction): TransactionDraft {
+  const descriptions = extraction.lineItems.map((item) => item.description).filter(Boolean);
+  return {
+    type: "expense",
+    date: extraction.documentDate.value || localDate(),
+    amount: extraction.total.value ?? undefined,
+    category: extraction.category.value || "Uncategorised",
+    description: descriptions.join(", ").slice(0, 160) || `Receipt from ${extraction.merchantName.value || "unknown merchant"}`,
+    counterpartyName: extraction.merchantName.value || "",
+    paymentMethod: extraction.paymentMethod.value || "",
+    source: "receipt",
+    eInvoiceTreatment: "self_billed_candidate",
+    fieldConfidence: {
+      amount: extraction.total.confidence,
+      merchant: extraction.merchantName.confidence,
+      date: extraction.documentDate.confidence,
+      category: extraction.category.confidence,
+    },
+  };
+}
+
+export function TransactionCaptureFlow({ initialMethod, demoScenario }: {
+  initialMethod?: TransactionSourceType;
+  demoScenario?: "ambiguous-receipt";
+}) {
   const createTransaction = useCreateTransaction();
   const businessId = useBusiness().data?.id || DEMO_BUSINESS.id;
   const userId = useAuth().session?.user.id || DEMO_USER.id;
   const [source, setSource] = useState<TransactionSourceType | null>(initialMethod ?? null);
-  const [stage, setStage] = useState<Stage>(initialMethod === "manual" ? "review" : initialMethod ? "input" : "select");
-  const [draft, setDraft] = useState<TransactionDraft>(() => makeDraft(initialMethod ?? "manual"));
+  const [stage, setStage] = useState<Stage>(demoScenario ? "review" : initialMethod === "manual" ? "review" : initialMethod ? "input" : "select");
+  const [draft, setDraft] = useState<TransactionDraft>(() => demoScenario
+    ? makeReceiptDraft(DEMO_REVIEW_RECEIPT_EXTRACTION)
+    : makeDraft(initialMethod ?? "manual"));
   const [saved, setSaved] = useState<Transaction | null>(null);
   const [saveError, setSaveError] = useState("");
   const [receiptExtractions, setReceiptExtractions] = useState<ReceiptExtraction[]>([]);
@@ -72,9 +109,25 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
   const [importDrafts, setImportDrafts] = useState<TransactionDraft[]>([]);
   const [importIndex, setImportIndex] = useState(0);
   const [batchNotice, setBatchNotice] = useState("");
-  const [reviewDisclosure, setReviewDisclosure] = useState<{ title: string; description: string } | undefined>();
-  const [sourceEvidence, setSourceEvidence] = useState<{ label: string; text: string } | undefined>();
-  const [reviewHints, setReviewHints] = useState<TransactionReviewHints>({});
+  const [reviewDisclosure, setReviewDisclosure] = useState<{ title: string; description: string } | undefined>(demoScenario ? {
+    title: "Prepared from your receipt.",
+    description: "Compare the prepared draft with the evidence before approving.",
+  } : undefined);
+  const [sourceEvidence, setSourceEvidence] = useState<{ label: string; text: string } | undefined>(demoScenario ? {
+    label: "Receipt text",
+    text: DEMO_REVIEW_RECEIPT_TEXT,
+  } : undefined);
+  const [reviewHints, setReviewHints] = useState<TransactionReviewHints>(demoScenario ? {
+    amount: "The prepared amount differs from the receipt total. Check the printed TOTAL and correct this field.",
+  } : {});
+  const [activeProvenance, setActiveProvenance] = useState<{
+    sourceDocument: SourceDocument;
+    extractionRun: ExtractionRun;
+  } | null>(demoScenario ? {
+    sourceDocument: DEMO_REVIEW_SOURCE_DOCUMENT,
+    extractionRun: DEMO_REVIEW_EXTRACTION_RUN,
+  } : null);
+  const [approvalTimeline, setApprovalTimeline] = useState<ApprovalAuditEvent[]>([]);
 
   const sourceNotice = source === "receipt"
     ? <><strong>Receipt review:</strong> we prepare a draft from each image. Nothing is saved until you approve it.</>
@@ -99,6 +152,8 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
     setBatchNotice("");
     setSourceEvidence(undefined);
     setReviewHints({});
+    setActiveProvenance(null);
+    setApprovalTimeline([]);
     setReviewDisclosure(nextSource === "whatsapp" ? {
       title: "Sample extraction",
       description: "This is representative demo data. No AI service processed your input.",
@@ -118,28 +173,9 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
     setReviewDisclosure(undefined);
     setSourceEvidence(undefined);
     setReviewHints({});
+    setActiveProvenance(null);
+    setApprovalTimeline([]);
     setStage("select");
-  };
-
-  const makeReceiptDraft = (extraction: ReceiptExtraction): TransactionDraft => {
-    const descriptions = extraction.lineItems.map((item) => item.description).filter(Boolean);
-    return {
-      type: "expense",
-      date: extraction.documentDate.value || localDate(),
-      amount: extraction.total.value ?? undefined,
-      category: extraction.category.value || "Uncategorised",
-      description: descriptions.join(", ").slice(0, 160) || `Receipt from ${extraction.merchantName.value || "unknown merchant"}`,
-      counterpartyName: extraction.merchantName.value || "",
-      paymentMethod: extraction.paymentMethod.value || "",
-      source: "receipt",
-      eInvoiceTreatment: "self_billed_candidate",
-      fieldConfidence: {
-        amount: extraction.total.confidence,
-        merchant: extraction.merchantName.confidence,
-        date: extraction.documentDate.confidence,
-        category: extraction.category.confidence,
-      },
-    };
   };
 
   const reviewReceiptExtractions = ({ extractions, failures }: ReceiptBatchResult) => {
@@ -148,8 +184,32 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
     setImportDrafts([]);
     setBatchNotice(failures.length ? `${failures.length} receipt${failures.length === 1 ? "" : "s"} could not be extracted. You can upload them again after this batch.` : "");
     setReviewDisclosure({ title: "Prepared from your receipt.", description: "We read the image and created this draft. Compare it with the receipt before approving." });
-    setSourceEvidence(undefined);
-    setReviewHints({});
+    const first = extractions[0];
+    const printedTotal = first.total.evidenceText;
+    const preparedTotal = first.total.value;
+    const totalNeedsCheck = Boolean(
+      printedTotal && preparedTotal !== null &&
+      !printedTotal.includes(preparedTotal.toFixed(2)),
+    );
+    setSourceEvidence({
+      label: "Receipt text",
+      text: first === DEMO_REVIEW_RECEIPT_EXTRACTION
+        ? DEMO_REVIEW_RECEIPT_TEXT
+        : [
+            first.merchantName.evidenceText,
+            ...first.lineItems.map((item) => item.evidenceText),
+            first.subtotal.evidenceText,
+            first.tax.evidenceText,
+            first.total.evidenceText,
+          ].filter(Boolean).join("\n"),
+    });
+    setReviewHints(totalNeedsCheck ? {
+      amount: "The prepared amount differs from the receipt total. Check the printed TOTAL and correct this field.",
+    } : {});
+    setActiveProvenance(first === DEMO_REVIEW_RECEIPT_EXTRACTION ? {
+      sourceDocument: DEMO_REVIEW_SOURCE_DOCUMENT,
+      extractionRun: DEMO_REVIEW_EXTRACTION_RUN,
+    } : null);
     setDraft(makeReceiptDraft(extractions[0]));
     setStage("review");
   };
@@ -169,6 +229,7 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
       : { title: "Prepared on this device.", description: "We matched the spreadsheet columns without uploading the file. Check each transaction before approving." });
     setSourceEvidence(undefined);
     setReviewHints({});
+    setActiveProvenance(null);
     setDraft(drafts[0]);
     setStage("review");
   };
@@ -190,6 +251,7 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
     }
     setBatchNotice(remainingWarnings.slice(0, 2).join(" "));
     setReviewHints(hints);
+    setActiveProvenance(null);
     setReviewDisclosure({
       title: "Prepared from your voice note.",
       description: "We converted the recording into a draft. Compare it with what you said before approving.",
@@ -243,10 +305,37 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
         status: "confirmed",
         items: [],
       });
+      const reviewedAt = transaction.createdAt;
+      const approvedRun = activeProvenance
+        ? approveExtractionRun(activeProvenance.extractionRun, {
+            type: values.type,
+            date: values.date,
+            amount: values.amount,
+            category: values.category,
+            description: values.description,
+            counterpartyName: values.counterpartyName,
+            paymentMethod: values.paymentMethod || "",
+          }, { reviewedBy: userId, reviewedAt })
+        : undefined;
       const domain = transactionReviewToDomain({
         ...values,
         fieldConfidence: draft.fieldConfidence ?? {},
-      }, { id: transaction.id, businessId, userId, now: transaction.createdAt });
+      }, {
+        id: transaction.id,
+        businessId,
+        userId,
+        now: reviewedAt,
+        ...(approvedRun ? { extractionRun: approvedRun } : {}),
+      });
+      if (activeProvenance && approvedRun) {
+        persistReviewProvenance(activeProvenance.sourceDocument, approvedRun);
+        setApprovalTimeline(deriveApprovalAuditTimeline({
+          sourceDocument: activeProvenance.sourceDocument,
+          extractionRun: approvedRun,
+          transaction: domain,
+          checksRerunAt: isoDateTimeSchema.parse(reviewedAt),
+        }));
+      }
       const existing = browserStorage.get<FinancialTransaction[]>(FRONTEND_STORAGE_KEYS.transactions, []);
       browserStorage.set(FRONTEND_STORAGE_KEYS.transactions, [domain, ...existing.filter((item) => item.id !== domain.id)]);
       setSaved(transaction);
@@ -259,10 +348,10 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
   return (
     <>
       <PageHeader
-        eyebrow="Money in and money out"
-        title="Add a transaction"
-        description={source && stage !== "select" ? `${sourceLabels[source]} · review before saving` : "Choose the quickest way to record this sale or expense."}
-        action={<Link className="button button-secondary" href="/dashboard"><ArrowLeft aria-hidden="true" size={18} />Dashboard</Link>}
+        eyebrow="Evidence review"
+        title="Add evidence"
+        description={source && stage !== "select" ? `${sourceLabels[source]} · owner approval required` : "Choose the evidence you already have. Niaga will prepare a record for you to check."}
+        action={<Link className="button button-secondary" href="/dashboard"><ArrowLeft aria-hidden="true" size={18} />Evidence inbox</Link>}
       />
 
       <div className="capture-demo-banner"><LockKeyhole aria-hidden="true" size={17} /><span>{sourceNotice}</span></div>
@@ -274,7 +363,7 @@ export function TransactionCaptureFlow({ initialMethod }: { initialMethod?: Tran
         {stage === "input" && (source === "csv" || source === "bank_statement" || source === "whatsapp") ? <DemoSourceInput onBack={restart} onContinue={() => setStage("processing")} onImported={reviewImportedTransactions} source={source} /> : null}
         {stage === "processing" ? <ProcessingState onCancel={restart} onComplete={() => setStage("review")} /> : null}
         {stage === "review" ? <TransactionReviewForm batchNotice={batchNotice || undefined} batchProgress={source === "receipt" && receiptExtractions.length > 1 ? { current: receiptIndex + 1, total: receiptExtractions.length, label: "receipt" } : importDrafts.length > 1 ? { current: importIndex + 1, total: importDrafts.length, label: "transaction" } : undefined} disclosure={reviewDisclosure} draft={draft} onBack={restart} onConfirm={confirm} onReject={restart} reviewHints={reviewHints} saveError={saveError} saving={createTransaction.isPending} sourceEvidence={sourceEvidence} /> : null}
-        {stage === "success" && saved ? <TransactionSuccessState onAddAnother={restart} onNextItem={receiptExtractions.length ? reviewNextReceipt : importDrafts.length ? reviewNextImport : undefined} remainingItems={receiptExtractions.length ? Math.max(0, receiptExtractions.length - receiptIndex - 1) : Math.max(0, importDrafts.length - importIndex - 1)} nextItemLabel={receiptExtractions.length ? "receipt" : "transaction"} transaction={saved} /> : null}
+        {stage === "success" && saved ? <TransactionSuccessState approvalTimeline={approvalTimeline} onAddAnother={restart} onNextItem={receiptExtractions.length ? reviewNextReceipt : importDrafts.length ? reviewNextImport : undefined} remainingItems={receiptExtractions.length ? Math.max(0, receiptExtractions.length - receiptIndex - 1) : Math.max(0, importDrafts.length - importIndex - 1)} nextItemLabel={receiptExtractions.length ? "receipt" : "transaction"} transaction={saved} /> : null}
       </div>
     </>
   );

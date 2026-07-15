@@ -1,6 +1,5 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
-import { repositories } from "@/repositories";
 import { render } from "@/test/render";
 import { TransactionList } from "./transaction-list";
 
@@ -18,10 +17,10 @@ describe("TransactionList", () => {
     expect(screen.queryByText("Morning nasi lemak sales")).not.toBeInTheDocument();
   });
 
-  it("marks a needs-review transaction as reviewed and persists it", async () => {
+  it("routes the judged receipt through the evidence review flow", async () => {
     render(<TransactionList />);
-    fireEvent.click((await screen.findAllByRole("button", { name: "Mark reviewed" }))[0]);
-    await waitFor(async () => expect((await repositories.transactions.getById({ businessId: "business_demo", transactionId: "txn_002" }))?.status).toBe("confirmed"));
-    expect(await screen.findByRole("status")).toHaveTextContent("marked as reviewed");
+    const reviewLinks = await screen.findAllByRole("link", { name: /Check record/ });
+    expect(reviewLinks.some((link) => link.getAttribute("href") === "/transactions/new?method=receipt&demo=ambiguous")).toBe(true);
+    expect(screen.queryByRole("button", { name: "Mark reviewed" })).not.toBeInTheDocument();
   });
 });
