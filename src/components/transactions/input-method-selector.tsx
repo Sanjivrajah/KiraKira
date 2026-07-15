@@ -18,11 +18,11 @@ interface Method {
 }
 
 const methods: Method[] = [
-  { source: "receipt", name: "Receipt photos", description: "Upload up to 10 images, extract them with AI, and review each draft.", icon: Camera, flow: "Available" },
-  { source: "voice", name: "Voice note", description: "Record or upload audio, transcribe it with Scribe, and review the proposed transaction.", icon: Mic, flow: "Available" },
-  { source: "manual", name: "Manual entry", description: "Enter a sale or expense directly with no extraction step.", icon: FilePenLine, flow: "Available" },
-  { source: "csv", name: "CSV import", description: "Parse up to 100 transaction rows locally and review each one.", icon: FileSpreadsheet, flow: "Available" },
-  { source: "bank_statement", name: "Bank statement", description: "Import a bank CSV locally or extract transactions from a PDF with AI.", icon: Landmark, flow: "Available" },
+  { source: "receipt", name: "Receipt photos", description: "Upload up to 10 images and check each prepared transaction.", icon: Camera, flow: "Available" },
+  { source: "voice", name: "Voice note", description: "Record or upload audio, then check the transaction we prepare.", icon: Mic, flow: "Available" },
+  { source: "manual", name: "Manual entry", description: "Enter a sale or expense yourself.", icon: FilePenLine, flow: "Available" },
+  { source: "csv", name: "CSV import", description: "Import up to 100 rows on this device and check each one.", icon: FileSpreadsheet, flow: "Available" },
+  { source: "bank_statement", name: "Bank statement", description: "Import transactions from a bank CSV or PDF statement.", icon: Landmark, flow: "Available" },
   { source: "whatsapp", name: "WhatsApp order", description: "Preview how a pasted order message could become a sale.", icon: MessageCircle, flow: "Demo" },
 ];
 
@@ -34,7 +34,7 @@ export function InputMethodSelector({ onSelect }: { onSelect: (source: Transacti
           <p className="section-kicker">Step 1 of 3</p>
           <h2 id="capture-method-title">How would you like to add it?</h2>
         </div>
-        <p>CSV stays on this device. Receipt images, voice notes, and bank PDFs use secure AI extraction.</p>
+        <p>Choose the source you already have. You will check every prepared record before it is saved.</p>
       </div>
       <div className="capture-method-grid">
         {methods.map(({ source, name, description, icon: Icon, flow }) => (

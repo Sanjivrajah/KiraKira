@@ -26,7 +26,7 @@ const sourceCopy = {
   bank_statement: {
     eyebrow: "Bank statement",
     title: "Choose a bank statement",
-    help: "Bank CSV files are parsed on this device. PDF statements are securely sent to OpenAI for structured extraction.",
+    help: "Choose a bank CSV or PDF. We’ll prepare transactions for you to compare with the statement before saving.",
     accept: ".pdf,.csv,application/pdf,text/csv",
     icon: Landmark,
   },
