@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 export class LocalJsonStoreError extends Error {
@@ -55,6 +55,10 @@ export class JsonArrayStore<T> {
       await rename(temporaryPath, this.filePath);
     } catch (error) {
       throw new LocalJsonStoreError(`Unable to write local data file ${this.filePath}.`, { cause: error });
+    } finally {
+      await unlink(temporaryPath).catch((error: unknown) => {
+        if (!isMissingFile(error)) console.warn("Unable to clean up local data temporary file.");
+      });
     }
   }
 }

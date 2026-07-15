@@ -19,20 +19,31 @@ export class ConversationService {
     return requestedField;
   }
   async beginCorrection(draft: TransactionDraft): Promise<void> { await this.states.save(this.newState(draft, "awaiting_correction")); }
-  async getActive(telegramUserId: string): Promise<ConversationState | null> { return this.states.findByUser(telegramUserId); }
-  async clearByUser(telegramUserId: string): Promise<void> { await this.states.removeByUser(telegramUserId); }
+  async beginCorrectionField(draft: TransactionDraft, requestedField: ConversationRequestedField): Promise<void> { await this.states.save(this.newState(draft, "awaiting_correction", requestedField)); }
+  async beginReview(draft: TransactionDraft): Promise<void> { await this.states.save(this.newState(draft, "awaiting_review")); }
+  async proposeReplacement(draft: TransactionDraft, replacementInput: NonNullable<ConversationState["replacementInput"]>): Promise<void> {
+    const current = await this.states.findByUser(draft.telegramUserId, draft.telegramChatId);
+    await this.states.save({ ...this.newState(draft, "awaiting_replacement"), replacementInput, ...(current?.inlineMessageId ? { inlineMessageId: current.inlineMessageId } : {}) });
+  }
+  async continueReview(draft: TransactionDraft): Promise<void> { await this.beginReview(draft); }
+  async attachInlineMessage(telegramUserId: string, telegramChatId: string, inlineMessageId: number): Promise<void> {
+    const current = await this.states.findByUser(telegramUserId, telegramChatId);
+    if (current) await this.states.save({ ...current, inlineMessageId });
+  }
+  async getActive(telegramUserId: string, telegramChatId?: string): Promise<ConversationState | null> { return this.states.findByUser(telegramUserId, telegramChatId); }
+  async clearByUser(telegramUserId: string, telegramChatId?: string): Promise<void> { await this.states.removeByUser(telegramUserId, telegramChatId); }
   async clearByDraftId(draftId: string): Promise<void> { await this.states.removeByDraftId(draftId); }
 
   async replaceDraft({ state, telegramUserId, extraction }: { state: ConversationState; telegramUserId: string; extraction: TransactionExtraction }): Promise<ConversationUpdateResult> {
     const draft = await this.drafts.findById(state.draftId);
-    if (!draft) { await this.states.removeByUser(telegramUserId); return { outcome: "missing" }; }
-    if (draft.telegramUserId !== telegramUserId || state.telegramUserId !== telegramUserId) return { outcome: "not_owner" };
-    if (draft.status !== "pending") { await this.states.removeByUser(telegramUserId); return { outcome: "expired" }; }
+    if (!draft) { await this.states.removeByUser(telegramUserId, state.telegramChatId); return { outcome: "missing" }; }
+    if (draft.telegramUserId !== telegramUserId || state.telegramUserId !== telegramUserId || draft.telegramChatId !== state.telegramChatId) return { outcome: "not_owner" };
+    if (draft.status !== "pending") { await this.states.removeByUser(telegramUserId, state.telegramChatId); return { outcome: "expired" }; }
     const updatedAt = this.now().toISOString();
     const normalizedExtraction = normalizeMissingFields(extraction);
     const updated = await this.drafts.update({ ...draft, ...normalizedExtraction, id: draft.id, telegramUserId: draft.telegramUserId, telegramChatId: draft.telegramChatId, sourceType: draft.sourceType, originalInput: draft.originalInput, createdAt: draft.createdAt, status: "pending", updatedAt });
     const nextField = selectClarificationField(updated);
-    if (!nextField) await this.states.removeByUser(telegramUserId);
+    if (!nextField) await this.states.removeByUser(telegramUserId, state.telegramChatId);
     else await this.states.save({ ...state, mode: "awaiting_clarification", requestedField: nextField, updatedAt });
     return { outcome: "updated", draft: updated, nextField };
   }

@@ -6,6 +6,12 @@ Instructions for agents and contributors working in this Next.js application.
 
 This repository uses Next.js 16 with the App Router. Do not rely on remembered Next.js APIs: this version contains breaking changes and deprecations.
 
+Before orienting yourself in this project, read the documentation hub at
+`docs/README.md`. It explains the product boundary, architecture, local-data
+model, and the separate Telegram agent. Use the linked guide that matches the
+area you are changing; these repository docs complement this file, while this
+file remains the authority for engineering and verification requirements.
+
 Before changing framework behavior, read the relevant installed guide under `node_modules/next/dist/docs/01-app/`. Treat those installed docs and the repository's existing patterns as authoritative. Never edit files in `node_modules`.
 
 Useful starting points:

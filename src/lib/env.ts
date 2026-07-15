@@ -8,6 +8,9 @@ const botEnvironmentSchema = z.object({
   TELEGRAM_BOT_TOKEN: requiredEnvironmentString("TELEGRAM_BOT_TOKEN"),
   OPENAI_API_KEY: requiredEnvironmentString("OPENAI_API_KEY"),
   OPENAI_TRANSACTION_MODEL: requiredEnvironmentString("OPENAI_TRANSACTION_MODEL"),
+  ELEVENLABS_API_KEY: requiredEnvironmentString("ELEVENLABS_API_KEY"),
+  ELEVENLABS_STT_MODEL: z.string().trim().min(1).default("scribe_v2"),
+  MAX_VOICE_FILE_BYTES: z.coerce.number().int().positive().default(20 * 1024 * 1024),
   LOCAL_DATA_DIRECTORY: z.string().trim().min(1).default("./data"),
 });
 

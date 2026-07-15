@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { transactionDraftSchema } from "@/features/transaction-agent/transaction-record.schema";
+import { CONVERSATION_STATE_EXPIRY_MS } from "@/features/transaction-agent/agent-config";
 
-export const conversationModeSchema = z.enum(["awaiting_clarification", "awaiting_correction"]);
+export const conversationModeSchema = z.enum(["awaiting_clarification", "awaiting_correction", "awaiting_review", "awaiting_replacement"]);
 export const conversationRequestedFieldSchema = z.enum(["amount", "type", "purpose", "transactionDate", "paymentMethod", "merchantOrCustomer"]);
 
 export const conversationStateSchema = z.object({
@@ -10,6 +11,13 @@ export const conversationStateSchema = z.object({
   draftId: transactionDraftSchema.shape.id,
   mode: conversationModeSchema,
   requestedField: conversationRequestedFieldSchema.optional(),
+  replacementInput: z.object({
+    text: z.string().min(1),
+    sourceType: z.enum(["telegram_text", "telegram_voice"]),
+    transcript: z.string().min(1).optional(),
+    telegramFileId: z.string().min(1).optional(),
+  }).optional(),
+  inlineMessageId: z.number().int().positive().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -17,7 +25,7 @@ export const conversationStateSchema = z.object({
 export type ConversationState = z.infer<typeof conversationStateSchema>;
 export type ConversationRequestedField = z.infer<typeof conversationRequestedFieldSchema>;
 
-export const CONVERSATION_STATE_EXPIRY_MS = 30 * 60 * 1000;
+export { CONVERSATION_STATE_EXPIRY_MS } from "@/features/transaction-agent/agent-config";
 
 export function isConversationStateExpired(state: ConversationState, now = new Date()): boolean {
   return now.getTime() - new Date(state.updatedAt).getTime() >= CONVERSATION_STATE_EXPIRY_MS;

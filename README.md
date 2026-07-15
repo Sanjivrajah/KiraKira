@@ -88,9 +88,9 @@ npm install
 npm run dev
 ```
 
-## Telegram Transaction Agent (Sessions 1–3)
+## Telegram Transaction Agent (Local MVP)
 
-The Telegram transaction agent runs separately from the Next.js app using long polling. It extracts text transactions into reviewable drafts, then saves only confirmed transactions to local JSON files.
+The Telegram transaction agent runs separately from the Next.js app using long polling. It accepts English, Bahasa Melayu, and Manglish transaction text or Telegram voice notes. Voice notes are transcribed with ElevenLabs and then use the same review flow as text. Transactions remain local and are saved only after confirmation.
 
 1. Create a bot through [Telegram's BotFather](https://t.me/BotFather): send `/newbot`, follow its prompts, and copy the token it provides.
 2. Copy the environment template and add the token. Never commit the resulting file.
@@ -99,7 +99,7 @@ The Telegram transaction agent runs separately from the Next.js app using long p
    cp .env.example .env.local
    ```
 
-   Set `TELEGRAM_BOT_TOKEN`, `OPENAI_API_KEY`, and `OPENAI_TRANSACTION_MODEL` in `.env.local`. `LOCAL_DATA_DIRECTORY` defaults to `./data`.
+   Set `TELEGRAM_BOT_TOKEN`, `OPENAI_API_KEY`, `OPENAI_TRANSACTION_MODEL`, and `ELEVENLABS_API_KEY` in `.env.local`. `ELEVENLABS_STT_MODEL` defaults to `scribe_v2`, `MAX_VOICE_FILE_BYTES` defaults to 20 MiB, and `LOCAL_DATA_DIRECTORY` defaults to `./data`.
 3. Install dependencies, then start the bot in a separate terminal:
 
    ```bash
@@ -109,7 +109,37 @@ The Telegram transaction agent runs separately from the Next.js app using long p
 
    Use `npm run bot:start` for a non-watching process. Stop either command with `Ctrl+C`.
 
-Open your bot in Telegram, send `/start` or `/help`, then try `Semalam beli ayam RM85 cash dekat Pasar Borong`. Review the draft and use **Confirm** to save it, **Correct** to discard it and send a replacement message, or **Cancel** to discard it. Local files are created on first use at `data/transaction-drafts.json` and `data/transactions.json` (or inside `LOCAL_DATA_DIRECTORY`); delete those generated JSON files to reset local agent data. Voice notes and conversational corrections are deferred to later sessions.
+Open your bot in Telegram and use these commands:
+
+- `/start` — introduction and a quick example
+- `/help` — supported transaction types and examples
+- `/transactions` — your latest 10 confirmed transactions
+- `/summary` — a basic cash-movement summary
+- `/cancel` — cancel an active correction or clarification
+- `/settings` — choose an English or Bahasa Melayu interface
+
+The persistent home keyboard provides **Record transaction**, **Recent transactions**, **Summary**, and **Help**, so slash commands are optional. Try text such as `Semalam beli ayam RM85 cash dekat Pasar Borong`, `Customer Ravi transfer RM450 for catering semalam`, or `Sold 10 nasi lemak RM5 each cash today`. You can also send a Telegram voice note containing the same details. NiagaAI shows temporary processing feedback, asks one contextual question at a time, and displays a concise draft. Constrained questions and correction fields have quick-answer buttons, while natural-language replies always remain available.
+
+Before saving a likely duplicate, NiagaAI shows the matching confirmed transaction. **Save anyway** is a second explicit confirmation for legitimate repeated transactions; **Cancel** creates nothing. Only one draft can be active for a user and chat; a second transaction requires an explicit keep, discard, or cancel choice. After confirmation, **Undo last save** is available for five minutes and marks the record `voided` instead of deleting its audit evidence. `/transactions` and `/summary` omit voided records. The summary keeps customer debt repayments separate from sales income and is not an audited accounting or profit-and-loss statement.
+
+Conversation state is isolated per Telegram user and chat, so a clarification started in one chat is not consumed in another. Confirmation actions are idempotent within the local bot process: rapid button presses and safe retries do not create a second copy of the same transaction.
+
+Local files are created on first use at `data/transaction-drafts.json`, `data/transactions.json`, `data/conversation-states.json`, and `data/telegram-user-preferences.json` (or inside `LOCAL_DATA_DIRECTORY`). Existing MVP transaction JSON remains readable without a destructive rewrite. To reset local development data, stop the bot, delete those generated JSON files, then restart it. Do not delete data automatically if a file is corrupt; inspect or back it up first.
+
+### Telegram Stage 1 manual checklist
+
+Verify on both phone and desktop before a demo:
+
+1. Open `/start`; use every home button and `/help`, `/transactions`, `/summary`, `/settings`, and `/cancel`.
+2. Capture English, Bahasa Melayu, and Manglish text plus short and long voice notes; confirm temporary status messages disappear.
+3. Exercise every missing-field button and answer the same prompts with natural language.
+4. Exercise every correction field, free-form correction, and cancellation from clarification and correction.
+5. Send a second transaction while reviewing a draft; test keep, discard-and-start, and cancel-new.
+6. Confirm, cancel, duplicate, undo, expired undo, repeated button, stale button, and another-user button paths.
+7. Switch both interface languages and test long descriptions, Unicode names, Telegram special characters, and 200% text scaling.
+8. Simulate OpenAI, ElevenLabs, local-storage, and Telegram failures; verify no financial record is silently saved and recoverable draft state remains available.
+
+This is development-only local storage, not a security boundary. Do not use it for sensitive production financial records. Receipt/image extraction, databases, WhatsApp, MyInvois submission, inventory, authentication, and production deployment are not part of this Telegram MVP. Unsupported media receives a short text-and-voice-only notice.
 
 ## Quality Checks
 

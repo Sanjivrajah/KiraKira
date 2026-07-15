@@ -7,7 +7,7 @@ loadEnvConfig(process.cwd());
 const bot = createTelegramBot(getBotEnvironment());
 
 bot.catch((error: unknown) => {
-  console.error("Telegram bot update failed.", error);
+  console.error("Telegram bot update failed.", error instanceof Error ? `${error.name}: ${error.message}` : "Unknown error");
 });
 
 let isStopping = false;
@@ -26,6 +26,10 @@ async function startBot() {
   await bot.api.setMyCommands([
     { command: "start", description: "Learn what NiagaAI can do" },
     { command: "help", description: "See examples and bot help" },
+    { command: "transactions", description: "View your recent confirmed transactions" },
+    { command: "summary", description: "View your basic transaction summary" },
+    { command: "settings", description: "Choose English or Bahasa Melayu" },
+    { command: "cancel", description: "Cancel an active correction or clarification" },
   ]);
 
   await bot.start({

@@ -50,6 +50,22 @@ describe("clarification flow", () => {
     await expect(states.findByUser("user-1")).resolves.toBeNull();
   });
 
+  it("isolates concurrent conversation flows by both Telegram user and chat", async () => {
+    const directory = await makeDirectory();
+    const states = new LocalConversationStateRepository(directory);
+    const baseState: ConversationState = { telegramUserId: "user-1", telegramChatId: "chat-1", draftId: "00000000-0000-4000-8000-000000000000", mode: "awaiting_clarification", requestedField: "amount", createdAt: "2026-07-15T00:00:00.000Z", updatedAt: "2026-07-15T00:00:00.000Z" };
+    const otherChatState: ConversationState = { ...baseState, telegramChatId: "chat-2", draftId: "00000000-0000-4000-8000-000000000001" };
+
+    await states.save(baseState);
+    await states.save(otherChatState);
+
+    await expect(states.findByUser("user-1", "chat-1")).resolves.toEqual(baseState);
+    await expect(states.findByUser("user-1", "chat-2")).resolves.toEqual(otherChatState);
+    await states.removeByUser("user-1", "chat-1");
+    await expect(states.findByUser("user-1", "chat-1")).resolves.toBeNull();
+    await expect(states.findByUser("user-1", "chat-2")).resolves.toEqual(otherChatState);
+  });
+
   it("detects expiration using the single local expiry constant", () => {
     const state: ConversationState = { telegramUserId: "user-1", telegramChatId: "chat-1", draftId: "00000000-0000-4000-8000-000000000000", mode: "awaiting_correction", createdAt: "2026-07-15T00:00:00.000Z", updatedAt: "2026-07-15T00:00:00.000Z" };
     expect(isConversationStateExpired(state, new Date(Date.parse(state.updatedAt) + CONVERSATION_STATE_EXPIRY_MS - 1))).toBe(false);

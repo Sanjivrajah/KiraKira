@@ -13,6 +13,9 @@ export interface TransactionRepository {
   ensure(): Promise<void>;
   create(transaction: ConfirmedTransaction): Promise<ConfirmedTransaction>;
   listByUser(telegramUserId: string): Promise<ConfirmedTransaction[]>;
+  findRecentByUser(telegramUserId: string, limit: number): Promise<ConfirmedTransaction[]>;
+  findById(id: string): Promise<ConfirmedTransaction | null>;
+  update(transaction: ConfirmedTransaction): Promise<ConfirmedTransaction>;
 }
 
 export class LocalDraftRepository implements DraftRepository {
@@ -44,9 +47,39 @@ export class LocalTransactionRepository implements TransactionRepository {
   async ensure(): Promise<void> { await this.readAll(); }
   async create(transaction: ConfirmedTransaction): Promise<ConfirmedTransaction> {
     const parsed = confirmedTransactionSchema.parse(transaction);
-    return withLocalStorageLock(async () => { const records = await this.readAll(); records.push(parsed); await this.store.write(records); return parsed; });
+    return withLocalStorageLock(async () => {
+      const records = await this.readAll();
+      const existing = records.find((record) => record.id === parsed.id);
+      if (existing) {
+        const existingWithRetryTimestamps = { ...existing, confirmedAt: parsed.confirmedAt, updatedAt: parsed.updatedAt };
+        if (JSON.stringify(existingWithRetryTimestamps) !== JSON.stringify(parsed)) {
+          throw new Error("A different transaction already uses this ID.");
+        }
+        return existing;
+      }
+      records.push(parsed);
+      await this.store.write(records);
+      return parsed;
+    });
   }
   async listByUser(telegramUserId: string): Promise<ConfirmedTransaction[]> { return (await this.readAll()).filter((transaction) => transaction.telegramUserId === telegramUserId); }
+  async findRecentByUser(telegramUserId: string, limit: number): Promise<ConfirmedTransaction[]> {
+    return (await this.listByUser(telegramUserId)).filter((transaction) => transaction.status === "confirmed")
+      .sort((left, right) => `${right.transactionDate ?? ""}|${right.confirmedAt}`.localeCompare(`${left.transactionDate ?? ""}|${left.confirmedAt}`))
+      .slice(0, Math.max(0, limit));
+  }
+  async findById(id: string): Promise<ConfirmedTransaction | null> { return (await this.readAll()).find((transaction) => transaction.id === id) ?? null; }
+  async update(transaction: ConfirmedTransaction): Promise<ConfirmedTransaction> {
+    const parsed = confirmedTransactionSchema.parse(transaction);
+    return withLocalStorageLock(async () => {
+      const records = await this.readAll();
+      const index = records.findIndex((record) => record.id === parsed.id);
+      if (index === -1) throw new Error("Confirmed transaction no longer exists.");
+      records[index] = parsed;
+      await this.store.write(records);
+      return parsed;
+    });
+  }
   private async readAll(): Promise<ConfirmedTransaction[]> { return (await this.store.read()).map((record) => confirmedTransactionSchema.parse(record)); }
 }
 
