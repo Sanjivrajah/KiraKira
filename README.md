@@ -76,6 +76,29 @@ npm install
 npm run dev
 ```
 
+## Telegram Transaction Agent (Sessions 1–3)
+
+The Telegram transaction agent runs separately from the Next.js app using long polling. It extracts text transactions into reviewable drafts, then saves only confirmed transactions to local JSON files.
+
+1. Create a bot through [Telegram's BotFather](https://t.me/BotFather): send `/newbot`, follow its prompts, and copy the token it provides.
+2. Copy the environment template and add the token. Never commit the resulting file.
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Set `TELEGRAM_BOT_TOKEN`, `OPENAI_API_KEY`, and `OPENAI_TRANSACTION_MODEL` in `.env.local`. `LOCAL_DATA_DIRECTORY` defaults to `./data`.
+3. Install dependencies, then start the bot in a separate terminal:
+
+   ```bash
+   npm install
+   npm run bot:dev
+   ```
+
+   Use `npm run bot:start` for a non-watching process. Stop either command with `Ctrl+C`.
+
+Open your bot in Telegram, send `/start` or `/help`, then try `Semalam beli ayam RM85 cash dekat Pasar Borong`. Review the draft and use **Confirm** to save it, **Correct** to discard it and send a replacement message, or **Cancel** to discard it. Local files are created on first use at `data/transaction-drafts.json` and `data/transactions.json` (or inside `LOCAL_DATA_DIRECTORY`); delete those generated JSON files to reset local agent data. Voice notes and conversational corrections are deferred to later sessions.
+
 ## Quality Checks
 
 ```bash
