@@ -2,11 +2,12 @@ import { browserStorage, type KeyValueStorage } from "@/lib/storage/browser-stor
 import { STORAGE_KEYS } from "@/lib/storage/storage-keys";
 import { DEMO_AUTH_ERROR_EMAIL, DEMO_USER } from "@/data/demo";
 import type { AuthService, AuthSession, AuthUser, SignInInput, SignUpInput } from "@/types";
+import { AuthServiceError } from "./auth-service-error";
 
 export { DEMO_AUTH_ERROR_EMAIL } from "@/data/demo";
 export const DEMO_USER_EMAIL = DEMO_USER.email;
 
-export class MockAuthError extends Error {
+export class MockAuthError extends AuthServiceError {
   constructor(message: string) {
     super(message);
     this.name = "MockAuthError";
