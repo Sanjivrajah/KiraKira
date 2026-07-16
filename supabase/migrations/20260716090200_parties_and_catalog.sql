@@ -1,0 +1,18 @@
+create table public.parties (
+  id uuid primary key default gen_random_uuid(), business_id uuid not null references public.businesses(id) on delete cascade,
+  kind text not null check (kind in ('business','individual','government_entity','foreign_entity','general_public')),
+  legal_name text not null check (char_length(btrim(legal_name)) between 1 and 200), trading_name text,
+  roles text[] not null check (cardinality(roles) > 0 and roles <@ array['buyer','seller','customer','supplier','payer','payee']::text[]),
+  email text, phone text, default_currency char(3) check (default_currency is null or default_currency ~ '^[A-Z]{3}$'), default_payment_terms_days integer check (default_payment_terms_days between 0 and 3650),
+  created_at timestamptz not null default public.current_timestamp_utc(), updated_at timestamptz not null default public.current_timestamp_utc(), created_by uuid references public.profiles(id) on delete set null, updated_by uuid references public.profiles(id) on delete set null, version integer not null default 0 check (version >= 0)
+);
+create table public.party_tax_identifiers (id uuid primary key default gen_random_uuid(), party_id uuid not null references public.parties(id) on delete cascade, scheme text not null check (scheme in ('tin','sst','tourism_tax','other_tax')), value text not null, issuing_country_code char(2), description text, unique (party_id, scheme, value));
+create table public.party_registration_identifiers (id uuid primary key default gen_random_uuid(), party_id uuid not null references public.parties(id) on delete cascade, scheme text not null check (scheme in ('brn','nric','passport','army_number','other')), value text not null, issuing_country_code char(2), description text, unique (party_id, scheme, value));
+create table public.party_addresses (id uuid primary key default gen_random_uuid(), party_id uuid not null references public.parties(id) on delete cascade, address_type text not null check (address_type in ('billing','shipping')), line1 text not null, line2 text, line3 text, city text not null, state_code text, postal_code text, country_code char(2) not null default 'MY', is_primary boolean not null default false, created_at timestamptz not null default public.current_timestamp_utc(), updated_at timestamptz not null default public.current_timestamp_utc());
+create unique index party_addresses_one_primary on public.party_addresses (party_id, address_type) where is_primary;
+create table public.products_services (id uuid primary key default gen_random_uuid(), business_id uuid not null references public.businesses(id) on delete cascade, name text not null, description text, sku text, classification_code text, unit_code text, default_unit_price_minor bigint check (default_unit_price_minor >= 0), currency char(3) not null default 'MYR' check (currency ~ '^[A-Z]{3}$'), tax_type_code text, tax_rate numeric(7,4) check (tax_rate between 0 and 100), is_active boolean not null default true, created_at timestamptz not null default public.current_timestamp_utc(), updated_at timestamptz not null default public.current_timestamp_utc(), unique (business_id, sku));
+create trigger parties_set_updated_at before update on public.parties for each row execute function public.set_updated_at();
+create trigger party_addresses_set_updated_at before update on public.party_addresses for each row execute function public.set_updated_at();
+create trigger products_services_set_updated_at before update on public.products_services for each row execute function public.set_updated_at();
+create index parties_business_roles_idx on public.parties using gin (roles);
+create index products_services_business_active_idx on public.products_services (business_id, is_active);

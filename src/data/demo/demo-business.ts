@@ -1,0 +1,28 @@
+import type { Business } from "@/types";
+
+export const DEMO_BUSINESS: Business = {
+  id: "business_demo",
+  name: "Warung Kak Lina",
+  type: "food_beverage",
+  registrationNumber: "202601012345",
+  tin: null,
+  currency: "MYR",
+  preferredLanguage: "ms",
+  legalName: "Warung Kak Lina",
+  tradingName: "Warung Kak Lina",
+  entityType: "sole_proprietorship",
+  registrationScheme: "brn",
+  sstRegistration: "",
+  msicCode: "56101",
+  businessActivityDescription: "Food and beverage preparation and catering",
+  addressLine1: "12 Jalan Niaga",
+  addressLine2: "Taman Demo",
+  city: "Shah Alam",
+  postcode: "40100",
+  stateCode: "10",
+  countryCode: "MY",
+  email: "lina@warung.demo",
+  phone: "+60123456789",
+  createdAt: "2026-06-01T00:00:00.000Z",
+  updatedAt: "2026-06-01T00:00:00.000Z",
+};

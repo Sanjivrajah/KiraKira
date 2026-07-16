@@ -1,0 +1,109 @@
+import type { ConversationRequestedField } from "@/features/transaction-agent/conversation-state";
+import type { TransactionExtraction } from "@/features/transaction-agent/transaction.schema";
+import { MAX_TEXT_MESSAGE_LENGTH } from "@/features/transaction-agent/agent-config";
+
+export type BotLocale = "en" | "ms";
+
+const copy = {
+  en: {
+    home: { record: "Record transaction", recent: "Recent transactions", summary: "Summary", help: "Help" },
+    start: "Welcome to NiagaAI. Record money in or money out using text or a voice note.\n\nExample: Semalam beli ayam RM85 cash dekat Pasar Borong\n\nChoose Record transaction to begin.",
+    help: "Send a transaction as text or a voice note. I’ll ask for missing details, then show a draft before anything is saved.\n\nExamples:\n• Sold 10 nasi lemak RM5 each cash today\n• Customer Ravi transferred RM450 for catering semalam\n\nCommands: /transactions, /summary [start end], /search query, /export start end, /settings, /cancel\n\nThis local demo stores data only on the machine running the bot.",
+    record: "Send the transaction as text or a voice note. Include the amount, what it was for, date, and payment method if you can.",
+    settings: "Choose your NiagaAI interface language. Your transaction wording will stay unchanged.",
+    localeSaved: "Interface language changed to English.",
+    preparing: "Preparing the transaction…",
+    listening: "Listening to your voice note…",
+    cancel: "Cancel transaction",
+    confirm: "Confirm",
+    correct: "Correct something",
+    saved: (type: TransactionExtraction["type"]) => type === "expense" ? "Expense recorded" : type === "customer_payment" ? "Customer payment recorded" : "Money in recorded",
+  },
+  ms: {
+    home: { record: "Catat transaksi", recent: "Transaksi terkini", summary: "Ringkasan", help: "Bantuan" },
+    start: "Selamat datang ke NiagaAI. Catat wang masuk atau wang keluar melalui teks atau nota suara.\n\nContoh: Semalam beli ayam RM85 cash dekat Pasar Borong\n\nPilih Catat transaksi untuk mula.",
+    help: "Hantar transaksi melalui teks atau nota suara. Saya akan tanya maklumat yang belum lengkap dan tunjukkan draf sebelum menyimpan.\n\nContoh:\n• Jual 10 nasi lemak RM5 satu tunai hari ini\n• Pelanggan Ravi transfer RM450 untuk katering semalam\n\nArahan: /transactions, /summary [mula akhir], /search carian, /export mula akhir, /settings, /cancel\n\nDemo setempat ini menyimpan data pada komputer yang menjalankan bot sahaja.",
+    record: "Hantar transaksi melalui teks atau nota suara. Sertakan amaun, tujuan, tarikh dan cara bayaran jika boleh.",
+    settings: "Pilih bahasa paparan NiagaAI. Ayat asal transaksi anda tidak akan diubah.",
+    localeSaved: "Bahasa paparan ditukar kepada Bahasa Melayu.",
+    preparing: "Sedang menyediakan transaksi…",
+    listening: "Sedang mendengar nota suara…",
+    cancel: "Batal transaksi",
+    confirm: "Sahkan",
+    correct: "Betulkan sesuatu",
+    saved: (type: TransactionExtraction["type"]) => type === "expense" ? "Perbelanjaan direkodkan" : type === "customer_payment" ? "Bayaran pelanggan direkodkan" : "Wang masuk direkodkan",
+  },
+} as const;
+
+export function messages(locale: BotLocale) { return copy[locale]; }
+
+export function interfaceText(locale: BotLocale) {
+  const ms = locale === "ms";
+  return {
+    loadTransactionsFailed: ms ? "Saya tidak dapat memuatkan transaksi anda sekarang. Cuba lagi sebentar lagi." : "I couldn't load your transactions right now. Please try again shortly.",
+    loadSummaryFailed: ms ? "Saya tidak dapat mengira ringkasan anda sekarang. Cuba lagi sebentar lagi." : "I couldn't calculate your summary right now. Please try again shortly.",
+    replacementPrompt: ms ? "Anda masih mempunyai draf yang belum selesai. Apa yang anda mahu lakukan?" : "You still have an unfinished draft. What would you like to do?",
+    unavailable: ms ? "Transaksi itu tidak lagi tersedia. Sila hantar semula." : "That transaction is no longer available. Please send it again.",
+    restarted: ms ? "Aliran sebelumnya telah tamat. Saya mulakan transaksi baharu." : "The previous flow expired. I started a new transaction.",
+    tooLong: ms ? `Transaksi terlalu panjang. Hadnya ${MAX_TEXT_MESSAGE_LENGTH.toLocaleString("ms-MY")} aksara.` : `That transaction is too long. Please keep it under ${MAX_TEXT_MESSAGE_LENGTH.toLocaleString("en-MY")} characters.`,
+    prepareFailed: ms ? "Saya tidak dapat menyediakan draf sekarang. Cuba lagi sebentar lagi. Tiada apa-apa disimpan." : "I couldn't prepare that draft right now. Please try again. Nothing was saved.",
+    voiceTooLarge: (mib: number) => ms ? `Nota suara itu terlalu besar. Pastikan saiznya kurang daripada ${mib} MiB atau hantar teks.` : `That voice note is too large. Please keep it under ${mib} MiB or send text.`,
+    voiceFailed: ms ? "Saya tidak dapat memproses nota suara itu. Cuba lagi atau hantar teks." : "I couldn't process that voice note. Please try again or send text.",
+    unsupported: ms ? "NiagaAI kini menyokong teks transaksi dan nota suara sahaja." : "NiagaAI currently supports transaction text and voice notes.",
+    noActive: ms ? "Tiada transaksi aktif untuk dibatalkan." : "There is no active transaction to cancel.",
+    cancelled: ms ? "Transaksi dibatalkan. Tiada apa-apa disimpan." : "Transaction cancelled. Nothing was saved.",
+    cancelFailed: ms ? "Saya tidak dapat membatalkan transaksi itu sekarang. Cuba lagi." : "I couldn't cancel that transaction right now. Please try again.",
+    staleAction: ms ? "Tindakan ini tidak lagi tersedia." : "This action is no longer available.",
+    missingDraft: ms ? "Draf ini tidak lagi tersedia." : "This draft is no longer available.",
+    foreignAction: ms ? "Tindakan ini milik pengguna lain." : "This action belongs to another user.",
+    transcriptTitle: ms ? "Transkrip nota suara" : "Voice note transcript",
+    noTranscript: ms ? "Tiada transkrip." : "No transcript available.",
+    undoVoided: ms ? "Simpanan terakhir dibatalkan. Rekod audit dikekalkan sebagai dibatalkan." : "Last save undone. The audit record is retained as voided.",
+    undoExpired: ms ? "Tempoh batal simpan telah tamat." : "The undo window has ended.",
+    undoRepeated: ms ? "Simpanan ini telah dibatalkan." : "This save was already undone.",
+    undoUnavailable: ms ? "Simpanan ini tidak boleh dibatalkan." : "This save cannot be undone.",
+    newRequestExpired: ms ? "Permintaan baharu telah tamat." : "The new request is no longer available.",
+    replacementFailed: ms ? "Draf lama dibuang, tetapi transaksi baharu tidak dapat diproses. Sila hantar semula." : "The old draft was discarded, but the new transaction could not be processed. Please send it again.",
+    freeCorrection: ms ? "Terangkan pembetulan dengan ayat biasa." : "Describe the correction in your own words.",
+    correctionPrompt: ms ? "Apa yang mahu dibetulkan?" : "What would you like to correct?",
+    datePrompt: ms ? "Taip tarikh, contohnya 14 Julai 2026." : "Type the date, for example 14 July 2026.",
+    quickAnswerFailed: ms ? "Jawapan itu tidak dapat diproses. Cuba taip jawapan anda." : "I couldn't apply that answer. Please type your answer instead.",
+    duplicateIntro: ms ? "Ini kelihatan serupa dengan transaksi yang telah direkodkan:" : "This looks similar to a transaction already recorded:",
+    expiredDraft: ms ? "Draf ini telah tamat atau sudah diproses." : "This draft expired or was already handled.",
+    foreignDraft: ms ? "Draf ini milik pengguna lain." : "This draft belongs to another user.",
+    incomplete: ms ? "Transaksi ini belum lengkap." : "This transaction is not ready to save.",
+    actionFailed: ms ? "Tindakan itu gagal. Keadaan transaksi anda dikekalkan." : "I couldn't complete that action. Your transaction state is preserved.",
+  };
+}
+
+export function clarificationMessage(locale: BotLocale, draft: TransactionExtraction, field: ConversationRequestedField, remaining: number): string {
+  const understood: string[] = [];
+  if (draft.amount) understood.push(new Intl.NumberFormat(locale === "ms" ? "ms-MY" : "en-MY", { style: "currency", currency: "MYR" }).format(draft.amount));
+  if (draft.description) understood.push(draft.description);
+  if (draft.merchantOrCustomer) understood.push(draft.merchantOrCustomer);
+  const questions: Record<ConversationRequestedField, [string, string]> = {
+    amount: ["What was the amount?", "Berapakah amaunnya?"],
+    type: ["Was this money in, money out, or a customer payment?", "Adakah ini wang masuk, wang keluar atau bayaran pelanggan?"],
+    purpose: ["What was this payment for?", "Bayaran ini untuk apa?"],
+    transactionDate: ["When did this happen?", "Bilakah transaksi ini berlaku?"],
+    paymentMethod: ["How was it paid?", "Bagaimanakah bayaran dibuat?"],
+    merchantOrCustomer: ["Who was the customer or supplier?", "Siapakah pelanggan atau pembekal?"],
+  };
+  const known = understood.length ? (locale === "ms" ? `Saya faham: ${understood.join(" · ")}.\n` : `I understood: ${understood.join(" · ")}.\n`) : "";
+  const progress = remaining > 1 ? (locale === "ms" ? `${remaining} butiran lagi. ` : `${remaining} details to go. `) : "";
+  return `${known}${progress}${questions[field][locale === "ms" ? 1 : 0]}`;
+}
+
+export function formatDraft(draft: Omit<TransactionExtraction, "missingFields"> & { missingFields?: TransactionExtraction["missingFields"] }, locale: BotLocale): string {
+  const amount = draft.amount === null ? (locale === "ms" ? "Belum diketahui" : "Not known yet") : new Intl.NumberFormat(locale === "ms" ? "ms-MY" : "en-MY", { style: "currency", currency: "MYR" }).format(draft.amount);
+  const type = locale === "ms"
+    ? ({ income: "Wang masuk", expense: "Wang keluar", customer_payment: "Bayaran pelanggan", unknown: "Jenis belum diketahui" } as const)[draft.type]
+    : ({ income: "Money in", expense: "Money out", customer_payment: "Customer payment", unknown: "Type not known yet" } as const)[draft.type];
+  const method = ({ cash: locale === "ms" ? "Tunai" : "Cash", bank_transfer: locale === "ms" ? "Pindahan bank" : "Bank transfer", card: locale === "ms" ? "Kad" : "Card", ewallet: "E-wallet", credit: locale === "ms" ? "Kredit" : "Credit", unknown: locale === "ms" ? "Belum diketahui" : "Not known yet" } as const)[draft.paymentMethod];
+  const lines = [type, amount, draft.description || (locale === "ms" ? "Tiada keterangan" : "No description")];
+  if (draft.merchantOrCustomer) lines.push(draft.merchantOrCustomer);
+  lines.push(`${draft.transactionDate ?? (locale === "ms" ? "Tarikh belum diketahui" : "Date not known yet")} · ${method}`);
+  if (draft.category) lines.push(draft.category);
+  if (draft.confidence < 0.7) lines.push(locale === "ms" ? "Sila semak butiran ini dengan teliti." : "Please check these details carefully.");
+  return lines.join("\n");
+}
