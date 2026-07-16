@@ -1,7 +1,7 @@
 import {
   Building2,
   FileText,
-  Inbox,
+  Gauge,
   ReceiptText,
   type LucideIcon,
 } from "lucide-react";
@@ -15,7 +15,7 @@ export interface NavigationItem {
 }
 
 export const primaryNavigation: NavigationItem[] = [
-  { label: "Evidence inbox", shortLabel: "Evidence", href: "/dashboard", icon: Inbox },
+  { label: "Dashboard", shortLabel: "Home", href: "/dashboard", icon: Gauge },
   { label: "Records", href: "/transactions", icon: ReceiptText },
   { label: "e-Invoice preparation", shortLabel: "e-Invoice", href: "/invoices", icon: FileText },
   { label: "Business details", shortLabel: "Business", href: "/settings", icon: Building2, availability: "preview" },
