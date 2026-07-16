@@ -31,6 +31,8 @@ describe("Supabase schema migrations", () => {
       "20260717100000_telegram_generic_workflow_state.sql",
       "20260717110000_telegram_link_code_member_issuance.sql",
       "20260717130000_financial_insights_orchestration.sql",
+      "20260717140000_telegram_confirmation_category_fallback.sql",
+      "20260717150000_telegram_confirmation_source_provenance.sql",
     ]);
   });
 

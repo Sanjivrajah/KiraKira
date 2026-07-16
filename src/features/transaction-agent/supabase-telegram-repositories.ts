@@ -18,6 +18,11 @@ type SupabaseLike = any;
 
 export function toSupabaseConfirmedTransactionPayload(transaction: ConfirmedTransaction) {
   if (transaction.amount === null) throw new Error("A confirmed Telegram transaction requires an amount.");
+  const sourceProvenance = transaction.sourceType === "telegram_photo" || transaction.sourceType === "telegram_document"
+    ? "receipt"
+    : transaction.sourceType === "telegram_voice"
+      ? "telegram_voice"
+      : "telegram_text";
   return {
     ...transaction,
     // The shared transactions table requires a code even when extraction cannot
@@ -26,6 +31,7 @@ export function toSupabaseConfirmedTransactionPayload(transaction: ConfirmedTran
     direction: transaction.type === "expense" ? "expense" : "income",
     transactionType: transaction.type === "expense" ? "expense" : transaction.type === "customer_payment" ? "customer_payment" : "income",
     amountMinor: Math.round(transaction.amount * 100),
+    sourceProvenance,
   };
 }
 

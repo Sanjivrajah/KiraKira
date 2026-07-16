@@ -34,7 +34,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="app-layout">
-      <Sidebar businessName={business?.name} businessType={business ? businessTypeLabels[business.type] : undefined} />
+      <Sidebar businessName={business?.name} businessType={business ? businessTypeLabels[business.type] : undefined} mode={mode} />
       <div className="app-main">
         {mode === "supabase" && businesses.length > 1 ? <div className="active-business-selector">
           <label>

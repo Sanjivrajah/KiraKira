@@ -3,6 +3,7 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 import { financialTransactionSchema } from "@/domain/transactions/transaction.schema";
 import type { z } from "zod";
 import { RepositoryError } from "@/repositories/contracts";
+import { normalizeSupabaseTimestamp } from "@/lib/supabase/timestamp";
 
 export type FinancialTransaction = z.infer<typeof financialTransactionSchema>;
 export type NewFinancialTransaction = Omit<FinancialTransaction, "id"> & { id?: string };
@@ -16,13 +17,13 @@ export type TransactionListOptions = {
   search?: string;
 };
 
-const transactionColumns = "id,business_id,direction,lifecycle,transaction_date,accounting_date,counterparty_id,counterparty_name_snapshot,source_links,description,category_code,currency,exchange_rate_to_myr,subtotal_minor,discount_minor,tax_minor,total_minor,lines,totals,payment_status,payment_method_code,e_invoice_treatment,confidence_score,confirmation,void_metadata,created_at,updated_at,created_by,updated_by,version";
+const transactionColumns = "id,business_id,direction,lifecycle,transaction_date,accounting_date,counterparty_id,counterparty_name_snapshot,source_links,description,category_code,currency,exchange_rate_to_myr,subtotal_minor,discount_minor,tax_minor,total_minor,lines,totals,payment_status,payment_method_code,e_invoice_treatment,confidence_score,confirmation,void_metadata,confirmed_at,confirmed_by,voided_at,voided_by,void_reason,created_at,updated_at,created_by,updated_by,version";
 type TransactionRow = Pick<Database["public"]["Tables"]["transactions"]["Row"],
   "id" | "business_id" | "direction" | "lifecycle" | "transaction_date" | "accounting_date" |
   "counterparty_id" | "counterparty_name_snapshot" | "source_links" | "description" | "category_code" |
   "currency" | "exchange_rate_to_myr" | "subtotal_minor" | "discount_minor" | "tax_minor" | "total_minor" | "lines" | "totals" | "payment_status" |
   "payment_method_code" | "e_invoice_treatment" | "confidence_score" | "confirmation" |
-  "void_metadata" | "created_at" | "updated_at" | "created_by" | "updated_by" | "version"
+  "void_metadata" | "confirmed_at" | "confirmed_by" | "voided_at" | "voided_by" | "void_reason" | "created_at" | "updated_at" | "created_by" | "updated_by" | "version"
 >;
 
 type SupabaseRepositoryFailure = {
@@ -68,6 +69,18 @@ function normalizedAmounts(transaction: Pick<FinancialTransaction, "totals">) {
   // Deriving subtotal from the canonical payable amount also supports records
   // with charges or rounding until those columns are normalized separately.
   return { subtotalMinor: totalMinor + discountMinor - taxMinor, discountMinor, taxMinor, totalMinor };
+}
+
+function decimalFromMinor(value: number): string {
+  return (value / 100).toFixed(2);
+}
+
+function hasCanonicalLines(value: Json): value is Json[] {
+  return Array.isArray(value) && value.length > 0;
+}
+
+function hasCanonicalTotals(value: Json): value is Record<string, Json> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value) && "payableAmount" in value);
 }
 
 export class SupabaseTransactionRepository {
@@ -189,6 +202,30 @@ export class SupabaseTransactionRepository {
     // Helper to strip nulls
     const notNull = (value: unknown) => (value === null ? undefined : value);
 
+    const subtotal = decimalFromMinor(row.subtotal_minor);
+    const tax = decimalFromMinor(row.tax_minor);
+    const total = decimalFromMinor(row.total_minor);
+    const lines = hasCanonicalLines(row.lines) ? row.lines : [{
+      id: row.id,
+      description: row.description,
+      quantity: "1",
+      unitCode: "unit",
+      unitPrice: { amount: subtotal, currency: row.currency },
+      taxTreatment: { taxTypeCode: "02", taxRate: "0", taxableAmount: { amount: subtotal, currency: row.currency }, taxAmount: { amount: tax, currency: row.currency } },
+      subtotal: { amount: subtotal, currency: row.currency },
+      totalExcludingTax: { amount: subtotal, currency: row.currency },
+      totalIncludingTax: { amount: total, currency: row.currency },
+    }];
+    const totals = hasCanonicalTotals(row.totals) ? row.totals : {
+      lineExtensionAmount: { amount: subtotal, currency: row.currency },
+      allowanceTotal: { amount: decimalFromMinor(row.discount_minor), currency: row.currency },
+      chargeTotal: { amount: "0.00", currency: row.currency },
+      taxExclusiveAmount: { amount: subtotal, currency: row.currency },
+      taxTotal: { amount: tax, currency: row.currency },
+      taxInclusiveAmount: { amount: total, currency: row.currency },
+      roundingAmount: { amount: "0.00", currency: row.currency },
+      payableAmount: { amount: total, currency: row.currency },
+    };
     const obj = {
       id: row.id,
       businessId: row.business_id,
@@ -203,16 +240,16 @@ export class SupabaseTransactionRepository {
       categoryCode: row.category_code,
       currency: row.currency,
       exchangeRateToMYR: notNull(row.exchange_rate_to_myr)?.toString(),
-      lines: row.lines,
-      totals: row.totals,
+      lines,
+      totals,
       paymentStatus: row.payment_status,
       paymentMethodCode: notNull(row.payment_method_code),
       eInvoiceTreatment: row.e_invoice_treatment,
       confidenceScore: notNull(row.confidence_score),
-      confirmation: notNull(row.confirmation),
-      voidMetadata: notNull(row.void_metadata),
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      confirmation: row.lifecycle === "confirmed" && row.confirmed_at && row.confirmed_by ? { confirmedBy: row.confirmed_by, confirmedAt: normalizeSupabaseTimestamp(row.confirmed_at) } : undefined,
+      voidMetadata: row.lifecycle === "voided" && row.voided_at && row.voided_by && row.void_reason ? { voidedBy: row.voided_by, voidedAt: normalizeSupabaseTimestamp(row.voided_at), reason: row.void_reason } : undefined,
+      createdAt: normalizeSupabaseTimestamp(row.created_at),
+      updatedAt: normalizeSupabaseTimestamp(row.updated_at),
       createdBy: notNull(row.created_by),
       updatedBy: notNull(row.updated_by),
       version: notNull(row.version),
