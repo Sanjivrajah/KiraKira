@@ -40,27 +40,20 @@ export class LegacyTransactionRepositoryAdapter implements TransactionRepository
   }
 
   async initializeDemo(input: { businessId: string; fixtures: Transaction[] }): Promise<Transaction[]> {
-    // If the database already has transactions, don't wipe them! Just return them.
-    // This allows newly created transactions to persist.
-    const { count: existingCount, error } = await this.supabaseRepo['client']
-      .from("transactions")
-      .select("id", { count: "exact", head: true })
-      .eq("business_id", input.businessId);
-      
-    if (existingCount !== null && existingCount > 0) {
-      return this.list({ businessId: input.businessId });
-    }
+    const existing = await this.list({ businessId: input.businessId });
+    if (existing.length > 0) return existing;
 
     const results = [];
     for (const fixture of input.fixtures) {
       try {
         const saved = await this.create({ transaction: { ...fixture, businessId: input.businessId } });
         results.push(saved);
-      } catch (err: any) {
-        if (err.message?.includes("duplicate key") || err.message?.includes("transactions_pkey")) {
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "";
+        if (message.includes("duplicate key") || message.includes("transactions_pkey")) {
           results.push({ ...fixture, businessId: input.businessId });
         } else {
-          throw err;
+          throw error;
         }
       }
     }

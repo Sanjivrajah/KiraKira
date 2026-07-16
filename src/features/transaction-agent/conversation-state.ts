@@ -13,7 +13,7 @@ export const conversationStateSchema = z.object({
   requestedField: conversationRequestedFieldSchema.optional(),
   replacementInput: z.object({
     text: z.string().min(1),
-    sourceType: z.enum(["telegram_text", "telegram_voice"]),
+    sourceType: transactionDraftSchema.shape.sourceType,
     transcript: z.string().min(1).optional(),
     telegramFileId: z.string().min(1).optional(),
   }).optional(),

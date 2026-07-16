@@ -8,7 +8,7 @@ const copy = {
   en: {
     home: { record: "Record transaction", recent: "Recent transactions", summary: "Summary", help: "Help" },
     start: "Welcome to NiagaAI. Record money in or money out using text or a voice note.\n\nExample: Semalam beli ayam RM85 cash dekat Pasar Borong\n\nChoose Record transaction to begin.",
-    help: "Send a transaction as text or a voice note. I’ll ask for missing details, then show a draft before anything is saved.\n\nExamples:\n• Sold 10 nasi lemak RM5 each cash today\n• Customer Ravi transferred RM450 for catering semalam\n\nCommands: /transactions, /summary, /settings, /cancel\n\nThis local demo stores data only on the machine running the bot.",
+    help: "Send a transaction as text or a voice note. I’ll ask for missing details, then show a draft before anything is saved.\n\nExamples:\n• Sold 10 nasi lemak RM5 each cash today\n• Customer Ravi transferred RM450 for catering semalam\n\nCommands: /transactions, /summary [start end], /search query, /export start end, /settings, /cancel\n\nThis local demo stores data only on the machine running the bot.",
     record: "Send the transaction as text or a voice note. Include the amount, what it was for, date, and payment method if you can.",
     settings: "Choose your NiagaAI interface language. Your transaction wording will stay unchanged.",
     localeSaved: "Interface language changed to English.",
@@ -22,7 +22,7 @@ const copy = {
   ms: {
     home: { record: "Catat transaksi", recent: "Transaksi terkini", summary: "Ringkasan", help: "Bantuan" },
     start: "Selamat datang ke NiagaAI. Catat wang masuk atau wang keluar melalui teks atau nota suara.\n\nContoh: Semalam beli ayam RM85 cash dekat Pasar Borong\n\nPilih Catat transaksi untuk mula.",
-    help: "Hantar transaksi melalui teks atau nota suara. Saya akan tanya maklumat yang belum lengkap dan tunjukkan draf sebelum menyimpan.\n\nContoh:\n• Jual 10 nasi lemak RM5 satu tunai hari ini\n• Pelanggan Ravi transfer RM450 untuk katering semalam\n\nArahan: /transactions, /summary, /settings, /cancel\n\nDemo setempat ini menyimpan data pada komputer yang menjalankan bot sahaja.",
+    help: "Hantar transaksi melalui teks atau nota suara. Saya akan tanya maklumat yang belum lengkap dan tunjukkan draf sebelum menyimpan.\n\nContoh:\n• Jual 10 nasi lemak RM5 satu tunai hari ini\n• Pelanggan Ravi transfer RM450 untuk katering semalam\n\nArahan: /transactions, /summary [mula akhir], /search carian, /export mula akhir, /settings, /cancel\n\nDemo setempat ini menyimpan data pada komputer yang menjalankan bot sahaja.",
     record: "Hantar transaksi melalui teks atau nota suara. Sertakan amaun, tujuan, tarikh dan cara bayaran jika boleh.",
     settings: "Pilih bahasa paparan NiagaAI. Ayat asal transaksi anda tidak akan diubah.",
     localeSaved: "Bahasa paparan ditukar kepada Bahasa Melayu.",

@@ -78,10 +78,7 @@ export function DashboardContent({ now }: { now: string }) {
       />
 
       {summary.isPending ? <LoadingState label="Loading evidence inbox" /> : null}
-      {summary.isError ? (() => {
-        console.error("Dashboard Summary Error:", summary.error);
-        return <><ErrorState title="We could not load your evidence inbox" description="Your records are still on this device. Try loading the inbox again." /><button className="button button-secondary" onClick={() => summary.refetch()} type="button">Try again</button></>;
-      })() : null}
+      {summary.isError ? <><ErrorState title="We could not load your evidence inbox" description="Your records are still on this device. Try loading the inbox again." /><button className="button button-secondary" onClick={() => summary.refetch()} type="button">Try again</button></> : null}
 
       {summary.isSuccess ? <>
         <section className="evidence-summary" aria-label="Record coverage">

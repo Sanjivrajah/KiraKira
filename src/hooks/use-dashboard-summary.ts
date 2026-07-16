@@ -8,16 +8,11 @@ export function useDashboardSummary(businessId: string, referenceDate: Date) {
   return useQuery({
     queryKey: queryKeys.dashboard(businessId),
     queryFn: async () => {
-      try {
-        await Promise.all([
-          services.transactions.initializeDemo(businessId),
-          services.invoices.initializeDemo(businessId),
-        ]);
-        return await services.dashboard.getSummary(businessId, referenceDate);
-      } catch (err) {
-        console.error("[useDashboardSummary] Error fetching dashboard data:", err);
-        throw err;
-      }
+      await Promise.all([
+        services.transactions.initializeDemo(businessId),
+        services.invoices.initializeDemo(businessId),
+      ]);
+      return services.dashboard.getSummary(businessId, referenceDate);
     },
   });
 }

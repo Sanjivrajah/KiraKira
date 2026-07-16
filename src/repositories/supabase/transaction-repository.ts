@@ -52,7 +52,7 @@ export class SupabaseTransactionRepository {
 
   async update(businessId: string, transactionId: string, changes: Partial<FinancialTransaction>): Promise<FinancialTransaction> {
     // Only map the changes provided
-    const dbChanges: Record<string, any> = {};
+    const dbChanges: Record<string, unknown> = {};
     if (changes.direction) dbChanges.direction = changes.direction;
     if (changes.lifecycle) dbChanges.lifecycle = changes.lifecycle;
     if (changes.transactionDate) dbChanges.transaction_date = changes.transactionDate;
@@ -99,9 +99,9 @@ export class SupabaseTransactionRepository {
   }
 
   // Maps database snake_case row to camelCase domain model
-  private mapFromDatabase(row: any): FinancialTransaction {
+  private mapFromDatabase(row: Record<string, unknown>): FinancialTransaction {
     // Helper to strip nulls
-    const notNull = (val: any) => (val === null ? undefined : val);
+    const notNull = (value: unknown) => (value === null ? undefined : value);
 
     const obj = {
       id: row.id,
@@ -135,7 +135,7 @@ export class SupabaseTransactionRepository {
   }
 
   // Maps camelCase domain model to database snake_case row
-  private mapToDatabase(txn: FinancialTransaction): Record<string, any> {
+  private mapToDatabase(txn: FinancialTransaction): Record<string, unknown> {
     return {
       id: txn.id,
       business_id: txn.businessId,

@@ -24,15 +24,14 @@ import {
   DEMO_REVIEW_RECEIPT_TEXT,
   DEMO_REVIEW_SOURCE_DOCUMENT,
 } from "@/data/demo/demo-review-receipt";
-import { FRONTEND_STORAGE_KEYS, persistReviewProvenance } from "@/frontend/storage";
+import { persistReviewProvenance } from "@/frontend/storage";
 import {
   approveExtractionRun,
   deriveApprovalAuditTimeline,
   transactionReviewToDomain,
   type ApprovalAuditEvent,
 } from "@/frontend/view-models";
-import { browserStorage } from "@/lib/storage/browser-storage";
-import { isoDateTimeSchema, type ExtractionRun, type FinancialTransaction, type SourceDocument } from "@/domain";
+import { isoDateTimeSchema, type ExtractionRun, type SourceDocument } from "@/domain";
 
 type Stage = "select" | "input" | "processing" | "review" | "success";
 
@@ -132,7 +131,9 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
   } : null);
   const [approvalTimeline, setApprovalTimeline] = useState<ApprovalAuditEvent[]>([]);
 
-  const sourceNotice = source === "receipt"
+  const sourceNotice = source === null
+    ? <><strong>Private by default:</strong> choose an evidence source to see how it will be handled before anything is saved.</>
+    : source === "receipt"
     ? <><strong>Receipt review:</strong> we prepare a draft from each image. Nothing is saved until you approve it.</>
     : source === "csv"
       ? <><strong>Spreadsheet import:</strong> rows are prepared on this device and remain drafts until you approve them.</>
@@ -350,12 +351,12 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
           checksRerunAt: isoDateTimeSchema.parse(reviewedAt),
         }));
       }
-      // Note: we no longer manually write to FRONTEND_STORAGE_KEYS.transactions
-      // because useCreateTransaction handles it via React Query and Supabase.
       setSaved(transaction);
       setStage("success");
-    } catch (err: any) {
-      setSaveError(err.message || "We couldn’t save this transaction. Please try again.");
+    } catch (error) {
+      setSaveError(error instanceof Error && error.message
+        ? error.message
+        : "We couldn’t save this transaction. Please try again.");
     }
   };
 

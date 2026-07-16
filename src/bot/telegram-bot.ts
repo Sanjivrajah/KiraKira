@@ -1,4 +1,4 @@
-import { Bot, type Context } from "grammy";
+import { Bot, InputFile, type Context } from "grammy";
 import { messages, interfaceText, clarificationMessage, formatDraft, type BotLocale } from "@/bot/messages";
 import { getHomeAction, homeKeyboard } from "@/bot/keyboards/home-keyboard";
 import { clarificationKeyboard, correctionKeyboard, duplicateKeyboard, replacementKeyboard, reviewKeyboard, settingsKeyboard, undoKeyboard } from "@/bot/keyboards/transaction-keyboards";
@@ -15,6 +15,7 @@ import { ElevenLabsTranscriptionService, type AudioTranscription } from "@/lib/e
 import type { BotEnvironment } from "@/lib/env";
 import { MAX_TEXT_MESSAGE_LENGTH, MAX_TRANSACTIONS_RETURNED } from "@/features/transaction-agent/agent-config";
 import { formatRecentTransactions, formatTransactionSummary, splitTelegramMessage } from "@/features/transaction-agent/telegram-command-formatters";
+import { paginateTransactions, periodFor, searchTransactions, summaryForPeriod, transactionsToCsv, validatePeriod } from "@/features/transaction-agent/daily-bookkeeping";
 
 type VoiceDependencies = {
   downloadAudio?: (input: Parameters<typeof downloadTelegramAudio>[0]) => Promise<DownloadedTelegramAudio>;
@@ -85,20 +86,44 @@ export function createTelegramBot(environment: BotEnvironment, draftService?: Tr
   bot.command("help", async (context) => { const locale = await localeFor(context); return replyHome(context, messages(locale).help, locale); });
   bot.command("settings", async (context) => context.reply(messages(await localeFor(context)).settings, { reply_markup: settingsKeyboard() }));
 
-  async function showRecent(context: Context) {
+  async function showRecent(context: Context, after?: string) {
     if (!context.from) return;
     const locale = await localeFor(context);
-    try { return replyParts(context, formatRecentTransactions(await repositories.transactions.findRecentByUser(String(context.from.id), MAX_TRANSACTIONS_RETURNED), undefined, locale)); }
+    try {
+      const page = paginateTransactions(await repositories.transactions.listByUser(String(context.from.id)), after, MAX_TRANSACTIONS_RETURNED);
+      const message = formatRecentTransactions(page.items, undefined, locale) + (page.nextCursor ? `\n\nUse /transactions ${page.nextCursor} for the next page.` : "");
+      return replyParts(context, message);
+    }
     catch (error) { console.error("Unable to load Telegram transactions.", error instanceof Error ? error.message : "Unknown error"); return context.reply(interfaceText(locale).loadTransactionsFailed); }
   }
-  async function showSummary(context: Context) {
+  async function showSummary(context: Context, input?: string) {
     if (!context.from) return;
     const locale = await localeFor(context);
-    try { return replyParts(context, formatTransactionSummary((await repositories.transactions.listByUser(String(context.from.id))).filter((item) => item.status === "confirmed"), locale)); }
+    try {
+      const settings = await preferences.getSettings(String(context.from.id));
+      const period = input ? (() => { const [start, end] = input.trim().split(/\s+/); return start && end ? validatePeriod(start, end) : null; })() : periodFor("month", settings.timezone, now());
+      if (!period) return context.reply("Use /summary YYYY-MM-DD YYYY-MM-DD. The start date must not be after the end date.");
+      const scoped = summaryForPeriod(await repositories.transactions.listByUser(String(context.from.id)), period);
+      const categories = scoped.categories.length ? `\n\nCategory breakdown (bookkeeping guidance only):\n${scoped.categories.map(([name, value]) => `• ${name}: ${new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR" }).format(value)}`).join("\n")}` : "";
+      return replyParts(context, `${formatTransactionSummary([], locale).replace("NiagaAI transaction summary", `NiagaAI transaction summary (${period.start} to ${period.end})`).replace("Income: RM 0.00", `Income: ${new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR" }).format(scoped.income)}`).replace("Customer payments: RM 0.00", `Customer payments: ${new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR" }).format(scoped.customerPayments)}`).replace("Expenses: RM 0.00", `Expenses: ${new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR" }).format(scoped.expenses)}`).replace("Net cash movement: RM 0.00", `Net cash movement: ${new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR" }).format(scoped.netCashMovement)}`).replace("Transactions recorded: 0", `Transactions recorded: ${scoped.transactionCount}`)}${categories}`);
+    }
     catch (error) { console.error("Unable to load Telegram transaction summary.", error instanceof Error ? error.message : "Unknown error"); return context.reply(interfaceText(locale).loadSummaryFailed); }
   }
-  bot.command("transactions", showRecent);
-  bot.command("summary", showSummary);
+  bot.command("transactions", (context) => showRecent(context, context.match || undefined));
+  bot.command("summary", (context) => showSummary(context, context.match || undefined));
+  bot.command("search", async (context) => {
+    if (!context.from) return; const query = context.match?.trim() ?? ""; const locale = await localeFor(context);
+    if (!query || query.length > 120) return context.reply("Use /search followed by up to 120 characters of description, party, category, or exact amount.");
+    const results = searchTransactions(await repositories.transactions.listByUser(String(context.from.id)), query);
+    return replyParts(context, formatRecentTransactions(results, results.length, locale));
+  });
+  bot.command("export", async (context) => {
+    if (!context.from || !context.chat) return; const [start, end] = (context.match ?? "").trim().split(/\s+/); const period = start && end ? validatePeriod(start, end) : null;
+    if (!period) return context.reply("Use /export YYYY-MM-DD YYYY-MM-DD. Exports are local transaction records, not audited reports.");
+    const records = (await repositories.transactions.listByUser(String(context.from.id))).filter((item) => item.status === "confirmed" && item.transactionDate && item.transactionDate >= period.start && item.transactionDate <= period.end);
+    if (records.length > 2_000) return context.reply("That export is too large. Choose a narrower date range.");
+    return context.replyWithDocument(new InputFile(Buffer.from(transactionsToCsv(records), "utf8"), `niagaai-transactions-${period.start}-to-${period.end}.csv`), { caption: "Local transaction export — not an audited report." });
+  });
 
   async function presentResult(context: Context, result: TransactionInputResult, locale: BotLocale) {
     const text = interfaceText(locale);

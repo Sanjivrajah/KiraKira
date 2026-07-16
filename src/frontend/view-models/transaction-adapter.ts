@@ -1,4 +1,4 @@
-import type { Transaction, TransactionLineItem, TransactionStatus } from "@/types";
+import type { Transaction, TransactionStatus } from "@/types";
 import type { FinancialTransaction } from "@/repositories/supabase/transaction-repository";
 
 // TODO: Deprecate once UI components are refactored to consume `FinancialTransaction` directly.
