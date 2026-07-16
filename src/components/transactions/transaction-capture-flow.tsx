@@ -365,6 +365,16 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
     }
   };
 
+  const stageContent =
+    stage === "select" ? <InputMethodSelector onSelect={selectSource} />
+    : stage === "input" && source === "receipt" ? <ReceiptUploader onBack={restart} onExtracted={reviewReceiptExtractions} />
+    : stage === "input" && source === "voice" ? <VoiceRecorder onBack={restart} onExtracted={reviewVoiceTransaction} />
+    : stage === "input" && (source === "csv" || source === "bank_statement" || source === "whatsapp") ? <DemoSourceInput onBack={restart} onContinue={() => setStage("processing")} onImported={reviewImportedTransactions} source={source} />
+    : stage === "processing" ? <ProcessingState onCancel={restart} onComplete={() => setStage("review")} />
+    : stage === "review" ? <TransactionReviewForm batchNotice={batchNotice || undefined} batchProgress={source === "receipt" && receiptExtractions.length > 1 ? { current: receiptIndex + 1, total: receiptExtractions.length, label: "receipt" } : importDrafts.length > 1 ? { current: importIndex + 1, total: importDrafts.length, label: "transaction" } : undefined} disclosure={reviewDisclosure} draft={draft} onBack={restart} onConfirm={confirm} onReject={restart} reviewHints={reviewHints} saveError={saveError} saving={createTransaction.isPending || updateTransaction.isPending || (Boolean(reviewTransactionId) && reviewedTransaction.isPending)} sourceEvidence={sourceEvidence} />
+    : stage === "success" && saved ? <TransactionSuccessState approvalTimeline={approvalTimeline} onAddAnother={restart} onNextItem={receiptExtractions.length ? reviewNextReceipt : importDrafts.length ? reviewNextImport : undefined} remainingItems={receiptExtractions.length ? Math.max(0, receiptExtractions.length - receiptIndex - 1) : Math.max(0, importDrafts.length - importIndex - 1)} nextItemLabel={receiptExtractions.length ? "receipt" : "transaction"} transaction={saved} />
+    : null;
+
   return (
     <>
       <PageHeader
@@ -377,13 +387,9 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
       <div className="capture-demo-banner"><LockKeyhole aria-hidden="true" size={17} /><span>{sourceNotice}</span></div>
 
       <div className="capture-workspace">
-        {stage === "select" ? <InputMethodSelector onSelect={selectSource} /> : null}
-        {stage === "input" && source === "receipt" ? <ReceiptUploader onBack={restart} onExtracted={reviewReceiptExtractions} /> : null}
-        {stage === "input" && source === "voice" ? <VoiceRecorder onBack={restart} onExtracted={reviewVoiceTransaction} /> : null}
-        {stage === "input" && (source === "csv" || source === "bank_statement" || source === "whatsapp") ? <DemoSourceInput onBack={restart} onContinue={() => setStage("processing")} onImported={reviewImportedTransactions} source={source} /> : null}
-        {stage === "processing" ? <ProcessingState onCancel={restart} onComplete={() => setStage("review")} /> : null}
-        {stage === "review" ? <TransactionReviewForm batchNotice={batchNotice || undefined} batchProgress={source === "receipt" && receiptExtractions.length > 1 ? { current: receiptIndex + 1, total: receiptExtractions.length, label: "receipt" } : importDrafts.length > 1 ? { current: importIndex + 1, total: importDrafts.length, label: "transaction" } : undefined} disclosure={reviewDisclosure} draft={draft} onBack={restart} onConfirm={confirm} onReject={restart} reviewHints={reviewHints} saveError={saveError} saving={createTransaction.isPending || updateTransaction.isPending || (Boolean(reviewTransactionId) && reviewedTransaction.isPending)} sourceEvidence={sourceEvidence} /> : null}
-        {stage === "success" && saved ? <TransactionSuccessState approvalTimeline={approvalTimeline} onAddAnother={restart} onNextItem={receiptExtractions.length ? reviewNextReceipt : importDrafts.length ? reviewNextImport : undefined} remainingItems={receiptExtractions.length ? Math.max(0, receiptExtractions.length - receiptIndex - 1) : Math.max(0, importDrafts.length - importIndex - 1)} nextItemLabel={receiptExtractions.length ? "receipt" : "transaction"} transaction={saved} /> : null}
+        <div className="capture-stage" data-stage={stage} key={stage}>
+          {stageContent}
+        </div>
       </div>
     </>
   );

@@ -8,6 +8,17 @@ import { TransactionCaptureFlow } from "./transaction-capture-flow";
 describe("TransactionCaptureFlow", () => {
   beforeEach(() => localStorage.clear());
 
+  it("mounts one stage wrapper when moving from source selection to input", () => {
+    const { container } = render(<TransactionCaptureFlow />);
+
+    expect(container.querySelector('[data-stage="select"]')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Receipt photos/ }));
+
+    expect(container.querySelector('[data-stage="input"]')).toBeInTheDocument();
+    expect(container.querySelectorAll(".capture-stage")).toHaveLength(1);
+  });
+
   it("shows every Session 3 input method", () => {
     render(<TransactionCaptureFlow />);
     expect(screen.getAllByRole("button", { name: /Receipt photo|Voice note|Manual entry|CSV import|Bank statement|Telegram order/ })).toHaveLength(6);
