@@ -16,5 +16,5 @@ export function BrowserLocalExport() {
     URL.revokeObjectURL(href);
     setMessage(`Exported ${payload.records.length} transaction record${payload.records.length === 1 ? "" : "s"}. Import is a separate preview-and-commit operation.`);
   }
-  return <section className="rounded-lg border border-slate-200 p-4"><h2 className="text-base font-semibold">Development data export</h2><p className="mt-1 text-sm text-slate-600">Export browser-local transaction data only when preparing a deliberate migration. This does not upload or import anything.</p><button type="button" onClick={download} className="mt-3 min-h-11 rounded-md bg-slate-900 px-4 text-sm font-medium text-white">Export local transactions</button>{message ? <p role="status" className="mt-2 text-sm text-slate-600">{message}</p> : null}</section>;
+  return <section className="settings-export-card" aria-labelledby="export-title"><div><h3 id="export-title">Export local transactions</h3><p>Download browser-local transaction data when preparing a deliberate migration. Nothing is uploaded or imported.</p></div><div className="settings-export-actions"><button type="button" onClick={download} className="button button-secondary">Export data</button>{message ? <p role="status">{message}</p> : null}</div></section>;
 }

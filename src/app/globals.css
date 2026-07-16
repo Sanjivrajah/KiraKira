@@ -379,6 +379,136 @@ li {
   white-space: nowrap;
 }
 
+.settings-layout {
+  display: grid;
+  gap: 18px;
+  max-width: 880px;
+}
+
+.settings-card,
+.settings-section {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.settings-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 15px;
+  padding: 20px;
+}
+
+.settings-card-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--brand-100);
+  color: var(--brand-700);
+}
+
+.telegram-link-icon {
+  background: #e8f1fb;
+  color: #2a6ea5;
+}
+
+.settings-card-content,
+.settings-card-heading,
+.settings-export-card > div {
+  min-width: 0;
+}
+
+.settings-card-heading,
+.settings-section-heading,
+.telegram-link-action,
+.telegram-link-code-heading,
+.settings-export-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.settings-card h2,
+.settings-section h2,
+.settings-export-card h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  letter-spacing: -0.025em;
+}
+
+.settings-card-content > p,
+.settings-export-card p {
+  margin: 8px 0 0;
+  color: var(--ink-700);
+  font-size: var(--text-small);
+  line-height: 1.55;
+}
+
+.settings-status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--canvas);
+  color: var(--ink-500);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.settings-status-ready { background: var(--brand-100); color: var(--brand-700); }
+.settings-field { display: block; margin-top: 18px; color: var(--ink-700); font-size: var(--text-small); font-weight: 700; }
+.settings-field select { display: block; width: 100%; min-height: 46px; margin-top: 7px; padding: 0 12px; border: 1px solid #ccd3ce; border-radius: 12px; background: white; color: var(--ink-950); }
+.settings-notice, .settings-error { margin: 18px 0 0; font-size: var(--text-small); line-height: 1.5; }
+.settings-notice { color: var(--ink-700); }
+.settings-error { color: var(--danger); }
+
+.telegram-link-action {
+  align-items: center;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.telegram-link-action strong,
+.telegram-link-action span { display: block; }
+.telegram-link-action strong { font-size: var(--text-small); }
+.telegram-link-action span { margin-top: 4px; color: var(--ink-500); font-size: 0.75rem; }
+.telegram-link-action .button { flex: 0 0 auto; }
+
+.telegram-link-code { margin-top: 20px; padding: 15px; border: 1px solid #cae7d8; border-radius: 14px; background: #f4fbf7; }
+.telegram-link-code-heading { align-items: center; }
+.telegram-link-code-heading span { display: inline-flex; align-items: center; gap: 6px; color: var(--brand-700); font-size: var(--text-small); font-weight: 700; }
+.telegram-link-code-heading small { color: var(--ink-500); font-size: 0.75rem; }
+.telegram-link-code p { margin: 14px 0 8px; color: var(--ink-700); font-size: var(--text-small); }
+.telegram-link-code code { display: block; overflow-x: auto; padding: 11px; border: 1px solid var(--line); border-radius: 10px; background: white; color: var(--ink-950); font-size: 0.8125rem; }
+.telegram-link-code .button { margin-top: 12px; min-height: 40px; font-size: var(--text-small); }
+
+.settings-section { padding: 20px; }
+.settings-section-heading { align-items: center; margin-bottom: 15px; }
+.settings-section-heading > svg { color: var(--ink-500); }
+.settings-export-card { align-items: center; padding: 16px; border-radius: 14px; background: var(--canvas); }
+.settings-export-card h3 { font-size: 1rem; }
+.settings-export-actions { display: grid; justify-items: end; gap: 8px; }
+.settings-export-actions p { max-width: 280px; margin: 0; color: var(--ink-500); font-size: 0.75rem; text-align: right; }
+
+@media (max-width: 540px) {
+  .settings-card { grid-template-columns: 1fr; }
+  .settings-card-heading, .telegram-link-action, .settings-export-card { flex-direction: column; }
+  .settings-card-heading { gap: 10px; }
+  .telegram-link-action { align-items: stretch; }
+  .telegram-link-action .button, .settings-export-actions, .settings-export-actions .button { width: 100%; }
+  .settings-export-actions { justify-items: stretch; }
+  .settings-export-actions p { max-width: none; text-align: left; }
+  .telegram-link-code-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
+}
+
 .route-loading {
   display: grid;
   min-height: 100vh;
