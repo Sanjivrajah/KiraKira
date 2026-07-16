@@ -16,7 +16,8 @@
     "supabase:status": "supabase status",
     "supabase:reset": "supabase db reset",
     "supabase:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
-    "data:import:telegram": "tsx scripts/import-telegram-json.ts"
+    "data:import:telegram": "tsx scripts/import-telegram-json.ts",
+    "demo:agent": "tsx scripts/demo-agent.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

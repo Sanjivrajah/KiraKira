@@ -7,6 +7,7 @@ const migrationSql = readdirSync(migrationsDirectory)
   .sort()
   .map((file) => readFileSync(resolve(migrationsDirectory, file), "utf8"))
   .join("\n");
+const orchestrationMigrationSql = readFileSync(resolve(migrationsDirectory, "20260716170000_agent_orchestration_foundation.sql"), "utf8");
 
 describe("Supabase schema migrations", () => {
   it("uses ordered timestamped migrations for every Session 2 schema area", () => {
@@ -24,7 +25,12 @@ describe("Supabase schema migrations", () => {
       "20260716130000_invoice_lifecycle_payments_and_audit.sql",
       "20260716140000_telegram_agent_durable_workflows.sql",
       "20260716150000_data_import_batches.sql",
-      "20260716160000_telegram_worker_crud_permissions.sql",
+      "20260716160000_einvoice_schema_alignment.sql",
+      "20260716160100_telegram_worker_crud_permissions.sql",
+      "20260716170000_agent_orchestration_foundation.sql",
+      "20260717100000_telegram_generic_workflow_state.sql",
+      "20260717110000_telegram_link_code_member_issuance.sql",
+      "20260717130000_financial_insights_orchestration.sql",
     ]);
   });
 
@@ -83,6 +89,9 @@ describe("Supabase schema migrations", () => {
     expect(migrationSql).toContain("grant execute on function public.consume_telegram_link_code(text, bigint, bigint, text, boolean) to service_role");
     expect(migrationSql).toContain("grant execute on function public.confirm_telegram_transaction(uuid, uuid, text, jsonb) to service_role");
     expect(migrationSql).toContain("grant execute on function public.void_telegram_transaction(uuid, uuid, text) to service_role");
+    expect(migrationSql).toContain("workflow_status text");
+    expect(migrationSql).toContain("telegram_conversation_workflow_status_check");
+    expect(migrationSql).toContain("telegram_link_codes_member_write");
   });
 
   it("records explicit import batches behind tenant-scoped RLS", () => {
@@ -90,5 +99,14 @@ describe("Supabase schema migrations", () => {
     expect(migrationSql).toContain("alter table public.data_import_batches enable row level security");
     expect(migrationSql).toContain("source_batch_id uuid not null");
     expect(migrationSql).toContain("data_import_batches_insert");
+  });
+
+  it("keeps orchestration traces redacted, tenant-scoped, and idempotent", () => {
+    expect(orchestrationMigrationSql).toContain("create table public.agent_orchestration_runs");
+    expect(orchestrationMigrationSql).toContain("create table public.agent_orchestration_steps");
+    expect(orchestrationMigrationSql).toContain("idempotency_key text not null unique");
+    expect(orchestrationMigrationSql).toContain("agent_orchestration_runs_active_account_idx");
+    expect(orchestrationMigrationSql).toContain("alter table public.agent_orchestration_runs enable row level security");
+    expect(orchestrationMigrationSql).not.toContain("raw_text");
   });
 });

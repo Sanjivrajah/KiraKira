@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getClarificationQuestion, normalizeMissingFields, selectClarificationField } from "@/features/transaction-agent/clarification";
-import { CONVERSATION_STATE_EXPIRY_MS, isConversationStateExpired, type ConversationState } from "@/features/transaction-agent/conversation-state";
+import { CONVERSATION_STATE_EXPIRY_MS, conversationStateSchema, isConversationStateExpired, type ConversationState } from "@/features/transaction-agent/conversation-state";
 import { LocalConversationStateRepository } from "@/features/transaction-agent/conversation-repository";
 import { ConversationService } from "@/features/transaction-agent/conversation-service";
 import { TransactionDraftService } from "@/features/transaction-agent/transaction-confirmation";
@@ -17,6 +17,7 @@ afterEach(async () => { await Promise.all(directories.splice(0).map((directory) 
 
 const incomplete: TransactionExtraction = { type: "expense", amount: 300, currency: "MYR", description: "", merchantOrCustomer: "Ali", paymentMethod: "unknown", transactionDate: null, category: null, quantity: null, unit: null, missingFields: ["purpose", "transactionDate", "paymentMethod"], confidence: 0.55 };
 const complete: TransactionExtraction = { ...incomplete, description: "Stock for the shop", paymentMethod: "bank_transfer", transactionDate: "2026-07-15", category: "Inventory", missingFields: [], confidence: 0.95 };
+const workflowFields = { workflowId: "00000000-0000-4000-8000-000000000099", workflowType: "transaction_capture" as const, workflowVersion: 1 as const, workflowStatus: "awaiting_clarification" as const, collectedValues: {}, expiresAt: "2026-07-15T00:30:00.000Z" };
 
 async function makeFlow() {
   const directory = await makeDirectory();
@@ -41,7 +42,7 @@ describe("clarification flow", () => {
   it("creates, loads, updates, and removes persisted conversation state", async () => {
     const directory = await makeDirectory();
     const states = new LocalConversationStateRepository(directory);
-    const state: ConversationState = { telegramUserId: "user-1", telegramChatId: "chat-1", draftId: "00000000-0000-4000-8000-000000000000", mode: "awaiting_clarification", requestedField: "amount", createdAt: "2026-07-15T00:00:00.000Z", updatedAt: "2026-07-15T00:00:00.000Z" };
+    const state: ConversationState = { ...workflowFields, telegramUserId: "user-1", telegramChatId: "chat-1", draftId: "00000000-0000-4000-8000-000000000000", mode: "awaiting_clarification", requestedField: "amount", createdAt: "2026-07-15T00:00:00.000Z", updatedAt: "2026-07-15T00:00:00.000Z" };
     await states.save(state);
     await expect(states.findByUser("user-1")).resolves.toEqual(state);
     await states.save({ ...state, requestedField: "purpose", updatedAt: "2026-07-15T00:01:00.000Z" });
@@ -53,7 +54,7 @@ describe("clarification flow", () => {
   it("isolates concurrent conversation flows by both Telegram user and chat", async () => {
     const directory = await makeDirectory();
     const states = new LocalConversationStateRepository(directory);
-    const baseState: ConversationState = { telegramUserId: "user-1", telegramChatId: "chat-1", draftId: "00000000-0000-4000-8000-000000000000", mode: "awaiting_clarification", requestedField: "amount", createdAt: "2026-07-15T00:00:00.000Z", updatedAt: "2026-07-15T00:00:00.000Z" };
+    const baseState: ConversationState = { ...workflowFields, telegramUserId: "user-1", telegramChatId: "chat-1", draftId: "00000000-0000-4000-8000-000000000000", mode: "awaiting_clarification", requestedField: "amount", createdAt: "2026-07-15T00:00:00.000Z", updatedAt: "2026-07-15T00:00:00.000Z" };
     const otherChatState: ConversationState = { ...baseState, telegramChatId: "chat-2", draftId: "00000000-0000-4000-8000-000000000001" };
 
     await states.save(baseState);
@@ -67,9 +68,23 @@ describe("clarification flow", () => {
   });
 
   it("detects expiration using the single local expiry constant", () => {
-    const state: ConversationState = { telegramUserId: "user-1", telegramChatId: "chat-1", draftId: "00000000-0000-4000-8000-000000000000", mode: "awaiting_correction", createdAt: "2026-07-15T00:00:00.000Z", updatedAt: "2026-07-15T00:00:00.000Z" };
+    const state: ConversationState = { ...workflowFields, telegramUserId: "user-1", telegramChatId: "chat-1", draftId: "00000000-0000-4000-8000-000000000000", mode: "awaiting_correction", createdAt: "2026-07-15T00:00:00.000Z", updatedAt: "2026-07-15T00:00:00.000Z" };
     expect(isConversationStateExpired(state, new Date(Date.parse(state.updatedAt) + CONVERSATION_STATE_EXPIRY_MS - 1))).toBe(false);
     expect(isConversationStateExpired(state, new Date(Date.parse(state.updatedAt) + CONVERSATION_STATE_EXPIRY_MS))).toBe(true);
+  });
+
+  it("migrates legacy local state into a versioned transaction workflow", () => {
+    const migrated = conversationStateSchema.parse({ telegramUserId: "user-1", telegramChatId: "chat-1", draftId: "00000000-0000-4000-8000-000000000000", mode: "awaiting_review", createdAt: "2026-07-15T00:00:00.000Z", updatedAt: "2026-07-15T00:00:00.000Z" });
+    expect(migrated).toMatchObject({ workflowType: "transaction_capture", workflowVersion: 1, workflowStatus: "awaiting_confirmation" });
+    expect(migrated.expiresAt).toBe("2026-07-15T00:30:00.000Z");
+  });
+
+  it("marks an expired workflow terminal instead of deleting its state", async () => {
+    const { conversations, draft, states } = await makeFlow();
+    await conversations.beginReview(draft);
+    const state = (await states.findByUser("owner"))!;
+    await conversations.expire(state);
+    await expect(states.findByUser("owner")).resolves.toMatchObject({ draftId: draft.id, workflowStatus: "expired" });
   });
 
   it("moves to the next missing field and preserves identity during replacement", async () => {
@@ -83,12 +98,12 @@ describe("clarification flow", () => {
     expect(await repositories.drafts.findById(draft.id)).toMatchObject({ description: "Stock for the shop" });
   });
 
-  it("clears the state once a replacement draft is complete", async () => {
+  it("moves the state to review once a replacement draft is complete", async () => {
     const { conversations, draft, states } = await makeFlow();
     await conversations.beginClarification(draft);
     const result = await conversations.replaceDraft({ state: (await states.findByUser("owner"))!, telegramUserId: "owner", extraction: complete });
     expect(result).toMatchObject({ outcome: "updated", nextField: null, draft: { id: draft.id, missingFields: [] } });
-    await expect(states.findByUser("owner")).resolves.toBeNull();
+    await expect(states.findByUser("owner")).resolves.toMatchObject({ mode: "awaiting_review", workflowStatus: "awaiting_confirmation" });
   });
 
   it("enters correction mode without cancelling the pending draft", async () => {

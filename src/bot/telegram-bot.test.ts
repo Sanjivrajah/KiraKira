@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createDuplicateSaveCallbackData, createTelegramBot, parseTransactionCallback } from "@/bot/telegram-bot";
+import { createDuplicateSaveCallbackData, createTelegramBot, isNoopTelegramMarkupEdit, parseTransactionCallback } from "@/bot/telegram-bot";
 import { getHomeAction, homeKeyboard } from "@/bot/keyboards/home-keyboard";
 import { clarificationKeyboard, correctionKeyboard, paymentSettingsKeyboard, replacementKeyboard, reviewKeyboard, settingsKeyboard, timezoneSettingsKeyboard } from "@/bot/keyboards/transaction-keyboards";
 import { formatDraft, messages } from "@/bot/messages";
@@ -97,6 +97,11 @@ const receiptExtraction: ReceiptExtraction = {
 };
 
 describe("duplicate confirmation callback data", () => {
+  it("treats Telegram's already-cleared keyboard response as a harmless no-op", () => {
+    expect(isNoopTelegramMarkupEdit(new Error("400: Bad Request: message is not modified"))).toBe(true);
+    expect(isNoopTelegramMarkupEdit(new Error("network unavailable"))).toBe(false);
+  });
+
   it("stays within Telegram's 64-byte callback-data limit", () => {
     const callbackData = createDuplicateSaveCallbackData("00000000-0000-4000-8000-000000000000");
     expect(Buffer.byteLength(callbackData, "utf8")).toBeLessThanOrEqual(64);
@@ -181,6 +186,21 @@ describe("Stage 1 presentation", () => {
     await bot.handleUpdate(update("Bought stock RM20 cash today"));
     expect(process).toHaveBeenCalledOnce();
     expect(calls.map((call) => call.method)).toEqual(expect.arrayContaining(["sendChatAction", "sendMessage", "deleteMessage"]));
+  });
+
+  it("rate limits provider-heavy text before extraction and leaves no draft", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "niagaai-bot-rate-limit-")); directories.push(directory);
+    const { calls, fetchMock } = telegramFetch();
+    const process = vi.fn();
+    const bot = createTelegramBot(environment(directory), undefined, {
+      inputProcessor: { process },
+      providerRateLimiter: { check: () => ({ allowed: false as const, retryAfterMs: 15_000 }) },
+      telegramFetch: fetchMock as typeof fetch,
+    });
+    bot.botInfo = botInfo;
+    await bot.handleUpdate(update("Bought stock RM20", 71));
+    expect(process).not.toHaveBeenCalled();
+    expect(calls.some((call) => call.body.includes("Too many requests"))).toBe(true);
   });
 
   it("turns the largest Telegram receipt photo into a reviewable draft and always cleans up the file", async () => {

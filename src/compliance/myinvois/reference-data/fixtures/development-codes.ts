@@ -32,6 +32,7 @@ const entries = [
   ["state", "14", "Wilayah Persekutuan Kuala Lumpur"],
   ["state", "17", "Not Applicable"],
   ["tax_type", "01", "Sales Tax"],
+  ["tax_type", "02", "Service Tax"],
   ["tax_type", "06", "Not Applicable"],
   ["tax_type", "E", "Tax exemption"],
   ["unit_of_measurement", "C62", "one"],

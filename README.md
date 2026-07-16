@@ -191,6 +191,9 @@ Verify on both phone and desktop before a demo:
 
 This is development-only local storage, not a security boundary. Do not use it for sensitive production financial records. Receipt files are discarded after extraction; only the reviewed draft and Telegram file ID are retained for local traceability. PDF extraction, permanent receipt storage, databases, WhatsApp, MyInvois submission, inventory, authentication, and production deployment are not part of this Telegram MVP.
 
+For a repeatable hackathon walkthrough using only synthetic local records, use
+the [Telegram hardening and demo guide](docs/agent-orchestration/07-hardening-demo.md).
+
 ## Quality Checks
 
 ```bash

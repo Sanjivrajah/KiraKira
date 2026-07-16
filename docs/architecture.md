@@ -87,6 +87,16 @@ migration:
 validation, mapping, UBL output, and reference data. It is not proof of a live
 submission or official approval.
 
+### Telegram orchestration boundary
+
+The Telegram transport normalizes supported inbound transaction updates into a
+small envelope and passes them to `TransactionOrchestrationService`. The
+service records redacted run and step metadata, enforces inbound-update
+idempotency, then invokes the existing transaction input or draft-confirmation
+service. It does not own user-facing copy, Telegram SDK behavior, or financial
+write rules. The existing explicit review and confirmation boundary remains the
+only route to a confirmed financial record.
+
 ### External extraction boundaries
 
 Route Handlers validate raw input, call focused providers under `src/lib`, and

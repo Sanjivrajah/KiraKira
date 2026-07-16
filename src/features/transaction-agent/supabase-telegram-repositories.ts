@@ -6,6 +6,7 @@ import type { ConversationStateRepository } from "@/features/transaction-agent/c
 import { conversationStateSchema, type ConversationState } from "@/features/transaction-agent/conversation-state";
 import { confirmedTransactionSchema, transactionDraftSchema, type ConfirmedTransaction, type TransactionDraft } from "@/features/transaction-agent/transaction-record.schema";
 import type { DraftRepository, TransactionRepository } from "@/features/transaction-agent/transaction-repositories";
+import { normalizeSupabaseTimestamp } from "@/lib/supabase/timestamp";
 
 /** Raised before every trusted-worker read/write when the link or membership is gone. */
 export class TelegramLinkRequiredError extends Error {
@@ -14,6 +15,19 @@ export class TelegramLinkRequiredError extends Error {
 
 type Account = { id: string; business_id: string; user_id: string; telegram_user_id: number; telegram_chat_id: number };
 type SupabaseLike = any;
+
+export function toSupabaseConfirmedTransactionPayload(transaction: ConfirmedTransaction) {
+  if (transaction.amount === null) throw new Error("A confirmed Telegram transaction requires an amount.");
+  return {
+    ...transaction,
+    // The shared transactions table requires a code even when extraction cannot
+    // safely classify an otherwise reviewable owner-confirmed transaction.
+    category: transaction.category ?? "uncategorized",
+    direction: transaction.type === "expense" ? "expense" : "income",
+    transactionType: transaction.type === "expense" ? "expense" : transaction.type === "customer_payment" ? "customer_payment" : "income",
+    amountMinor: Math.round(transaction.amount * 100),
+  };
+}
 
 export class SupabaseTelegramAccountResolver {
   constructor(private readonly client: SupabaseLike) {}
@@ -52,7 +66,7 @@ export class SupabaseTelegramDraftRepository implements DraftRepository {
   async ensure() {}
   async create(draft: TransactionDraft) {
     const parsed = transactionDraftSchema.parse(draft); const account = await this.accounts.require(parsed.telegramUserId, parsed.telegramChatId);
-    const { error } = await this.client.from("telegram_conversation_states").upsert({ telegram_account_id: account.id, draft_id: parsed.id, draft: parsed, mode: "awaiting_review", requested_field: null, inline_message_id: null, expires_at: new Date(this.now().getTime() + CONVERSATION_STATE_EXPIRY_MS).toISOString(), version: 0 }, { onConflict: "telegram_account_id" });
+    const { error } = await this.client.from("telegram_conversation_states").upsert({ telegram_account_id: account.id, draft_id: parsed.id, draft: parsed, workflow_id: crypto.randomUUID(), workflow_type: "transaction_capture", workflow_version: 1, workflow_status: "awaiting_confirmation", mode: "awaiting_review", current_action_id: null, collected_values: {}, requested_field: null, inline_message_id: null, expires_at: new Date(this.now().getTime() + CONVERSATION_STATE_EXPIRY_MS).toISOString(), version: 0 }, { onConflict: "telegram_account_id" });
     if (error) throw new Error("Unable to save the Telegram draft.", { cause: error }); return parsed;
   }
   async findById(id: string) { let account: Account; try { account = await this.accounts.requireByDraft(id); } catch { return null; } const { data, error } = await this.client.from("telegram_conversation_states").select("draft").eq("telegram_account_id", account.id).eq("draft_id", id).maybeSingle(); if (error || !data) return null; return transactionDraftSchema.parse(data.draft); }
@@ -64,24 +78,38 @@ export class SupabaseTelegramDraftRepository implements DraftRepository {
 }
 
 export class SupabaseTelegramConversationRepository implements ConversationStateRepository {
+  private readonly saveQueues = new Map<string, Promise<void>>();
   constructor(private readonly client: SupabaseLike, private readonly accounts: SupabaseTelegramAccountResolver, private readonly now: () => Date = () => new Date()) {}
   async ensure() {}
   async findByUser(userId: string, chatId?: string) {
     if (!chatId) return null; const account = await this.accounts.require(userId, chatId);
-    const { data, error } = await this.client.from("telegram_conversation_states").select("draft_id,mode,requested_field,inline_message_id,draft,created_at,updated_at").eq("telegram_account_id", account.id).maybeSingle();
+    const { data, error } = await this.client.from("telegram_conversation_states").select("draft_id,mode,requested_field,inline_message_id,draft,workflow_id,workflow_type,workflow_version,workflow_status,current_action_id,collected_values,expires_at,version,created_at,updated_at").eq("telegram_account_id", account.id).maybeSingle();
     if (error || !data) return null;
-    return conversationStateSchema.parse({ telegramUserId: userId, telegramChatId: chatId, draftId: data.draft_id, mode: data.mode, ...(data.requested_field ? { requestedField: data.requested_field } : {}), ...(data.inline_message_id ? { inlineMessageId: data.inline_message_id } : {}), ...(data.draft.replacementInput ? { replacementInput: data.draft.replacementInput } : {}), createdAt: data.created_at, updatedAt: data.updated_at });
+    return conversationStateSchema.parse({ telegramUserId: userId, telegramChatId: chatId, draftId: data.draft_id, mode: data.mode, ...(data.workflow_id ? { workflowId: data.workflow_id } : {}), ...(data.workflow_type ? { workflowType: data.workflow_type } : {}), ...(data.workflow_version ? { workflowVersion: data.workflow_version } : {}), ...(data.workflow_status ? { workflowStatus: data.workflow_status } : {}), ...(data.current_action_id ? { currentActionId: data.current_action_id } : {}), ...(data.collected_values ? { collectedValues: data.collected_values } : {}), ...(data.requested_field ? { requestedField: data.requested_field } : {}), ...(data.inline_message_id ? { inlineMessageId: data.inline_message_id } : {}), ...(data.draft.replacementInput ? { replacementInput: data.draft.replacementInput } : {}), expiresAt: normalizeSupabaseTimestamp(data.expires_at), createdAt: normalizeSupabaseTimestamp(data.created_at), updatedAt: normalizeSupabaseTimestamp(data.updated_at) });
   }
   async save(state: ConversationState) {
-    const parsed = conversationStateSchema.parse(state); const account = await this.accounts.require(parsed.telegramUserId, parsed.telegramChatId);
-    const { data: current, error: readError } = await this.client.from("telegram_conversation_states").select("draft,version").eq("telegram_account_id", account.id).eq("draft_id", parsed.draftId).single();
-    if (readError) throw new Error("The Telegram draft is stale.", { cause: readError });
-    const draft = { ...current.draft, ...(parsed.replacementInput ? { replacementInput: parsed.replacementInput } : {}) };
-    const { error } = await this.client.from("telegram_conversation_states").update({ draft, mode: parsed.mode, requested_field: parsed.requestedField ?? null, inline_message_id: parsed.inlineMessageId ?? null, expires_at: new Date(this.now().getTime() + CONVERSATION_STATE_EXPIRY_MS).toISOString(), version: current.version + 1 }).eq("telegram_account_id", account.id).eq("draft_id", parsed.draftId).eq("version", current.version).select("id").single();
-    if (error) throw new Error("The Telegram state changed; please try again.", { cause: error }); return parsed;
+    const parsed = conversationStateSchema.parse(state);
+    return this.withSaveLock(`${parsed.telegramUserId}:${parsed.telegramChatId}`, async () => {
+      const account = await this.accounts.require(parsed.telegramUserId, parsed.telegramChatId);
+      const { data: current, error: readError } = await this.client.from("telegram_conversation_states").select("draft,version").eq("telegram_account_id", account.id).eq("draft_id", parsed.draftId).single();
+      if (readError) throw new Error("The Telegram draft is stale.", { cause: readError });
+      const draft = { ...current.draft, ...(parsed.replacementInput ? { replacementInput: parsed.replacementInput } : {}) };
+      const { error } = await this.client.from("telegram_conversation_states").update({ draft, workflow_id: parsed.workflowId, workflow_type: parsed.workflowType, workflow_version: parsed.workflowVersion, workflow_status: parsed.workflowStatus, mode: parsed.mode, current_action_id: parsed.currentActionId ?? null, collected_values: parsed.collectedValues, requested_field: parsed.requestedField ?? null, inline_message_id: parsed.inlineMessageId ?? null, expires_at: parsed.expiresAt, version: current.version + 1 }).eq("telegram_account_id", account.id).eq("draft_id", parsed.draftId).eq("version", current.version).select("id").single();
+      if (error) throw new Error("The Telegram state changed; please try again.", { cause: error }); return parsed;
+    });
   }
   async removeByUser(userId: string, chatId?: string) { if (!chatId) return; const account = await this.accounts.require(userId, chatId); const { error } = await this.client.from("telegram_conversation_states").delete().eq("telegram_account_id", account.id); if (error) throw new Error("Unable to clear Telegram state.", { cause: error }); }
   async removeByDraftId(draftId: string) { let account: Account; try { account = await this.accounts.requireByDraft(draftId); } catch { return; } const { error } = await this.client.from("telegram_conversation_states").delete().eq("telegram_account_id", account.id).eq("draft_id", draftId); if (error) throw new Error("Unable to clear Telegram state.", { cause: error }); }
+  private async withSaveLock<T>(key: string, operation: () => Promise<T>): Promise<T> {
+    const previous = this.saveQueues.get(key) ?? Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => { release = resolve; });
+    const tail = previous.then(() => current);
+    this.saveQueues.set(key, tail);
+    await previous;
+    try { return await operation(); }
+    finally { release(); if (this.saveQueues.get(key) === tail) this.saveQueues.delete(key); }
+  }
 }
 
 export class SupabaseTelegramTransactionRepository implements TransactionRepository {
@@ -89,8 +117,7 @@ export class SupabaseTelegramTransactionRepository implements TransactionReposit
   async ensure() {}
   async create(transaction: ConfirmedTransaction) {
     const parsed = confirmedTransactionSchema.parse(transaction); const account = await this.accounts.require(parsed.telegramUserId, parsed.telegramChatId);
-    if (parsed.amount === null) throw new Error("A confirmed Telegram transaction requires an amount.");
-    const payload = { ...parsed, direction: parsed.type === "expense" ? "expense" : "income", transactionType: parsed.type === "expense" ? "expense" : parsed.type === "customer_payment" ? "customer_payment" : "income", amountMinor: Math.round(parsed.amount * 100) };
+    const payload = toSupabaseConfirmedTransactionPayload(parsed);
     const { data, error } = await this.client.rpc("confirm_telegram_transaction", { p_account_id: account.id, p_draft_id: parsed.id, p_idempotency_key: `telegram-confirm:${account.id}:${parsed.id}`, p_transaction: payload });
     if (error) throw new Error("Unable to confirm the Telegram transaction.", { cause: error }); return confirmedTransactionSchema.parse(data);
   }

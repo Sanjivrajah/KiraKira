@@ -52,6 +52,12 @@ text, voice note, or receipt image
 `src/bot/telegram-bot.ts` is transport and presentation orchestration. Keep
 its handlers thin; place use-case rules in `src/features/transaction-agent`.
 
+Inbound transaction updates also pass through the feature-layer orchestration
+service before draft persistence or controlled actions. It records a redacted
+run/step trace and suppresses duplicate Telegram deliveries; it does not store
+raw transcripts, receipt text, or transaction payloads in the trace. See the
+[orchestration foundation decision log](agent-orchestration/01-foundation-decision-log.md).
+
 ## Feature ownership
 
 | Concern | Location |
@@ -114,3 +120,9 @@ When adding an input type, command, draft field, or callback:
 
 Never convert model output into a confirmed record without the explicit review
 and confirmation boundary.
+
+## Hackathon demo
+
+The repeatable synthetic-data demo, rate-limit behavior, fixture set, trust
+boundaries, sequence, limitations, and safe reset command are in
+[Session 7 — hardening and demo guide](agent-orchestration/07-hardening-demo.md).
