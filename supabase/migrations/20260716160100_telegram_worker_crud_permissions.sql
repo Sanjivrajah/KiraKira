@@ -97,6 +97,7 @@ begin
 end;
 $$;
 alter table public.invoices drop constraint if exists invoices_check1;
+alter table public.invoices drop constraint if exists invoices_totals_reconcile_check;
 alter table public.invoices
   add constraint invoices_totals_reconcile_check
   check (total_minor = subtotal_minor + tax_minor + rounding_minor);
