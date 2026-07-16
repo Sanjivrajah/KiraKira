@@ -57,6 +57,12 @@ Supabase is available locally for development. It authenticates users only in th
 foundation session; browser-local business, transaction, invoice, and reminder
 repositories intentionally remain unchanged until the later migration sessions.
 
+For the local-to-hosted migration workflow, explicit local-data import process,
+production deployment checks, backup/rollback, and incident response, read
+[`docs/supabase-operations.md`](docs/supabase-operations.md). Browser-local
+records are exported and imported only by an explicit user action; they never
+silently migrate on page load.
+
 ### Prerequisites
 
 - Node.js 20.9 or newer and npm 10 or newer

@@ -23,6 +23,7 @@ describe("Supabase schema migrations", () => {
       "20260716120000_web_transaction_audit.sql",
       "20260716130000_invoice_lifecycle_payments_and_audit.sql",
       "20260716140000_telegram_agent_durable_workflows.sql",
+      "20260716150000_data_import_batches.sql",
     ]);
   });
 
@@ -77,5 +78,12 @@ describe("Supabase schema migrations", () => {
     expect(migrationSql).toContain("function public.void_telegram_transaction");
     expect(migrationSql).toContain("draft_id uuid");
     expect(migrationSql).toContain("version integer not null default 0");
+  });
+
+  it("records explicit import batches behind tenant-scoped RLS", () => {
+    expect(migrationSql).toContain("create table public.data_import_batches");
+    expect(migrationSql).toContain("alter table public.data_import_batches enable row level security");
+    expect(migrationSql).toContain("source_batch_id uuid not null");
+    expect(migrationSql).toContain("data_import_batches_insert");
   });
 });
