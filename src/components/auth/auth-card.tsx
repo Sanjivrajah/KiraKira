@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { BrandWordmark } from "@/components/shared/brand-mark";
 import { authMode } from "@/services/auth";
+import { getBrowserSupabaseConfig } from "@/lib/supabase/env";
 
 export function AuthCard({ eyebrow, title, description, children }: {
   eyebrow: string;
@@ -9,6 +10,7 @@ export function AuthCard({ eyebrow, title, description, children }: {
   description: string;
   children: ReactNode;
 }) {
+  const configurationError = getBrowserSupabaseConfig().error;
   return (
     <main className="auth-page">
       <Link className="brand-lockup auth-brand" href="/">
@@ -18,6 +20,7 @@ export function AuthCard({ eyebrow, title, description, children }: {
         <p className="eyebrow">{eyebrow}</p>
         <h1 id="auth-title">{title}</h1>
         <p className="auth-description">{description}</p>
+        {configurationError ? <p className="form-error" role="alert">{configurationError}</p> : null}
         {children}
       </section>
       {authMode === "demo" ? <p className="demo-footnote">Demo experience · No real account or password is created.</p> : null}

@@ -1,0 +1,5 @@
+-- Session 2 intentionally seeds no identity-bound business records. Every
+-- business requires a real auth.users-backed profile, so fabricating users in
+-- auth schema would diverge from the application's sign-up path. Migrations
+-- remain deterministic; developer fixtures belong in test setup after Session 3
+-- adds the membership/RLS helpers.

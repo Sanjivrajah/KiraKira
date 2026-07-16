@@ -12,7 +12,7 @@ function safeDestination(value: string | null) {
   return value?.startsWith("/") && !value.startsWith("//") ? value : null;
 }
 
-const fallback = <main className="route-loading"><LoadingState label="Restoring your demo session" /></main>;
+const fallback = <main className="route-loading"><LoadingState label="Restoring your session" /></main>;
 
 export function AuthGate(props: { gate: Gate; children: ReactNode }) {
   return <Suspense fallback={fallback}><AuthGateContent {...props} /></Suspense>;

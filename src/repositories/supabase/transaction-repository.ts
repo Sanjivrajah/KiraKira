@@ -1,4 +1,5 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser-client";
+import type { Database, Json } from "@/lib/supabase/database.types";
 import { financialTransactionSchema } from "@/domain/transactions/transaction.schema";
 import type { z } from "zod";
 
@@ -99,7 +100,7 @@ export class SupabaseTransactionRepository {
   }
 
   // Maps database snake_case row to camelCase domain model
-  private mapFromDatabase(row: Record<string, unknown>): FinancialTransaction {
+  private mapFromDatabase(row: Database["public"]["Tables"]["transactions"]["Row"]): FinancialTransaction {
     // Helper to strip nulls
     const notNull = (value: unknown) => (value === null ? undefined : value);
 
@@ -135,7 +136,7 @@ export class SupabaseTransactionRepository {
   }
 
   // Maps camelCase domain model to database snake_case row
-  private mapToDatabase(txn: FinancialTransaction): Record<string, unknown> {
+  private mapToDatabase(txn: FinancialTransaction): Database["public"]["Tables"]["transactions"]["Insert"] {
     return {
       id: txn.id,
       business_id: txn.businessId,
@@ -145,19 +146,19 @@ export class SupabaseTransactionRepository {
       accounting_date: txn.accountingDate,
       counterparty_id: txn.counterpartyId,
       counterparty_name_snapshot: txn.counterpartyNameSnapshot,
-      source_links: txn.sourceLinks,
+      source_links: txn.sourceLinks as Json,
       description: txn.description,
       category_code: txn.categoryCode,
       currency: txn.currency,
-      exchange_rate_to_myr: txn.exchangeRateToMYR,
-      lines: txn.lines,
-      totals: txn.totals,
+      exchange_rate_to_myr: txn.exchangeRateToMYR ? Number(txn.exchangeRateToMYR) : undefined,
+      lines: txn.lines as Json,
+      totals: txn.totals as Json,
       payment_status: txn.paymentStatus,
       payment_method_code: txn.paymentMethodCode,
       e_invoice_treatment: txn.eInvoiceTreatment,
       confidence_score: txn.confidenceScore,
-      confirmation: txn.confirmation,
-      void_metadata: txn.voidMetadata,
+      confirmation: txn.confirmation as Json | undefined,
+      void_metadata: txn.voidMetadata as Json | undefined,
       created_at: txn.createdAt,
       updated_at: txn.updatedAt,
       created_by: txn.createdBy,

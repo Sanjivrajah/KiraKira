@@ -18,7 +18,7 @@ Create invoice → Check totals and readiness → Save locally → Preview remin
 Phase 0 through Phase 2 of `plan_frontend_first.md` are complete.
 
 - Responsive public welcome, sign-in, sign-up, onboarding, and dashboard routes
-- Supabase Auth support with browser-local demo auth fallback when Supabase env vars are absent
+- Explicit browser-local demo or Supabase Auth modes; financial records remain local in this foundation session
 - React Hook Form and Zod validation with accessible field feedback
 - A versioned Zustand session persisted to local storage
 - Hydration-aware client route guards
@@ -53,14 +53,55 @@ The password only demonstrates form validation. It is never compared with a serv
 
 ## Supabase Auth
 
-Set both browser-safe Supabase values in `.env.local` to switch sign-in and sign-up from the local demo service to Supabase Auth:
+Supabase is available locally for development. It authenticates users only in this
+foundation session; browser-local business, transaction, invoice, and reminder
+repositories intentionally remain unchanged until the later migration sessions.
+
+### Prerequisites
+
+- Node.js 20.9 or newer and npm 10 or newer
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) running for local Supabase
+
+### First-time local Supabase setup
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your-key
+npm install
+npm run supabase:start
+npm run supabase:status -o env
+cp .env.example .env.local
 ```
 
-Use the browser-safe Supabase publishable key, never a secret or service-role key. With Supabase enabled, the app stores the Supabase browser session under `niagaai_supabase_auth` and keeps the current browser-local business, transaction, invoice, and reminder repositories unchanged.
+Copy the local API URL and publishable (or anon) key printed by `supabase:status`
+into `.env.local`, then select Supabase mode:
+
+```bash
+NEXT_PUBLIC_AUTH_MODE=supabase
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<local publishable-or-anon-key>
+```
+
+For browser-local demo mode, set `NEXT_PUBLIC_AUTH_MODE=demo`. In development,
+an omitted mode defaults to demo for compatibility; production treats an omitted
+mode as Supabase, so missing credentials produce a clear configuration failure
+rather than a silent demo fallback. Use the browser-safe Supabase publishable
+key, never a secret or service-role key.
+
+Useful local commands:
+
+```bash
+npm run supabase:start
+npm run supabase:status
+npm run supabase:stop
+npm run supabase:reset  # destroys local Supabase data
+npm run supabase:types  # writes src/lib/supabase/database.types.ts
+```
+
+`supabase/migrations/` is the schema source of truth and generated database
+types live at `src/lib/supabase/database.types.ts`. Local Supabase Studio,
+database URLs, and all local keys are printed by `npm run supabase:status`; do
+not commit those values. While running the Next.js app in development,
+`/api/health/supabase` reports whether demo mode is active or the configured
+local/hosted Supabase Auth endpoint is reachable without exposing credentials.
 
 ## Local Persistence and Security
 
