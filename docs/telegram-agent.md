@@ -74,6 +74,13 @@ They are development records, not a database.
   explicit action.
 - Undo voids, rather than deletes, a confirmed record within the configured
   window. Recent lists and summaries exclude voided transactions.
+- `/summary` defaults to the current Malaysian-month period and accepts an explicit
+  `YYYY-MM-DD YYYY-MM-DD` range. `/search` is capped at 120 characters and 30
+  results. `/export` sends an owner-scoped, injection-safe CSV for a bounded
+  range; it is a transaction export, never an audited report.
+- Local confirmed-record schema version 2 adds amendment and void audit fields.
+  Existing Stage 1 JSON is migrated on read through schema defaults; bot and web
+  data remain separate local stores.
 - Never automatically delete a corrupt JSON file. Stop the bot and inspect or
   back it up first.
 

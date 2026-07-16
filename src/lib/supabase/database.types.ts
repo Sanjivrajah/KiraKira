@@ -475,6 +475,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           deleted_at: string | null
+          deletion_requested_at: string | null
+          deletion_requested_by: string | null
           failure_reason: string | null
           id: string
           mime_type: string | null
@@ -486,6 +488,7 @@ export type Database = {
           source_message_reference: string | null
           source_type: string
           storage_bucket: string | null
+          storage_deleted_at: string | null
           storage_path: string | null
           updated_at: string
         }
@@ -496,6 +499,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
+          deletion_requested_at?: string | null
+          deletion_requested_by?: string | null
           failure_reason?: string | null
           id?: string
           mime_type?: string | null
@@ -507,6 +512,7 @@ export type Database = {
           source_message_reference?: string | null
           source_type: string
           storage_bucket?: string | null
+          storage_deleted_at?: string | null
           storage_path?: string | null
           updated_at?: string
         }
@@ -517,6 +523,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
+          deletion_requested_at?: string | null
+          deletion_requested_by?: string | null
           failure_reason?: string | null
           id?: string
           mime_type?: string | null
@@ -528,6 +536,7 @@ export type Database = {
           source_message_reference?: string | null
           source_type?: string
           storage_bucket?: string | null
+          storage_deleted_at?: string | null
           storage_path?: string | null
           updated_at?: string
         }
@@ -542,6 +551,13 @@ export type Database = {
           {
             foreignKeyName: "evidence_files_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidence_files_deletion_requested_by_fkey"
+            columns: ["deletion_requested_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2017,7 +2033,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_evidence_object: {
+        Args: { p_object_name: string }
+        Returns: boolean
+      }
+      can_delete_evidence_object: {
+        Args: { p_object_name: string }
+        Returns: boolean
+      }
       can_manage_business: { Args: { p_business_id: string }; Returns: boolean }
+      can_upload_evidence_object: {
+        Args: { p_object_name: string }
+        Returns: boolean
+      }
       can_write_evidence: {
         Args: { p_evidence_file_id: string }
         Returns: boolean
@@ -2081,6 +2109,14 @@ export type Database = {
       }
       is_transaction_member: {
         Args: { p_transaction_id: string }
+        Returns: boolean
+      }
+      storage_object_bucket_matches_entity: {
+        Args: { p_bucket_id: string; p_object_name: string }
+        Returns: boolean
+      }
+      storage_object_has_business_path: {
+        Args: { p_business_id: string; p_object_name: string }
         Returns: boolean
       }
       upsert_business_member: {

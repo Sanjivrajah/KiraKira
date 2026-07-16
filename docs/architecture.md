@@ -108,6 +108,25 @@ user-facing errors without provider payloads, stack traces, or evidence.
 | Canonical web migration data | Versioned browser keys | Current browser | Retain legacy data during migration |
 | Telegram drafts, records, conversation state | JSON files in `LOCAL_DATA_DIRECTORY` | Local bot process | Never auto-delete corrupt data |
 | API credentials | `.env.local` / runtime env | Server/process | Never expose or commit |
+| Supabase evidence (prepared Session 4 boundary) | Private Storage + `evidence_files` metadata | Active business membership | Server-only orchestration; browser-local capture remains active until Session 5 |
+
+## Private evidence storage boundary
+
+`src/services/evidence/evidence-upload-service.ts` is the server-only path for
+new Supabase evidence. It verifies the authenticated member and entity owner,
+normalizes an allowed MIME/extension, hashes the bytes, generates a server
+controlled `<business>/<entity>/<entity-id>/<uuid>.<ext>` object path, and
+writes matching metadata. Buckets are private and their policies derive access
+from the first path segment plus business membership; no public URL is issued.
+
+The current receipt UI is intentionally not switched to this service until the
+web repository migration. Evidence extraction remains queued/reviewable, never
+becomes a confirmed transaction automatically, and provider payload retention
+is not a reason to retain raw evidence forever. MIME/type checks are not
+malware scanning; a scanning worker can be attached to the queue before moving
+files from `queued` to `processing`. Deletion requests are soft-marked as
+`delete_pending` for a scheduled cleanup worker, avoiding unaudited object
+removal and orphaned metadata.
 
 ## Testing topology
 

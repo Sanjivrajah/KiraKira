@@ -2,9 +2,10 @@ import type { TransactionRepository } from "@/repositories/contracts";
 import type { Transaction } from "@/types";
 import { SupabaseTransactionRepository } from "./transaction-repository";
 import { toLegacyTransactionView, toDomainTransaction } from "@/frontend/view-models/transaction-adapter";
+import { resolveAuthMode } from "@/lib/supabase/env";
 
 export class LegacyTransactionRepositoryAdapter implements TransactionRepository {
-  private readonly supabaseRepo = new SupabaseTransactionRepository();
+  constructor(private readonly supabaseRepo = new SupabaseTransactionRepository()) {}
 
   async list(input: { businessId: string }): Promise<Transaction[]> {
     const domainTxns = await this.supabaseRepo.list(input.businessId);
@@ -36,10 +37,11 @@ export class LegacyTransactionRepositoryAdapter implements TransactionRepository
   }
 
   async remove(input: { businessId: string; transactionId: string }): Promise<void> {
-    return this.supabaseRepo.remove(input.businessId, input.transactionId);
+    await this.supabaseRepo.void(input.businessId, input.transactionId, "Voided from the web application");
   }
 
   async initializeDemo(input: { businessId: string; fixtures: Transaction[] }): Promise<Transaction[]> {
+    if (resolveAuthMode() === "supabase") return this.list({ businessId: input.businessId });
     const existing = await this.list({ businessId: input.businessId });
     if (existing.length > 0) return existing;
 

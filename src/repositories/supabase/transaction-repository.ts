@@ -2,39 +2,76 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { financialTransactionSchema } from "@/domain/transactions/transaction.schema";
 import type { z } from "zod";
+import { RepositoryError } from "@/repositories/contracts";
 
 export type FinancialTransaction = z.infer<typeof financialTransactionSchema>;
 export type NewFinancialTransaction = Omit<FinancialTransaction, "id" | "createdAt" | "updatedAt"> & { id?: string };
+
+export type TransactionPage = { items: FinancialTransaction[]; nextCursor: string | null };
+export type TransactionListOptions = {
+  cursor?: string;
+  limit?: number;
+  lifecycle?: FinancialTransaction["lifecycle"];
+  direction?: FinancialTransaction["direction"];
+  search?: string;
+};
+
+const transactionColumns = "id,business_id,direction,lifecycle,transaction_date,accounting_date,counterparty_id,counterparty_name_snapshot,source_links,description,category_code,currency,exchange_rate_to_myr,lines,totals,payment_status,payment_method_code,e_invoice_treatment,confidence_score,confirmation,void_metadata,created_at,updated_at,created_by,updated_by,version";
+type TransactionRow = Pick<Database["public"]["Tables"]["transactions"]["Row"],
+  "id" | "business_id" | "direction" | "lifecycle" | "transaction_date" | "accounting_date" |
+  "counterparty_id" | "counterparty_name_snapshot" | "source_links" | "description" | "category_code" |
+  "currency" | "exchange_rate_to_myr" | "lines" | "totals" | "payment_status" |
+  "payment_method_code" | "e_invoice_treatment" | "confidence_score" | "confirmation" |
+  "void_metadata" | "created_at" | "updated_at" | "created_by" | "updated_by" | "version"
+>;
+
+function toRepositoryError(error: { code?: string; message: string }, operation: "read" | "write") {
+  if (error.code === "PGRST116") return new RepositoryError("The requested transaction was not found.", "NOT_FOUND");
+  if (error.code === "42501" || error.code === "PGRST301") return new RepositoryError("You do not have permission to access this business.", "FORBIDDEN");
+  if (error.code === "23505") return new RepositoryError("This transaction was already saved.", "CONFLICT");
+  return new RepositoryError(operation === "read" ? "We could not load transactions. Please try again." : "We could not save this transaction. Please try again.", operation === "read" ? "READ_FAILED" : "WRITE_FAILED", { cause: error });
+}
 
 export class SupabaseTransactionRepository {
   private get client() {
     return getSupabaseBrowserClient();
   }
 
-  async list(businessId: string): Promise<FinancialTransaction[]> {
-    const { data, error } = await this.client
+  async listPage(businessId: string, options: TransactionListOptions = {}): Promise<TransactionPage> {
+    const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
+    let query = this.client
       .from("transactions")
-      .select("*")
+      .select(transactionColumns)
       .eq("business_id", businessId)
       .order("transaction_date", { ascending: false });
+    if (options.lifecycle) query = query.eq("lifecycle", options.lifecycle);
+    if (options.direction) query = query.eq("direction", options.direction);
+    if (options.search?.trim()) query = query.ilike("description", `%${options.search.trim().replaceAll("%", "\\%").replaceAll("_", "\\_")}%`);
+    if (options.cursor) query = query.lt("transaction_date", options.cursor);
+    const { data, error } = await query.limit(limit + 1);
 
-    if (error) throw new Error(`Failed to list transactions: ${error.message}`);
-    
-    // We map snake_case to camelCase and validate
-    return data.map(this.mapFromDatabase);
+    if (error) throw toRepositoryError(error, "read");
+    const rows = data ?? [];
+    const items = rows.slice(0, limit).map((row) => this.mapFromDatabase(row));
+    return { items, nextCursor: rows.length > limit ? items.at(-1)?.transactionDate ?? null : null };
+  }
+
+  async list(businessId: string): Promise<FinancialTransaction[]> {
+    const page = await this.listPage(businessId, { limit: 100 });
+    return page.items;
   }
 
   async getById(businessId: string, transactionId: string): Promise<FinancialTransaction | null> {
     const { data, error } = await this.client
       .from("transactions")
-      .select("*")
+      .select(transactionColumns)
       .eq("business_id", businessId)
       .eq("id", transactionId)
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') return null; // Not found
-      throw new Error(`Failed to get transaction: ${error.message}`);
+      if (error.code === "PGRST116") return null;
+      throw toRepositoryError(error, "read");
     }
 
     return this.mapFromDatabase(data);
@@ -44,10 +81,10 @@ export class SupabaseTransactionRepository {
     const { data, error } = await this.client
       .from("transactions")
       .insert([this.mapToDatabase(transaction)])
-      .select()
+      .select(transactionColumns)
       .single();
 
-    if (error) throw new Error(`Failed to create transaction: ${error.message}`);
+    if (error) throw toRepositoryError(error, "write");
     return this.mapFromDatabase(data);
   }
 
@@ -82,25 +119,28 @@ export class SupabaseTransactionRepository {
       .update(dbChanges)
       .eq("business_id", businessId)
       .eq("id", transactionId)
-      .select()
+      .select(transactionColumns)
       .single();
 
-    if (error) throw new Error(`Failed to update transaction: ${error.message}`);
+    if (error) throw toRepositoryError(error, "write");
     return this.mapFromDatabase(data);
   }
 
-  async remove(businessId: string, transactionId: string): Promise<void> {
-    const { error } = await this.client
+  async void(businessId: string, transactionId: string, reason: string): Promise<FinancialTransaction> {
+    const { data, error } = await this.client
       .from("transactions")
-      .delete()
+      .update({ lifecycle: "voided", voided_at: new Date().toISOString(), void_reason: reason })
       .eq("business_id", businessId)
-      .eq("id", transactionId);
+      .eq("id", transactionId)
+      .select(transactionColumns)
+      .single();
 
-    if (error) throw new Error(`Failed to delete transaction: ${error.message}`);
+    if (error) throw toRepositoryError(error, "write");
+    return this.mapFromDatabase(data);
   }
 
   // Maps database snake_case row to camelCase domain model
-  private mapFromDatabase(row: Database["public"]["Tables"]["transactions"]["Row"]): FinancialTransaction {
+  mapFromDatabase(row: TransactionRow): FinancialTransaction {
     // Helper to strip nulls
     const notNull = (value: unknown) => (value === null ? undefined : value);
 

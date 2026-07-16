@@ -19,6 +19,8 @@ describe("Supabase schema migrations", () => {
       "20260716090500_telegram_integrations.sql",
       "20260716090600_audit_and_idempotency.sql",
       "20260716100000_rls_auth_and_membership.sql",
+      "20260716110000_storage_and_evidence_security.sql",
+      "20260716120000_web_transaction_audit.sql",
     ]);
   });
 
@@ -43,5 +45,16 @@ describe("Supabase schema migrations", () => {
     expect(migrationSql).toContain("total_minor bigint");
     expect(migrationSql).toContain("function public.set_updated_at()");
     expect(migrationSql).not.toMatch(/\b(real|double precision)\b/i);
+  });
+
+  it("keeps evidence buckets private and storage paths business-scoped", () => {
+    expect(migrationSql).toContain("'transaction-evidence'");
+    expect(migrationSql).toContain("'invoice-documents'");
+    expect(migrationSql).toContain("public, file_size_limit");
+    expect(migrationSql).toContain("function public.can_upload_evidence_object");
+    expect(migrationSql).toContain("function public.can_delete_evidence_object");
+    expect(migrationSql).toContain("storage_object_has_business_path");
+    expect(migrationSql).toContain("storage_object_bucket_matches_entity");
+    expect(migrationSql).not.toMatch(/create\s+policy\s+evidence_object_[\s\S]*?using\s*\(\s*true\s*\)/i);
   });
 });

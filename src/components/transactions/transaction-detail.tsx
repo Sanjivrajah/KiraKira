@@ -92,7 +92,7 @@ export function TransactionDetail({ id }: { id: string }) {
       setError("");
       setMessage("Transaction changes saved.");
     } catch {
-      setError("We could not save your changes. Check browser storage and try again.");
+      setError("We could not save your changes. Please try again.");
     }
   };
 
@@ -104,7 +104,7 @@ export function TransactionDetail({ id }: { id: string }) {
       router.push("/transactions?deleted=1");
     } catch {
       setConfirmDelete(false);
-      setError("We could not delete this transaction. Please try again.");
+      setError("We could not void this transaction. Please try again.");
     }
   };
 
@@ -133,10 +133,10 @@ export function TransactionDetail({ id }: { id: string }) {
         <div className="transaction-detail-grid"><section className="panel structured-fields"><div className="panel-heading"><div><p className="section-kicker">Record details</p><h2>Transaction information</h2></div><button className="button button-secondary compact-button" onClick={() => { setEditing(true); setMessage(""); }} type="button"><Pencil aria-hidden="true" size={16} />Edit</button></div>
           <dl><div><dt>Type</dt><dd><span className={`type-label ${transaction.type}`}>{transaction.type}</span></dd></div><div><dt>Amount</dt><dd><MoneyDisplay amount={transaction.total} /></dd></div><div><dt>Date</dt><dd>{dateFormatter.format(new Date(`${transaction.date}T00:00:00`))}</dd></div><div><dt>Category</dt><dd>{transaction.category}</dd></div><div className="detail-wide"><dt>Description</dt><dd>{transaction.description}</dd></div><div><dt>{transaction.type === "income" ? "Customer" : "Merchant"}</dt><dd>{transaction.counterpartyName || "Not provided"}</dd></div><div><dt>Payment method</dt><dd>{transaction.paymentMethod || "Not provided"}</dd></div><div><dt>Review status</dt><dd><span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span></dd></div></dl>
         </section>
-        <aside className="panel transaction-source-panel"><p className="section-kicker">Record history</p><h2>Source information</h2><dl><div><dt>Captured via</dt><dd>{sourceLabels[transaction.sourceType]}</dd></div><div><dt>Created</dt><dd>{dateTimeFormatter.format(new Date(transaction.createdAt))}</dd></div><div><dt>Record ID</dt><dd className="record-id">{transaction.id}</dd></div></dl><button className="button button-danger button-full" onClick={() => setConfirmDelete(true)} type="button"><Trash2 aria-hidden="true" size={17} />Delete transaction</button></aside></div>
+        <aside className="panel transaction-source-panel"><p className="section-kicker">Record history</p><h2>Source information</h2><dl><div><dt>Captured via</dt><dd>{sourceLabels[transaction.sourceType]}</dd></div><div><dt>Created</dt><dd>{dateTimeFormatter.format(new Date(transaction.createdAt))}</dd></div><div><dt>Record ID</dt><dd className="record-id">{transaction.id}</dd></div></dl><button className="button button-danger button-full" onClick={() => setConfirmDelete(true)} type="button"><Trash2 aria-hidden="true" size={17} />Void transaction</button></aside></div>
       )}
 
-      <ConfirmationDialog danger confirmLabel={deleteTransaction.isPending ? "Deleting…" : "Delete transaction"} description={`Delete “${transaction.description}”? This permanently removes it from this device.`} onCancel={() => setConfirmDelete(false)} onConfirm={remove} open={confirmDelete} pending={deleteTransaction.isPending} title="Delete this transaction?" />
+      <ConfirmationDialog danger confirmLabel={deleteTransaction.isPending ? "Voiding…" : "Void transaction"} description={`Void “${transaction.description}”? It will remain in the financial history and no longer count as active.`} onCancel={() => setConfirmDelete(false)} onConfirm={remove} open={confirmDelete} pending={deleteTransaction.isPending} title="Void this transaction?" />
     </>
   );
 }
