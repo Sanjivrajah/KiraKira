@@ -3,6 +3,7 @@ import { calculateInvoiceTotals } from "@/lib/invoices/calculations";
 import type { InvoiceRepository, ReminderRepository } from "@/repositories/contracts";
 import type { Invoice } from "@/types";
 import { makeEntityId } from "./id";
+import { SupabaseInvoiceLifecycleRepository } from "@/repositories/supabase/invoice-lifecycle-repository";
 
 type NewInvoice = Omit<Invoice, "id" | "createdAt" | "updatedAt" | "subtotal" | "tax" | "total">;
 
@@ -30,5 +31,16 @@ export class InvoiceService {
   async remove(businessId: string, invoiceId: string) {
     await this.repository.remove({ businessId, invoiceId });
     await this.reminders.removeForInvoice({ businessId, invoiceId });
+  }
+
+  /** Supabase-only lifecycle operations; callers retain the local demo flow. */
+  lifecycle(repository: SupabaseInvoiceLifecycleRepository) {
+    return {
+      saveDraft: (invoice: Invoice) => repository.saveDraft(invoice),
+      issue: (invoiceId: string, prefix?: string, fiscalPeriod?: string) => repository.issue(invoiceId, prefix, fiscalPeriod),
+      recordPayment: (input: Parameters<SupabaseInvoiceLifecycleRepository["recordPayment"]>[0]) => repository.recordPayment(input),
+      reversePayment: (paymentId: string, reason: string) => repository.reversePayment(paymentId, reason),
+      void: (invoiceId: string, reason: string, cancelled?: boolean) => repository.void(invoiceId, reason, cancelled),
+    };
   }
 }

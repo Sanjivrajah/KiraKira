@@ -868,6 +868,48 @@ export type Database = {
           },
         ]
       }
+      invoice_payment_reversals: {
+        Row: {
+          amount_minor: number
+          id: string
+          invoice_payment_id: string
+          reason: string
+          reversed_at: string
+          reversed_by: string | null
+        }
+        Insert: {
+          amount_minor: number
+          id?: string
+          invoice_payment_id: string
+          reason: string
+          reversed_at?: string
+          reversed_by?: string | null
+        }
+        Update: {
+          amount_minor?: number
+          id?: string
+          invoice_payment_id?: string
+          reason?: string
+          reversed_at?: string
+          reversed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_payment_reversals_invoice_payment_id_fkey"
+            columns: ["invoice_payment_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payment_reversals_reversed_by_fkey"
+            columns: ["reversed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_payments: {
         Row: {
           amount_minor: number
@@ -918,6 +960,35 @@ export type Database = {
             columns: ["transaction_id"]
             isOneToOne: false
             referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_sequences: {
+        Row: {
+          business_id: string
+          fiscal_period: string
+          next_value: number
+          prefix: string
+        }
+        Insert: {
+          business_id: string
+          fiscal_period?: string
+          next_value?: number
+          prefix?: string
+        }
+        Update: {
+          business_id?: string
+          fiscal_period?: string
+          next_value?: number
+          prefix?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_sequences_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
         ]
@@ -1579,6 +1650,7 @@ export type Database = {
         Row: {
           created_at: string
           draft: Json
+          draft_id: string
           expires_at: string
           id: string
           inline_message_id: number | null
@@ -1586,10 +1658,12 @@ export type Database = {
           requested_field: string | null
           telegram_account_id: string
           updated_at: string
+          version: number
         }
         Insert: {
           created_at?: string
           draft: Json
+          draft_id: string
           expires_at: string
           id?: string
           inline_message_id?: number | null
@@ -1597,10 +1671,12 @@ export type Database = {
           requested_field?: string | null
           telegram_account_id: string
           updated_at?: string
+          version?: number
         }
         Update: {
           created_at?: string
           draft?: Json
+          draft_id?: string
           expires_at?: string
           id?: string
           inline_message_id?: number | null
@@ -1608,6 +1684,7 @@ export type Database = {
           requested_field?: string | null
           telegram_account_id?: string
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -1615,6 +1692,54 @@ export type Database = {
             columns: ["telegram_account_id"]
             isOneToOne: true
             referencedRelation: "telegram_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      telegram_link_codes: {
+        Row: {
+          business_id: string
+          code_hash: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          revoked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          business_id: string
+          code_hash: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          revoked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          business_id?: string
+          code_hash?: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          revoked_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_link_codes_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "telegram_link_codes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2057,6 +2182,37 @@ export type Database = {
         Args: { p_transaction_id: string }
         Returns: boolean
       }
+      claim_reminder_delivery: {
+        Args: { p_reminder_id: string }
+        Returns: boolean
+      }
+      complete_reminder_delivery: {
+        Args: {
+          p_provider_response?: Json
+          p_reminder_id: string
+          p_sent: boolean
+        }
+        Returns: undefined
+      }
+      confirm_telegram_transaction: {
+        Args: {
+          p_account_id: string
+          p_draft_id: string
+          p_idempotency_key: string
+          p_transaction: Json
+        }
+        Returns: Json
+      }
+      consume_telegram_link_code: {
+        Args: {
+          p_code_hash: string
+          p_is_private_chat: boolean
+          p_telegram_chat_id: number
+          p_telegram_user_id: number
+          p_username: string
+        }
+        Returns: string
+      }
       create_business: {
         Args: {
           p_business_activity_description?: string
@@ -2095,6 +2251,15 @@ export type Database = {
         Args: { p_business_id: string; p_roles: string[] }
         Returns: boolean
       }
+      invoice_audit_event: {
+        Args: {
+          p_action: string
+          p_before?: Json
+          p_invoice: Database["public"]["Tables"]["invoices"]["Row"]
+          p_metadata?: Json
+        }
+        Returns: undefined
+      }
       is_business_member: { Args: { p_business_id: string }; Returns: boolean }
       is_evidence_member: {
         Args: { p_evidence_file_id: string }
@@ -2110,6 +2275,165 @@ export type Database = {
       is_transaction_member: {
         Args: { p_transaction_id: string }
         Returns: boolean
+      }
+      issue_invoice: {
+        Args: {
+          p_fiscal_period?: string
+          p_invoice_id: string
+          p_prefix?: string
+        }
+        Returns: {
+          amount_paid_minor: number
+          business_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          customer_id: string | null
+          customer_snapshot: Json
+          discount_minor: number
+          document_type: string
+          due_date: string | null
+          id: string
+          invoice_number: string
+          issue_date: string
+          issued_at: string | null
+          notes: string | null
+          payment_terms: string | null
+          rounding_minor: number
+          status: string
+          subtotal_minor: number
+          supplier_snapshot: Json
+          tax_minor: number
+          total_minor: number
+          updated_at: string
+          updated_by: string | null
+          version: number
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "invoices"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      mark_overdue_invoices: {
+        Args: { p_business_id?: string }
+        Returns: number
+      }
+      record_invoice_payment: {
+        Args: {
+          p_amount_minor: number
+          p_currency: string
+          p_invoice_id: string
+          p_method?: string
+          p_paid_at: string
+          p_reference?: string
+          p_transaction_id?: string
+        }
+        Returns: {
+          amount_minor: number
+          created_at: string
+          currency: string
+          external_reference: string | null
+          id: string
+          invoice_id: string
+          notes: string | null
+          paid_at: string
+          payment_method_code: string | null
+          transaction_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "invoice_payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reverse_invoice_payment: {
+        Args: { p_payment_id: string; p_reason: string }
+        Returns: {
+          amount_paid_minor: number
+          business_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          customer_id: string | null
+          customer_snapshot: Json
+          discount_minor: number
+          document_type: string
+          due_date: string | null
+          id: string
+          invoice_number: string
+          issue_date: string
+          issued_at: string | null
+          notes: string | null
+          payment_terms: string | null
+          rounding_minor: number
+          status: string
+          subtotal_minor: number
+          supplier_snapshot: Json
+          tax_minor: number
+          total_minor: number
+          updated_at: string
+          updated_by: string | null
+          version: number
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "invoices"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      save_invoice_draft: {
+        Args: {
+          p_business_id: string
+          p_invoice?: Json
+          p_invoice_id?: string
+          p_items?: Json
+        }
+        Returns: {
+          amount_paid_minor: number
+          business_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          customer_id: string | null
+          customer_snapshot: Json
+          discount_minor: number
+          document_type: string
+          due_date: string | null
+          id: string
+          invoice_number: string
+          issue_date: string
+          issued_at: string | null
+          notes: string | null
+          payment_terms: string | null
+          rounding_minor: number
+          status: string
+          subtotal_minor: number
+          supplier_snapshot: Json
+          tax_minor: number
+          total_minor: number
+          updated_at: string
+          updated_by: string | null
+          version: number
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "invoices"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       storage_object_bucket_matches_entity: {
         Args: { p_bucket_id: string; p_object_name: string }
@@ -2143,6 +2467,53 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      void_invoice: {
+        Args: { p_cancelled?: boolean; p_invoice_id: string; p_reason: string }
+        Returns: {
+          amount_paid_minor: number
+          business_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          customer_id: string | null
+          customer_snapshot: Json
+          discount_minor: number
+          document_type: string
+          due_date: string | null
+          id: string
+          invoice_number: string
+          issue_date: string
+          issued_at: string | null
+          notes: string | null
+          payment_terms: string | null
+          rounding_minor: number
+          status: string
+          subtotal_minor: number
+          supplier_snapshot: Json
+          tax_minor: number
+          total_minor: number
+          updated_at: string
+          updated_by: string | null
+          version: number
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "invoices"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      void_telegram_transaction: {
+        Args: {
+          p_account_id: string
+          p_reason: string
+          p_transaction_id: string
+        }
+        Returns: undefined
       }
     }
     Enums: {

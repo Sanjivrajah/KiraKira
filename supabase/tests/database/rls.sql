@@ -19,6 +19,9 @@ insert into public.business_members (business_id, user_id, role, status, accepte
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '44444444-4444-4444-4444-444444444444', 'admin', 'active', now()),
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '55555555-5555-5555-5555-555555555555', 'staff', 'active', now()),
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '22222222-2222-2222-2222-222222222222', 'owner', 'active', now());
+-- Session 5's transaction audit trigger correctly requires an authenticated
+-- actor. Seed the fixture with the owning user's claim before inserting it.
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
 insert into public.transactions (id, business_id, direction, transaction_type, transaction_date, accounting_date, description, category_code, currency, subtotal_minor, total_minor, payment_status, e_invoice_treatment, lifecycle)
 values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'expense', 'expense', current_date, current_date, 'Test transaction', 'general', 'MYR', 0, 0, 'unpaid', 'not_required', 'proposed');
 insert into public.products_services (id, business_id, name) values

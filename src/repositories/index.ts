@@ -23,3 +23,4 @@ export * from "./contracts";
 export { LocalBusinessMembershipRepository, LocalBusinessRepository, LocalInvoiceRepository, LocalPaymentRepository, LocalReminderRepository, LocalTransactionRepository };
 export { LegacyTransactionRepositoryAdapter } from "./supabase/legacy-transaction-repository-adapter";
 export { SupabaseTransactionRepository } from "./supabase/transaction-repository";
+export { SupabaseInvoiceLifecycleRepository } from "./supabase/invoice-lifecycle-repository";

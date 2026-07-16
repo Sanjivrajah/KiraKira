@@ -2,6 +2,17 @@ import type { Business, BusinessInput, EffectiveInvoiceStatus, Invoice, InvoiceL
 
 const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
+/** Integer minor-unit totals for persistence boundaries. UI values are converted
+ * once, so repeated floating-point additions cannot change the saved amount. */
+export function calculateInvoiceTotalsMinor(items: Pick<InvoiceLineItem, "quantity" | "unitPrice" | "taxRate" | "discountAmount" | "chargeAmount">[]) {
+  const toMinor = (value: number) => Math.round((value + Number.EPSILON) * 100);
+  return items.reduce((totals, item) => {
+    const subtotalMinor = Math.round(item.quantity * toMinor(item.unitPrice)) - toMinor(item.discountAmount ?? 0) + toMinor(item.chargeAmount ?? 0);
+    const taxMinor = Math.round(subtotalMinor * item.taxRate / 100);
+    return { subtotalMinor: totals.subtotalMinor + subtotalMinor, taxMinor: totals.taxMinor + taxMinor, totalMinor: totals.totalMinor + subtotalMinor + taxMinor };
+  }, { subtotalMinor: 0, taxMinor: 0, totalMinor: 0 });
+}
+
 export function calculateInvoiceTotals(items: Pick<InvoiceLineItem, "quantity" | "unitPrice" | "taxRate" | "discountAmount" | "chargeAmount">[]) {
   const lineNet = (item: typeof items[number]) => item.quantity * item.unitPrice - (item.discountAmount ?? 0) + (item.chargeAmount ?? 0);
   const subtotal = roundMoney(items.reduce((sum, item) => sum + lineNet(item), 0));

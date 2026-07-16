@@ -4,7 +4,8 @@ import { getHomeAction, homeKeyboard } from "@/bot/keyboards/home-keyboard";
 import { clarificationKeyboard, correctionKeyboard, duplicateKeyboard, replacementKeyboard, reviewKeyboard, settingsKeyboard, undoKeyboard } from "@/bot/keyboards/transaction-keyboards";
 import { LocalUserPreferenceRepository, type UserPreferenceRepository } from "@/bot/user-preferences";
 import { TransactionDraftService, type DraftAction } from "@/features/transaction-agent/transaction-confirmation";
-import { createLocalTransactionRepositories } from "@/features/transaction-agent/transaction-repositories";
+import { createLocalTransactionRepositories, type DraftRepository, type TransactionRepository } from "@/features/transaction-agent/transaction-repositories";
+import { SupabaseTelegramAccountResolver, SupabaseTelegramConversationRepository, SupabaseTelegramDraftRepository, SupabaseTelegramPreferenceRepository, SupabaseTelegramTransactionRepository } from "@/features/transaction-agent/supabase-telegram-repositories";
 import { LocalConversationStateRepository } from "@/features/transaction-agent/conversation-repository";
 import { ConversationService } from "@/features/transaction-agent/conversation-service";
 import type { ConversationRequestedField } from "@/features/transaction-agent/conversation-state";
@@ -13,6 +14,8 @@ import { TransactionInputProcessor, type TransactionInput, type TransactionInput
 import { downloadTelegramAudio, TelegramVoiceFileTooLargeError, type DownloadedTelegramAudio } from "@/lib/telegram/download-file";
 import { ElevenLabsTranscriptionService, type AudioTranscription } from "@/lib/elevenlabs/transcription";
 import type { BotEnvironment } from "@/lib/env";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { TelegramLinkService } from "@/features/transaction-agent/telegram-linking";
 import { MAX_TEXT_MESSAGE_LENGTH, MAX_TRANSACTIONS_RETURNED } from "@/features/transaction-agent/agent-config";
 import { formatRecentTransactions, formatTransactionSummary, splitTelegramMessage } from "@/features/transaction-agent/telegram-command-formatters";
 import { paginateTransactions, periodFor, searchTransactions, summaryForPeriod, transactionsToCsv, validatePeriod } from "@/features/transaction-agent/daily-bookkeeping";
@@ -24,6 +27,7 @@ type VoiceDependencies = {
   now?: () => Date;
   inputProcessor?: Pick<TransactionInputProcessor, "process">;
   telegramFetch?: typeof fetch;
+  linkService?: Pick<TelegramLinkService, "consume">;
 };
 
 type TransactionCallback = { action: DraftAction | "correct" | "transcript" | "undo" | "keep" | "replace" | "drop_new" | `answer.${string}` | `field.${string}`; draftId: string };
@@ -51,15 +55,20 @@ function callbackAnswer(action: string, locale: BotLocale, now: Date): string | 
 }
 
 export function createTelegramBot(environment: BotEnvironment, draftService?: TransactionDraftService, voiceDependencies: VoiceDependencies = {}): Bot {
-  const { TELEGRAM_BOT_TOKEN, OPENAI_API_KEY, OPENAI_TRANSACTION_MODEL, ELEVENLABS_API_KEY, ELEVENLABS_STT_MODEL, MAX_VOICE_FILE_BYTES, LOCAL_DATA_DIRECTORY } = environment;
+  const { TELEGRAM_BOT_TOKEN, OPENAI_API_KEY, OPENAI_TRANSACTION_MODEL, ELEVENLABS_API_KEY, ELEVENLABS_STT_MODEL, MAX_VOICE_FILE_BYTES, LOCAL_DATA_DIRECTORY, BOT_PERSISTENCE_MODE = "local" } = environment;
   const bot = new Bot(TELEGRAM_BOT_TOKEN, voiceDependencies.telegramFetch ? { client: { fetch: voiceDependencies.telegramFetch } } : undefined);
-  const repositories = createLocalTransactionRepositories(LOCAL_DATA_DIRECTORY);
+  const supabase = BOT_PERSISTENCE_MODE === "supabase" ? createSupabaseAdminClient() : null;
+  const accountResolver = supabase ? new SupabaseTelegramAccountResolver(supabase) : null;
+  const repositories: { drafts: DraftRepository; transactions: TransactionRepository } = supabase && accountResolver
+    ? { drafts: new SupabaseTelegramDraftRepository(supabase, accountResolver, voiceDependencies.now), transactions: new SupabaseTelegramTransactionRepository(supabase, accountResolver) }
+    : createLocalTransactionRepositories(LOCAL_DATA_DIRECTORY);
   const service = draftService ?? new TransactionDraftService(repositories.drafts, repositories.transactions, voiceDependencies.now);
-  const conversations = new ConversationService(repositories.drafts, new LocalConversationStateRepository(LOCAL_DATA_DIRECTORY), voiceDependencies.now);
-  const preferences = voiceDependencies.preferences ?? new LocalUserPreferenceRepository(LOCAL_DATA_DIRECTORY, voiceDependencies.now);
+  const conversations = new ConversationService(repositories.drafts, supabase && accountResolver ? new SupabaseTelegramConversationRepository(supabase, accountResolver, voiceDependencies.now) : new LocalConversationStateRepository(LOCAL_DATA_DIRECTORY), voiceDependencies.now);
+  const preferences = voiceDependencies.preferences ?? (supabase ? new SupabaseTelegramPreferenceRepository(supabase) : new LocalUserPreferenceRepository(LOCAL_DATA_DIRECTORY, voiceDependencies.now));
   const inputProcessor = voiceDependencies.inputProcessor ?? new TransactionInputProcessor({ drafts: repositories.drafts, draftService: service, conversations, apiKey: OPENAI_API_KEY, model: OPENAI_TRANSACTION_MODEL });
   const elevenLabs = new ElevenLabsTranscriptionService({ apiKey: ELEVENLABS_API_KEY, model: ELEVENLABS_STT_MODEL });
   const now = voiceDependencies.now ?? (() => new Date());
+  const linkService = voiceDependencies.linkService ?? (BOT_PERSISTENCE_MODE === "supabase" ? new TelegramLinkService(createSupabaseAdminClient() as never) : null);
 
   const localeFor = (context: Context) => preferences.get(String(context.from?.id ?? ""));
   const replyHome = async (context: Context, text: string, locale: BotLocale) => context.reply(text, { reply_markup: homeKeyboard(locale) });
@@ -85,6 +94,13 @@ export function createTelegramBot(environment: BotEnvironment, draftService?: Tr
   bot.command("start", async (context) => { const locale = await localeFor(context); return replyHome(context, messages(locale).start, locale); });
   bot.command("help", async (context) => { const locale = await localeFor(context); return replyHome(context, messages(locale).help, locale); });
   bot.command("settings", async (context) => context.reply(messages(await localeFor(context)).settings, { reply_markup: settingsKeyboard() }));
+  bot.command("link", async (context) => {
+    const code = context.match?.trim() ?? "";
+    if (!context.from || !context.chat) return;
+    if (!linkService) return context.reply("Telegram account linking is not enabled in this local demo.");
+    const result = await linkService.consume({ code, telegramUserId: String(context.from.id), telegramChatId: String(context.chat.id), username: context.from.username, isPrivateChat: context.chat.type === "private" });
+    return context.reply(result === "linked" ? "Your Telegram account is linked. You can now record transactions." : result === "group_chat" ? "For privacy, send your link code in a private chat with the bot." : result === "unavailable" ? "Linking is temporarily unavailable. Please try again." : "That link code is invalid, expired, or has already been used.");
+  });
 
   async function showRecent(context: Context, after?: string) {
     if (!context.from) return;

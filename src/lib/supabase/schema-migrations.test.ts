@@ -21,7 +21,19 @@ describe("Supabase schema migrations", () => {
       "20260716100000_rls_auth_and_membership.sql",
       "20260716110000_storage_and_evidence_security.sql",
       "20260716120000_web_transaction_audit.sql",
+      "20260716130000_invoice_lifecycle_payments_and_audit.sql",
+      "20260716140000_telegram_agent_durable_workflows.sql",
     ]);
+  });
+
+  it("uses secured RPCs for invoice lifecycles, payment allocation, and idempotent reminders", () => {
+    expect(migrationSql).toContain("function public.save_invoice_draft");
+    expect(migrationSql).toContain("function public.issue_invoice");
+    expect(migrationSql).toContain("function public.record_invoice_payment");
+    expect(migrationSql).toContain("function public.reverse_invoice_payment");
+    expect(migrationSql).toContain("function public.claim_reminder_delivery");
+    expect(migrationSql).toContain("issued invoice financial and buyer snapshots are immutable");
+    expect(migrationSql).toContain("revoke all on public.invoice_sequences");
   });
 
   it("contains all business-owned persistence surfaces without permissive RLS policies", () => {
@@ -56,5 +68,14 @@ describe("Supabase schema migrations", () => {
     expect(migrationSql).toContain("storage_object_has_business_path");
     expect(migrationSql).toContain("storage_object_bucket_matches_entity");
     expect(migrationSql).not.toMatch(/create\s+policy\s+evidence_object_[\s\S]*?using\s*\(\s*true\s*\)/i);
+  });
+
+  it("keeps Telegram linking, confirmation, and undo behind durable server-side workflows", () => {
+    expect(migrationSql).toContain("create table public.telegram_link_codes");
+    expect(migrationSql).toContain("function public.consume_telegram_link_code");
+    expect(migrationSql).toContain("function public.confirm_telegram_transaction");
+    expect(migrationSql).toContain("function public.void_telegram_transaction");
+    expect(migrationSql).toContain("draft_id uuid");
+    expect(migrationSql).toContain("version integer not null default 0");
   });
 });
