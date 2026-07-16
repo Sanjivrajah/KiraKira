@@ -32,6 +32,19 @@ export class SupabaseTelegramAccountResolver {
     if (error || !account || Array.isArray(account) || !account.business_id || !account.user_id || account.unlinked_at || !account.linked_at) throw new TelegramLinkRequiredError();
     return this.require(String(account.telegram_user_id), String(account.telegram_chat_id));
   }
+
+  async requireByUser(telegramUserId: string): Promise<Account> {
+    const { data, error } = await this.client.from("telegram_accounts")
+      .select("id,business_id,user_id,telegram_user_id,telegram_chat_id")
+      .eq("telegram_user_id", Number(telegramUserId))
+      .is("unlinked_at", null)
+      .not("linked_at", "is", null)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) throw new TelegramLinkRequiredError();
+    return this.require(String(data.telegram_user_id), String(data.telegram_chat_id));
+  }
 }
 
 export class SupabaseTelegramDraftRepository implements DraftRepository {
@@ -39,13 +52,13 @@ export class SupabaseTelegramDraftRepository implements DraftRepository {
   async ensure() {}
   async create(draft: TransactionDraft) {
     const parsed = transactionDraftSchema.parse(draft); const account = await this.accounts.require(parsed.telegramUserId, parsed.telegramChatId);
-    const { error } = await this.client.from("telegram_conversation_states").insert({ telegram_account_id: account.id, draft_id: parsed.id, draft: parsed, mode: "awaiting_review", expires_at: new Date(this.now().getTime() + CONVERSATION_STATE_EXPIRY_MS).toISOString() });
+    const { error } = await this.client.from("telegram_conversation_states").upsert({ telegram_account_id: account.id, draft_id: parsed.id, draft: parsed, mode: "awaiting_review", requested_field: null, inline_message_id: null, expires_at: new Date(this.now().getTime() + CONVERSATION_STATE_EXPIRY_MS).toISOString(), version: 0 }, { onConflict: "telegram_account_id" });
     if (error) throw new Error("Unable to save the Telegram draft.", { cause: error }); return parsed;
   }
-  async findById(id: string) { const { data, error } = await this.client.from("telegram_conversation_states").select("draft").eq("draft_id", id).maybeSingle(); if (error || !data) return null; return transactionDraftSchema.parse(data.draft); }
+  async findById(id: string) { let account: Account; try { account = await this.accounts.requireByDraft(id); } catch { return null; } const { data, error } = await this.client.from("telegram_conversation_states").select("draft").eq("telegram_account_id", account.id).eq("draft_id", id).maybeSingle(); if (error || !data) return null; return transactionDraftSchema.parse(data.draft); }
   async update(draft: TransactionDraft) {
     const parsed = transactionDraftSchema.parse(draft); const account = await this.accounts.require(parsed.telegramUserId, parsed.telegramChatId);
-    const { data, error } = await this.client.from("telegram_conversation_states").update({ draft: parsed, version: this.client.rpc ? undefined : undefined }).eq("telegram_account_id", account.id).eq("draft_id", parsed.id).select("draft").single();
+    const { data, error } = await this.client.from("telegram_conversation_states").update({ draft: parsed }).eq("telegram_account_id", account.id).eq("draft_id", parsed.id).select("draft").single();
     if (error) throw new Error("Unable to update the Telegram draft.", { cause: error }); return transactionDraftSchema.parse(data.draft);
   }
 }
@@ -64,11 +77,11 @@ export class SupabaseTelegramConversationRepository implements ConversationState
     const { data: current, error: readError } = await this.client.from("telegram_conversation_states").select("draft,version").eq("telegram_account_id", account.id).eq("draft_id", parsed.draftId).single();
     if (readError) throw new Error("The Telegram draft is stale.", { cause: readError });
     const draft = { ...current.draft, ...(parsed.replacementInput ? { replacementInput: parsed.replacementInput } : {}) };
-    const { error } = await this.client.from("telegram_conversation_states").update({ draft, mode: parsed.mode, requested_field: parsed.requestedField ?? null, inline_message_id: parsed.inlineMessageId ?? null, expires_at: new Date(this.now().getTime() + CONVERSATION_STATE_EXPIRY_MS).toISOString(), version: current.version + 1 }).eq("telegram_account_id", account.id).eq("draft_id", parsed.draftId).eq("version", current.version);
+    const { error } = await this.client.from("telegram_conversation_states").update({ draft, mode: parsed.mode, requested_field: parsed.requestedField ?? null, inline_message_id: parsed.inlineMessageId ?? null, expires_at: new Date(this.now().getTime() + CONVERSATION_STATE_EXPIRY_MS).toISOString(), version: current.version + 1 }).eq("telegram_account_id", account.id).eq("draft_id", parsed.draftId).eq("version", current.version).select("id").single();
     if (error) throw new Error("The Telegram state changed; please try again.", { cause: error }); return parsed;
   }
   async removeByUser(userId: string, chatId?: string) { if (!chatId) return; const account = await this.accounts.require(userId, chatId); const { error } = await this.client.from("telegram_conversation_states").delete().eq("telegram_account_id", account.id); if (error) throw new Error("Unable to clear Telegram state.", { cause: error }); }
-  async removeByDraftId(draftId: string) { const { error } = await this.client.from("telegram_conversation_states").delete().eq("draft_id", draftId); if (error) throw new Error("Unable to clear Telegram state.", { cause: error }); }
+  async removeByDraftId(draftId: string) { let account: Account; try { account = await this.accounts.requireByDraft(draftId); } catch { return; } const { error } = await this.client.from("telegram_conversation_states").delete().eq("telegram_account_id", account.id).eq("draft_id", draftId); if (error) throw new Error("Unable to clear Telegram state.", { cause: error }); }
 }
 
 export class SupabaseTelegramTransactionRepository implements TransactionRepository {
@@ -82,7 +95,8 @@ export class SupabaseTelegramTransactionRepository implements TransactionReposit
     if (error) throw new Error("Unable to confirm the Telegram transaction.", { cause: error }); return confirmedTransactionSchema.parse(data);
   }
   async listByUser(telegramUserId: string): Promise<ConfirmedTransaction[]> {
-    const { data, error } = await this.client.from("transactions").select("confirmation").contains("confirmation", { telegramUserId }).neq("lifecycle", "voided").limit(2000);
+    const account = await this.accounts.requireByUser(telegramUserId);
+    const { data, error } = await this.client.from("transactions").select("confirmation").eq("business_id", account.business_id).contains("confirmation", { telegramUserId }).neq("lifecycle", "voided").limit(2000);
     if (error) throw new Error("Unable to load Telegram transactions.", { cause: error }); return (data ?? []).map((row: any) => confirmedTransactionSchema.parse(row.confirmation));
   }
   async findRecentByUser(userId: string, limit: number): Promise<ConfirmedTransaction[]> { return (await this.listByUser(userId)).sort((a, b) => b.confirmedAt.localeCompare(a.confirmedAt)).slice(0, limit); }
@@ -99,11 +113,20 @@ export class SupabaseTelegramTransactionRepository implements TransactionReposit
 
 export class SupabaseTelegramPreferenceRepository implements UserPreferenceRepository {
   constructor(private readonly client: SupabaseLike) {}
+  private async accountId(userId: string) {
+    const { data, error } = await this.client.from("telegram_accounts").select("id")
+      .eq("telegram_user_id", Number(userId)).is("unlinked_at", null).not("linked_at", "is", null)
+      .order("updated_at", { ascending: false }).limit(1).maybeSingle();
+    if (error || !data?.id) throw new TelegramLinkRequiredError();
+    return data.id as string;
+  }
   async get(userId: string) { return (await this.getSettings(userId)).locale; }
   async getSettings(userId: string): Promise<TelegramUserPreference> {
-    const { data } = await this.client.from("telegram_user_preferences").select("language,timezone,preferences,telegram_accounts!inner(telegram_user_id)").eq("telegram_accounts.telegram_user_id", Number(userId)).maybeSingle();
-    return { telegramUserId: userId, locale: data?.language === "ms" ? "ms" : "en", timezone: data?.timezone ?? "Asia/Kuala_Lumpur", defaultPaymentMethod: data?.preferences?.defaultPaymentMethod ?? null, updatedAt: new Date().toISOString() };
+    let accountId: string; try { accountId = await this.accountId(userId); } catch { return { telegramUserId: userId, locale: "en", timezone: "Asia/Kuala_Lumpur", defaultPaymentMethod: null, updatedAt: new Date().toISOString() }; }
+    const { data, error } = await this.client.from("telegram_user_preferences").select("language,timezone,preferences,updated_at").eq("telegram_account_id", accountId).maybeSingle();
+    if (error) throw new Error("Unable to load preference.", { cause: error });
+    return { telegramUserId: userId, locale: data?.language === "ms" ? "ms" : "en", timezone: data?.timezone ?? "Asia/Kuala_Lumpur", defaultPaymentMethod: data?.preferences?.defaultPaymentMethod ?? null, updatedAt: data?.updated_at ?? new Date().toISOString() };
   }
-  async set(userId: string, locale: BotLocale) { const settings = await this.getSettings(userId); await this.updateSettings(userId, { ...settings, timezone: settings.timezone } as any); const { error } = await this.client.from("telegram_user_preferences").update({ language: locale }).eq("telegram_accounts.telegram_user_id", Number(userId)); if (error) throw new Error("Unable to save language preference.", { cause: error }); }
-  async updateSettings(userId: string, values: Partial<Pick<TelegramUserPreference, "timezone" | "defaultPaymentMethod">>) { const { error } = await this.client.from("telegram_user_preferences").update({ ...(values.timezone ? { timezone: values.timezone } : {}), ...(values.defaultPaymentMethod !== undefined ? { preferences: { defaultPaymentMethod: values.defaultPaymentMethod } } : {}) }).eq("telegram_accounts.telegram_user_id", Number(userId)); if (error) throw new Error("Unable to save preference.", { cause: error }); }
+  async set(userId: string, locale: BotLocale) { const accountId = await this.accountId(userId); const { error } = await this.client.from("telegram_user_preferences").update({ language: locale }).eq("telegram_account_id", accountId).select("telegram_account_id").single(); if (error) throw new Error("Unable to save language preference.", { cause: error }); }
+  async updateSettings(userId: string, values: Partial<Pick<TelegramUserPreference, "timezone" | "defaultPaymentMethod">>) { const accountId = await this.accountId(userId); const { error } = await this.client.from("telegram_user_preferences").update({ ...(values.timezone ? { timezone: values.timezone } : {}), ...(values.defaultPaymentMethod !== undefined ? { preferences: { defaultPaymentMethod: values.defaultPaymentMethod } } : {}) }).eq("telegram_account_id", accountId).select("telegram_account_id").single(); if (error) throw new Error("Unable to save preference.", { cause: error }); }
 }

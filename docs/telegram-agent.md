@@ -3,9 +3,9 @@
 ## Purpose and boundary
 
 The Telegram agent is a development-only, long-polling bookkeeping assistant.
-It accepts English, Bahasa Melayu, and Manglish text or Telegram voice notes,
-turns them into a reviewable transaction draft, and saves a record only after
-the Telegram user explicitly confirms it.
+It accepts English, Bahasa Melayu, and Manglish text, Telegram voice notes, or
+one clear MYR receipt image, turns the input into a reviewable transaction
+draft, and saves a record only after the Telegram user explicitly confirms it.
 
 It is separate from the Next.js browser-local workspace. `BOT_PERSISTENCE_MODE=local`
 keeps the existing JSON-backed development demo. `BOT_PERSISTENCE_MODE=supabase`
@@ -36,9 +36,10 @@ browser-safe environment variables.
 ## Flow
 
 ```text
-text or voice note
-  → (voice only) download temporary file → ElevenLabs transcription
-  → OpenAI structured extraction
+text, voice note, or receipt image
+  → (voice only) bounded temporary file → ElevenLabs transcription
+  → (receipt only) validate JPG/PNG/WEBP bytes → bounded temporary file
+  → OpenAI structured text or receipt extraction
   → pending draft persisted locally
   → clarification for required missing fields, if any
   → review keyboard
@@ -56,6 +57,7 @@ its handlers thin; place use-case rules in `src/features/transaction-agent`.
 | Concern | Location |
 | --- | --- |
 | Structured extraction schema and model calls | `transaction.schema.ts`, `transaction-extractor.ts` |
+| Receipt download, byte validation, and mapping | `download-receipt.ts`, `receipt-input.ts`, `receipt-extraction.ts` |
 | Active conversation state and expiry | `conversation-state.ts`, `conversation-service.ts` |
 | Missing-field selection and wording | `clarification.ts` |
 | Draft confirmation, duplicate protection, undo | `transaction-confirmation.ts`, `duplicate-detector.ts` |
@@ -92,6 +94,11 @@ to JSON.
   data remain separate local stores.
 - Never automatically delete a corrupt JSON file. Stop the bot and inspect or
   back it up first.
+- Receipt capture accepts one JPG, PNG, or WEBP up to 10 MiB, whether sent as a
+  Telegram photo or image document. The bot checks actual file signatures,
+  removes the temporary file in `finally`, and retains only the Telegram file
+  ID plus reviewed draft metadata. PDFs, multi-receipt images, unreadable
+  images, and non-MYR receipt drafts are explicitly unsupported.
 
 ## Safe extension pattern
 

@@ -3,6 +3,8 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 import type { Json } from "@/lib/supabase/database.types";
 import type { Invoice, InvoiceLineItem } from "@/types";
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 /**
  * The mutation boundary for persisted invoices. These RPCs keep invoice, line
  * item, status-history, payment, and audit writes in one database transaction.
@@ -17,9 +19,11 @@ export class SupabaseInvoiceLifecycleRepository {
       p_business_id: invoice.businessId,
       // Local IDs are intentionally not reused as database UUIDs during the
       // migration. Existing UUID records may be updated; new drafts get a DB ID.
-      p_invoice_id: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(invoice.id) ? invoice.id : undefined,
+      p_invoice_id: uuidPattern.test(invoice.id) ? invoice.id : undefined,
       p_invoice: {
-        customer_id: invoice.customerId ?? null,
+        // Browser-local demo customers use non-UUID IDs. Keep their snapshots
+        // for the draft while allowing the database to leave customer_id null.
+        customer_id: invoice.customerId && uuidPattern.test(invoice.customerId) ? invoice.customerId : null,
         customer_snapshot: { name: invoice.customerName, email: invoice.customerEmail ?? null, tin: invoice.buyerTin ?? null },
         supplier_snapshot: {}, issue_date: invoice.issueDate, due_date: invoice.dueDate, currency: invoice.currency,
         notes: invoice.notes ?? null, payment_terms: invoice.paymentTerms ?? null, rounding_minor: 0,

@@ -24,6 +24,7 @@ describe("Supabase schema migrations", () => {
       "20260716130000_invoice_lifecycle_payments_and_audit.sql",
       "20260716140000_telegram_agent_durable_workflows.sql",
       "20260716150000_data_import_batches.sql",
+      "20260716160000_telegram_worker_crud_permissions.sql",
     ]);
   });
 
@@ -58,6 +59,7 @@ describe("Supabase schema migrations", () => {
     expect(migrationSql).toContain("total_minor bigint");
     expect(migrationSql).toContain("function public.set_updated_at()");
     expect(migrationSql).not.toMatch(/\b(real|double precision)\b/i);
+    expect(migrationSql).toContain("constraint invoices_totals_reconcile_check");
   });
 
   it("keeps evidence buckets private and storage paths business-scoped", () => {
@@ -78,6 +80,9 @@ describe("Supabase schema migrations", () => {
     expect(migrationSql).toContain("function public.void_telegram_transaction");
     expect(migrationSql).toContain("draft_id uuid");
     expect(migrationSql).toContain("version integer not null default 0");
+    expect(migrationSql).toContain("grant execute on function public.consume_telegram_link_code(text, bigint, bigint, text, boolean) to service_role");
+    expect(migrationSql).toContain("grant execute on function public.confirm_telegram_transaction(uuid, uuid, text, jsonb) to service_role");
+    expect(migrationSql).toContain("grant execute on function public.void_telegram_transaction(uuid, uuid, text) to service_role");
   });
 
   it("records explicit import batches behind tenant-scoped RLS", () => {

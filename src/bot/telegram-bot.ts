@@ -1,7 +1,7 @@
 import { Bot, InputFile, type Context } from "grammy";
-import { messages, interfaceText, clarificationMessage, formatDraft, type BotLocale } from "@/bot/messages";
+import { messages, interfaceText, clarificationMessage, formatDraft, settingsMessage, type BotLocale } from "@/bot/messages";
 import { getHomeAction, homeKeyboard } from "@/bot/keyboards/home-keyboard";
-import { clarificationKeyboard, correctionKeyboard, duplicateKeyboard, replacementKeyboard, reviewKeyboard, settingsKeyboard, undoKeyboard } from "@/bot/keyboards/transaction-keyboards";
+import { clarificationKeyboard, correctionKeyboard, duplicateKeyboard, paymentSettingsKeyboard, replacementKeyboard, reviewKeyboard, settingsKeyboard, timezoneSettingsKeyboard, undoKeyboard } from "@/bot/keyboards/transaction-keyboards";
 import { LocalUserPreferenceRepository, type UserPreferenceRepository } from "@/bot/user-preferences";
 import { TransactionDraftService, type DraftAction } from "@/features/transaction-agent/transaction-confirmation";
 import { createLocalTransactionRepositories, type DraftRepository, type TransactionRepository } from "@/features/transaction-agent/transaction-repositories";
@@ -10,11 +10,15 @@ import { LocalConversationStateRepository } from "@/features/transaction-agent/c
 import { ConversationService } from "@/features/transaction-agent/conversation-service";
 import type { ConversationRequestedField } from "@/features/transaction-agent/conversation-state";
 import { getRequiredMissingFields } from "@/features/transaction-agent/clarification";
-import { TransactionInputProcessor, type TransactionInput, type TransactionInputResult } from "@/features/transaction-agent/transaction-input-processor";
+import { applyDefaultPaymentMethod, TransactionInputProcessor, type TransactionInput, type TransactionInputResult } from "@/features/transaction-agent/transaction-input-processor";
+import { hasMultipleReceiptTransactions, receiptToTransactionExtraction } from "@/features/transaction-agent/receipt-input";
 import { downloadTelegramAudio, TelegramVoiceFileTooLargeError, type DownloadedTelegramAudio } from "@/lib/telegram/download-file";
+import { downloadTelegramReceipt, TelegramReceiptFileTooLargeError, TelegramReceiptUnsupportedTypeError, type DownloadedTelegramReceipt } from "@/lib/telegram/download-receipt";
 import { ElevenLabsTranscriptionService, type AudioTranscription } from "@/lib/elevenlabs/transcription";
+import { extractReceiptFromImage } from "@/lib/openai/receipt-extraction";
+import type { ReceiptExtraction } from "@/lib/openai/receipt-schema";
 import type { BotEnvironment } from "@/lib/env";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createTelegramSupabaseAdminClient } from "@/bot/supabase-admin";
 import { TelegramLinkService } from "@/features/transaction-agent/telegram-linking";
 import { MAX_TEXT_MESSAGE_LENGTH, MAX_TRANSACTIONS_RETURNED } from "@/features/transaction-agent/agent-config";
 import { formatRecentTransactions, formatTransactionSummary, splitTelegramMessage } from "@/features/transaction-agent/telegram-command-formatters";
@@ -28,6 +32,8 @@ type VoiceDependencies = {
   inputProcessor?: Pick<TransactionInputProcessor, "process">;
   telegramFetch?: typeof fetch;
   linkService?: Pick<TelegramLinkService, "consume">;
+  downloadReceipt?: (input: Parameters<typeof downloadTelegramReceipt>[0]) => Promise<DownloadedTelegramReceipt>;
+  extractReceipt?: (input: Parameters<typeof extractReceiptFromImage>[0]) => Promise<ReceiptExtraction>;
 };
 
 type TransactionCallback = { action: DraftAction | "correct" | "transcript" | "undo" | "keep" | "replace" | "drop_new" | `answer.${string}` | `field.${string}`; draftId: string };
@@ -57,7 +63,7 @@ function callbackAnswer(action: string, locale: BotLocale, now: Date): string | 
 export function createTelegramBot(environment: BotEnvironment, draftService?: TransactionDraftService, voiceDependencies: VoiceDependencies = {}): Bot {
   const { TELEGRAM_BOT_TOKEN, OPENAI_API_KEY, OPENAI_TRANSACTION_MODEL, ELEVENLABS_API_KEY, ELEVENLABS_STT_MODEL, MAX_VOICE_FILE_BYTES, LOCAL_DATA_DIRECTORY, BOT_PERSISTENCE_MODE = "local" } = environment;
   const bot = new Bot(TELEGRAM_BOT_TOKEN, voiceDependencies.telegramFetch ? { client: { fetch: voiceDependencies.telegramFetch } } : undefined);
-  const supabase = BOT_PERSISTENCE_MODE === "supabase" ? createSupabaseAdminClient() : null;
+  const supabase = BOT_PERSISTENCE_MODE === "supabase" ? createTelegramSupabaseAdminClient() : null;
   const accountResolver = supabase ? new SupabaseTelegramAccountResolver(supabase) : null;
   const repositories: { drafts: DraftRepository; transactions: TransactionRepository } = supabase && accountResolver
     ? { drafts: new SupabaseTelegramDraftRepository(supabase, accountResolver, voiceDependencies.now), transactions: new SupabaseTelegramTransactionRepository(supabase, accountResolver) }
@@ -68,7 +74,7 @@ export function createTelegramBot(environment: BotEnvironment, draftService?: Tr
   const inputProcessor = voiceDependencies.inputProcessor ?? new TransactionInputProcessor({ drafts: repositories.drafts, draftService: service, conversations, apiKey: OPENAI_API_KEY, model: OPENAI_TRANSACTION_MODEL });
   const elevenLabs = new ElevenLabsTranscriptionService({ apiKey: ELEVENLABS_API_KEY, model: ELEVENLABS_STT_MODEL });
   const now = voiceDependencies.now ?? (() => new Date());
-  const linkService = voiceDependencies.linkService ?? (BOT_PERSISTENCE_MODE === "supabase" ? new TelegramLinkService(createSupabaseAdminClient() as never) : null);
+  const linkService = voiceDependencies.linkService ?? (BOT_PERSISTENCE_MODE === "supabase" ? new TelegramLinkService(createTelegramSupabaseAdminClient() as never) : null);
 
   const localeFor = (context: Context) => preferences.get(String(context.from?.id ?? ""));
   const replyHome = async (context: Context, text: string, locale: BotLocale) => context.reply(text, { reply_markup: homeKeyboard(locale) });
@@ -90,10 +96,15 @@ export function createTelegramBot(environment: BotEnvironment, draftService?: Tr
     return message;
   };
   const replyParts = async (context: Context, message: string) => { for (const part of splitTelegramMessage(message)) await context.reply(part); };
+  const showSettings = async (context: Context) => {
+    if (!context.from) return;
+    const preference = await preferences.getSettings(String(context.from.id));
+    return context.reply(settingsMessage(preference.locale, preference), { reply_markup: settingsKeyboard(preference) });
+  };
 
   bot.command("start", async (context) => { const locale = await localeFor(context); return replyHome(context, messages(locale).start, locale); });
   bot.command("help", async (context) => { const locale = await localeFor(context); return replyHome(context, messages(locale).help, locale); });
-  bot.command("settings", async (context) => context.reply(messages(await localeFor(context)).settings, { reply_markup: settingsKeyboard() }));
+  bot.command("settings", showSettings);
   bot.command("link", async (context) => {
     const code = context.match?.trim() ?? "";
     if (!context.from || !context.chat) return;
@@ -163,8 +174,9 @@ export function createTelegramBot(environment: BotEnvironment, draftService?: Tr
   async function processTransactionInput(context: Context, input: Omit<TransactionInput, "telegramUserId" | "telegramChatId">, locale: BotLocale) {
     if (!context.from || !context.chat) return;
     if (input.text.length > MAX_TEXT_MESSAGE_LENGTH) return context.reply(interfaceText(locale).tooLong);
+    const preference = await preferences.getSettings(String(context.from.id));
     const priorState = await conversations.getActive(String(context.from.id), String(context.chat.id));
-    const result = await inputProcessor.process({ ...input, telegramUserId: String(context.from.id), telegramChatId: String(context.chat.id) });
+    const result = await inputProcessor.process({ ...input, telegramUserId: String(context.from.id), telegramChatId: String(context.chat.id), defaultPaymentMethod: preference.defaultPaymentMethod });
     if (result.outcome !== "unavailable" && result.restarted) await clearStoredKeyboard(context, priorState?.inlineMessageId);
     return presentResult(context, result, locale);
   }
@@ -224,8 +236,70 @@ export function createTelegramBot(environment: BotEnvironment, draftService?: Tr
     }
   });
 
+  async function processReceipt(
+    context: Context,
+    input: { fileId: string; fileSize?: number; sourceType: "telegram_photo" | "telegram_document"; caption?: string },
+  ) {
+    if (!context.from || !context.chat) return;
+    const locale = await localeFor(context);
+    const text = interfaceText(locale);
+    if (await conversations.getActive(String(context.from.id), String(context.chat.id))) return context.reply(text.receiptWhileActive);
+    let receipt: DownloadedTelegramReceipt | undefined;
+    let status: Awaited<ReturnType<typeof context.reply>> | undefined;
+    let createdDraftId: string | undefined;
+    try {
+      await context.api.sendChatAction(context.chat.id, "typing");
+      status = await context.reply(text.receiptPreparing);
+      receipt = await (voiceDependencies.downloadReceipt ?? downloadTelegramReceipt)({ api: context.api, botToken: TELEGRAM_BOT_TOKEN, fileId: input.fileId, fileSize: input.fileSize });
+      const extracted = await (voiceDependencies.extractReceipt ?? extractReceiptFromImage)({ bytes: receipt.bytes, mediaType: receipt.mediaType });
+      if (hasMultipleReceiptTransactions(extracted)) return context.reply(text.receiptUnsupported);
+      if (!(["MYR", "RM"].includes(extracted.currency.value?.trim().toUpperCase() ?? ""))) return context.reply(text.receiptCurrency);
+      if (extracted.total.value === null && extracted.merchantName.value === null && extracted.documentDate.value === null && extracted.lineItems.length === 0) return context.reply(text.receiptUnreadable);
+      const preference = await preferences.getSettings(String(context.from.id));
+      const extraction = applyDefaultPaymentMethod(receiptToTransactionExtraction(extracted), preference.defaultPaymentMethod);
+      const draft = await service.createDraft({
+        extraction,
+        telegramUserId: String(context.from.id),
+        telegramChatId: String(context.chat.id),
+        originalInput: input.caption?.trim() || (input.sourceType === "telegram_photo" ? "Telegram receipt photo" : "Telegram receipt document"),
+        sourceType: input.sourceType,
+        telegramFileId: input.fileId,
+      });
+      createdDraftId = draft.id;
+      const requestedField = await conversations.beginClarification(draft);
+      if (requestedField) return presentResult(context, { outcome: "clarification", question: "", draft, requestedField, restarted: false }, locale);
+      await conversations.beginReview(draft);
+      return presentResult(context, { outcome: "draft", draft, restarted: false }, locale);
+    } catch (error) {
+      if (createdDraftId) {
+        await service.act({ action: "cancel", draftId: createdDraftId, telegramUserId: String(context.from.id) }).catch(() => undefined);
+        await conversations.clearByDraftId(createdDraftId).catch(() => undefined);
+      }
+      if (error instanceof TelegramReceiptFileTooLargeError) return context.reply(text.receiptTooLarge);
+      if (error instanceof TelegramReceiptUnsupportedTypeError) return context.reply(text.receiptUnsupported);
+      console.error("Telegram receipt processing failed.", error instanceof Error ? error.message : "Unknown error");
+      return context.reply(text.receiptFailed);
+    } finally {
+      if (status) await context.api.deleteMessage(context.chat.id, status.message_id).catch(() => undefined);
+      if (receipt) await receipt.cleanup().catch(() => console.warn("Temporary Telegram receipt cleanup failed."));
+    }
+  }
+
+  bot.on("message:photo", async (context) => {
+    const photo = context.message.photo.at(-1);
+    if (!photo) return;
+    return processReceipt(context, { fileId: photo.file_id, fileSize: photo.file_size, sourceType: "telegram_photo", caption: context.message.caption });
+  });
+
+  bot.on("message:document", async (context) => processReceipt(context, {
+    fileId: context.message.document.file_id,
+    fileSize: context.message.document.file_size,
+    sourceType: "telegram_document",
+    caption: context.message.caption,
+  }));
+
   bot.on("message", async (context) => {
-    if (!("sticker" in context.message || "video" in context.message || "contact" in context.message || "location" in context.message || "photo" in context.message || "document" in context.message || "audio" in context.message)) return;
+    if (!("sticker" in context.message || "video" in context.message || "contact" in context.message || "location" in context.message || "audio" in context.message)) return;
     const locale = await localeFor(context);
     return context.reply(interfaceText(locale).unsupported);
   });
@@ -237,7 +311,36 @@ export function createTelegramBot(environment: BotEnvironment, draftService?: Tr
       const locale = localeMatch[1] as BotLocale;
       await preferences.set(String(context.from.id), locale);
       await clearKeyboard(context);
-      return replyHome(context, messages(locale).localeSaved, locale);
+      const preference = await preferences.getSettings(String(context.from.id));
+      await context.reply(messages(locale).localeSaved);
+      return context.reply(settingsMessage(locale, preference), { reply_markup: settingsKeyboard(preference, locale) });
+    }
+    const settingsAction = context.callbackQuery.data.match(/^settings:(menu|timezone|payment):([a-z_]+)$/);
+    if (settingsAction) {
+      const userId = String(context.from.id);
+      const locale = await localeFor(context);
+      const [, action, value] = settingsAction;
+      if (action === "menu") {
+        await clearKeyboard(context);
+        if (value === "timezone") return context.reply(locale === "ms" ? "Pilih zon waktu anda." : "Choose your timezone.", { reply_markup: timezoneSettingsKeyboard(locale) });
+        if (value === "payment") return context.reply(locale === "ms" ? "Pilih cara bayaran lalai untuk draf baharu." : "Choose the default payment method for new drafts.", { reply_markup: paymentSettingsKeyboard(locale) });
+        if (value === "main") return showSettings(context);
+      }
+      if (action === "timezone" && (value === "malaysia" || value === "utc")) {
+        await preferences.updateSettings(userId, { timezone: value === "malaysia" ? "Asia/Kuala_Lumpur" : "UTC" });
+        await clearKeyboard(context);
+        await context.reply(locale === "ms" ? "Zon waktu disimpan." : "Timezone saved.");
+        return showSettings(context);
+      }
+      const paymentMethods = ["cash", "bank_transfer", "card", "ewallet", "credit"] as const;
+      if (action === "payment" && (value === "none" || paymentMethods.includes(value as typeof paymentMethods[number]))) {
+        await preferences.updateSettings(userId, { defaultPaymentMethod: value === "none" ? null : value as typeof paymentMethods[number] });
+        await clearKeyboard(context);
+        await context.reply(locale === "ms" ? "Cara bayaran lalai disimpan." : "Default payment method saved.");
+        return showSettings(context);
+      }
+      await clearKeyboard(context);
+      return context.reply(interfaceText(locale).staleAction);
     }
     const callback = parseTransactionCallback(context.callbackQuery.data);
     if (!callback) { const locale = await localeFor(context); await clearKeyboard(context); return context.reply(interfaceText(locale).staleAction); }

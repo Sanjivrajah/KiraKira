@@ -35,6 +35,23 @@ describe("TransactionInputProcessor", () => {
     await expect(repositories.transactions.listByUser("user")).resolves.toEqual([]);
   });
 
+  it("prefills a configured payment method only when a new extraction does not specify one", async () => {
+    const withoutPayment: TransactionExtraction = { ...complete, paymentMethod: "unknown", missingFields: ["paymentMethod"] };
+    const { processor } = await makeProcessor(vi.fn().mockResolvedValue(withoutPayment));
+
+    const result = await processor.process({ text: "Bought inventory RM300", sourceType: "telegram_text", telegramUserId: "user", telegramChatId: "chat", defaultPaymentMethod: "bank_transfer" });
+
+    expect(result).toMatchObject({ outcome: "draft", draft: { paymentMethod: "bank_transfer", missingFields: [], status: "pending" } });
+  });
+
+  it("keeps an explicitly extracted payment method instead of overwriting it with the default", async () => {
+    const { processor } = await makeProcessor(vi.fn().mockResolvedValue(complete));
+
+    const result = await processor.process({ text: "Bought inventory RM300 cash", sourceType: "telegram_text", telegramUserId: "user", telegramChatId: "chat", defaultPaymentMethod: "bank_transfer" });
+
+    expect(result).toMatchObject({ outcome: "draft", draft: { paymentMethod: "cash" } });
+  });
+
   it("uses a voice transcript as the reply to an active clarification", async () => {
     const reextract = vi.fn().mockResolvedValue(complete);
     const { processor, repositories, conversations } = await makeProcessor(vi.fn().mockResolvedValue(incomplete), reextract);

@@ -137,7 +137,7 @@ npm run dev
 
 ## Telegram Transaction Agent (Local MVP)
 
-The Telegram transaction agent runs separately from the Next.js app using long polling. It accepts English, Bahasa Melayu, and Manglish transaction text or Telegram voice notes. Voice notes are transcribed with ElevenLabs and then use the same review flow as text. Transactions remain local and are saved only after confirmation.
+The Telegram transaction agent runs separately from the Next.js app using long polling. It accepts English, Bahasa Melayu, and Manglish transaction text, Telegram voice notes, and single receipt images. Voice notes are transcribed with ElevenLabs; JPG, PNG, and WEBP receipts use the existing OpenAI vision boundary. Every input joins the same reviewed-draft flow, and nothing is saved before confirmation.
 
 1. Create a bot through [Telegram's BotFather](https://t.me/BotFather): send `/newbot`, follow its prompts, and copy the token it provides.
 2. Copy the environment template and add the token. Never commit the resulting file.
@@ -163,30 +163,33 @@ Open your bot in Telegram and use these commands:
 - `/transactions` — your latest 10 confirmed transactions
 - `/summary` — a basic cash-movement summary
 - `/cancel` — cancel an active correction or clarification
-- `/settings` — choose an English or Bahasa Melayu interface
+- `/settings` — choose the interface language, reporting timezone, and an optional default payment method
 
-The persistent home keyboard provides **Record transaction**, **Recent transactions**, **Summary**, and **Help**, so slash commands are optional. Try text such as `Semalam beli ayam RM85 cash dekat Pasar Borong`, `Customer Ravi transfer RM450 for catering semalam`, or `Sold 10 nasi lemak RM5 each cash today`. You can also send a Telegram voice note containing the same details. NiagaAI shows temporary processing feedback, asks one contextual question at a time, and displays a concise draft. Constrained questions and correction fields have quick-answer buttons, while natural-language replies always remain available.
+The persistent home keyboard provides **Record transaction**, **Recent transactions**, **Summary**, and **Help**, so slash commands are optional. Try text such as `Semalam beli ayam RM85 cash dekat Pasar Borong`, `Customer Ravi transfer RM450 for catering semalam`, or `Sold 10 nasi lemak RM5 each cash today`. You can also send a Telegram voice note containing the same details, or one clear MYR receipt as a Telegram photo or image document. Receipt images are limited to 10 MiB and validated from their actual JPG, PNG, or WEBP bytes. PDF, non-MYR, unreadable, and multi-receipt documents are not supported in this slice. NiagaAI shows temporary processing feedback, asks one contextual question at a time, and displays a concise draft. Constrained questions and correction fields have quick-answer buttons, while natural-language replies always remain available.
 
 Before saving a likely duplicate, NiagaAI shows the matching confirmed transaction. **Save anyway** is a second explicit confirmation for legitimate repeated transactions; **Cancel** creates nothing. Only one draft can be active for a user and chat; a second transaction requires an explicit keep, discard, or cancel choice. After confirmation, **Undo last save** is available for five minutes and marks the record `voided` instead of deleting its audit evidence. `/transactions` and `/summary` omit voided records. The summary keeps customer debt repayments separate from sales income and is not an audited accounting or profit-and-loss statement.
 
 Conversation state is isolated per Telegram user and chat, so a clarification started in one chat is not consumed in another. Confirmation actions are idempotent within the local bot process: rapid button presses and safe retries do not create a second copy of the same transaction.
 
+The optional default payment method is applied only when a new transaction message does not include one. It remains visible in the review draft and can be corrected before confirmation; an explicitly stated or extracted payment method always wins. The selected timezone controls summary date boundaries.
+
 Local files are created on first use at `data/transaction-drafts.json`, `data/transactions.json`, `data/conversation-states.json`, and `data/telegram-user-preferences.json` (or inside `LOCAL_DATA_DIRECTORY`). Existing MVP transaction JSON remains readable without a destructive rewrite. To reset local development data, stop the bot, delete those generated JSON files, then restart it. Do not delete data automatically if a file is corrupt; inspect or back it up first.
 
-### Telegram Stage 1 manual checklist
+### Telegram manual checklist
 
 Verify on both phone and desktop before a demo:
 
 1. Open `/start`; use every home button and `/help`, `/transactions`, `/summary`, `/settings`, and `/cancel`.
 2. Capture English, Bahasa Melayu, and Manglish text plus short and long voice notes; confirm temporary status messages disappear.
-3. Exercise every missing-field button and answer the same prompts with natural language.
-4. Exercise every correction field, free-form correction, and cancellation from clarification and correction.
-5. Send a second transaction while reviewing a draft; test keep, discard-and-start, and cancel-new.
-6. Confirm, cancel, duplicate, undo, expired undo, repeated button, stale button, and another-user button paths.
-7. Switch both interface languages and test long descriptions, Unicode names, Telegram special characters, and 200% text scaling.
-8. Simulate OpenAI, ElevenLabs, local-storage, and Telegram failures; verify no financial record is silently saved and recoverable draft state remains available.
+3. Send clear, blurry, oversized, disguised-extension, non-MYR, and unsupported PDF receipt files; verify only a single valid JPG, PNG, or WEBP produces a reviewable draft and temporary files are removed.
+4. Exercise every missing-field button and answer the same prompts with natural language.
+5. Exercise every correction field, free-form correction, and cancellation from clarification and correction.
+6. Send a second transaction while reviewing a draft; test keep, discard-and-start, and cancel-new.
+7. Confirm, cancel, duplicate, undo, expired undo, repeated button, stale button, and another-user button paths.
+8. Switch both interface languages and test long descriptions, Unicode names, Telegram special characters, and 200% text scaling.
+9. Simulate OpenAI, ElevenLabs, local-storage, and Telegram failures; verify no financial record is silently saved and recoverable draft state remains available.
 
-This is development-only local storage, not a security boundary. Do not use it for sensitive production financial records. Receipt/image extraction, databases, WhatsApp, MyInvois submission, inventory, authentication, and production deployment are not part of this Telegram MVP. Unsupported media receives a short text-and-voice-only notice.
+This is development-only local storage, not a security boundary. Do not use it for sensitive production financial records. Receipt files are discarded after extraction; only the reviewed draft and Telegram file ID are retained for local traceability. PDF extraction, permanent receipt storage, databases, WhatsApp, MyInvois submission, inventory, authentication, and production deployment are not part of this Telegram MVP.
 
 ## Quality Checks
 

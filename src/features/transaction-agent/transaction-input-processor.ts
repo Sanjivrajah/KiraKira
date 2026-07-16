@@ -5,6 +5,7 @@ import { reextractTransactionDraft, extractTransactionFromText } from "@/feature
 import { TransactionDraftService } from "@/features/transaction-agent/transaction-confirmation";
 import type { TransactionDraft } from "@/features/transaction-agent/transaction-record.schema";
 import type { DraftRepository } from "@/features/transaction-agent/transaction-repositories";
+import type { TransactionExtraction } from "@/features/transaction-agent/transaction.schema";
 
 export type TransactionInput = {
   text: string;
@@ -13,6 +14,7 @@ export type TransactionInput = {
   sourceType: TransactionDraft["sourceType"];
   transcript?: string;
   telegramFileId?: string;
+  defaultPaymentMethod?: Exclude<TransactionExtraction["paymentMethod"], "unknown"> | null;
 };
 
 export type TransactionInputResult =
@@ -22,6 +24,19 @@ export type TransactionInputResult =
 
 type Extract = typeof extractTransactionFromText;
 type Reextract = typeof reextractTransactionDraft;
+
+export function applyDefaultPaymentMethod(
+  extraction: TransactionExtraction,
+  defaultPaymentMethod: TransactionInput["defaultPaymentMethod"],
+): TransactionExtraction {
+  return extraction.paymentMethod === "unknown" && defaultPaymentMethod
+    ? {
+        ...extraction,
+        paymentMethod: defaultPaymentMethod,
+        missingFields: extraction.missingFields.filter((field) => field !== "paymentMethod"),
+      }
+    : extraction;
+}
 
 /** Single entry point for text and transcribed voice transaction input. */
 export class TransactionInputProcessor {
@@ -85,7 +100,8 @@ export class TransactionInputProcessor {
       }
     }
 
-    const extraction = await extract({ input: input.text, apiKey: this.dependencies.apiKey, model: this.dependencies.model });
+    const extracted = await extract({ input: input.text, apiKey: this.dependencies.apiKey, model: this.dependencies.model });
+    const extraction = applyDefaultPaymentMethod(extracted, input.defaultPaymentMethod);
     const draft = await this.dependencies.draftService.createDraft({
       extraction,
       telegramUserId: input.telegramUserId,

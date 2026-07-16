@@ -30,7 +30,7 @@ async function startBot() {
     { command: "summary", description: "View your basic transaction summary" },
     { command: "search", description: "Search your confirmed transactions" },
     { command: "export", description: "Export a local CSV for a date range" },
-    { command: "settings", description: "Choose English or Bahasa Melayu" },
+    { command: "settings", description: "Set language, timezone, and payment defaults" },
     { command: "cancel", description: "Cancel an active correction or clarification" },
   ]);
 

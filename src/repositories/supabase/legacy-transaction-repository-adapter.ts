@@ -3,6 +3,9 @@ import type { Transaction } from "@/types";
 import { SupabaseTransactionRepository } from "./transaction-repository";
 import { toLegacyTransactionView, toDomainTransaction } from "@/frontend/view-models/transaction-adapter";
 import { resolveAuthMode } from "@/lib/supabase/env";
+import { financialTransactionSchema } from "@/domain/transactions/transaction.schema";
+
+const validationOnlyTransactionId = "00000000-0000-4000-8000-000000000000";
 
 export class LegacyTransactionRepositoryAdapter implements TransactionRepository {
   constructor(private readonly supabaseRepo = new SupabaseTransactionRepository()) {}
@@ -18,7 +21,13 @@ export class LegacyTransactionRepositoryAdapter implements TransactionRepository
   }
 
   async create(input: { transaction: Transaction }): Promise<Transaction> {
-    const domainTxn = toDomainTransaction(input.transaction);
+    // The browser-local ID is not a database identifier. Let PostgreSQL's
+    // gen_random_uuid() create the authoritative ID so saving also works on
+    // local-network HTTP origins where browser UUID APIs are unavailable.
+    const validated = financialTransactionSchema.parse(
+      toDomainTransaction({ ...input.transaction, id: validationOnlyTransactionId }),
+    );
+    const domainTxn = { ...validated, id: undefined };
     const saved = await this.supabaseRepo.create(domainTxn);
     return toLegacyTransactionView(saved);
   }
@@ -30,7 +39,7 @@ export class LegacyTransactionRepositoryAdapter implements TransactionRepository
     if (!existing) throw new Error("Transaction not found for update");
     
     const merged = { ...existing, ...input.changes, updatedAt: new Date().toISOString() };
-    const domainTxn = toDomainTransaction(merged);
+    const domainTxn = financialTransactionSchema.parse(toDomainTransaction(merged));
     
     const saved = await this.supabaseRepo.update(input.businessId, input.transactionId, domainTxn);
     return toLegacyTransactionView(saved);
