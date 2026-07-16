@@ -96,9 +96,9 @@ export function DemoSourceInput({ source, onContinue, onImported, onBack }: {
   if (source === "whatsapp") {
     return (
       <section className="capture-input-card" aria-labelledby="whatsapp-input-title">
-        <p className="section-kicker">WhatsApp order · Step 1 of 3</p>
+        <p className="section-kicker">Telegram order · Step 1 of 3</p>
         <h2 id="whatsapp-input-title">Paste an order message</h2>
-        <p className="capture-help">This is only a text preview. The demo does not connect to WhatsApp.</p>
+        <p className="capture-help">Paste an order from Telegram to preview the record Niaga would prepare. This web demo does not connect to your Telegram account.</p>
         <div className="message-preview-icon"><MessageCircle aria-hidden="true" size={24} /></div>
         <TextareaField label="Order message" onChange={(event) => setMessage(event.target.value)} rows={6} value={message} />
         <div className="capture-actions">

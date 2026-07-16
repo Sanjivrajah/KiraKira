@@ -41,7 +41,7 @@ const sourceLabels: Record<TransactionSourceType, string> = {
   manual: "Manual entry",
   csv: "CSV import",
   bank_statement: "Bank statement",
-  whatsapp: "WhatsApp order",
+  whatsapp: "Telegram order",
 };
 
 function localDate() {
