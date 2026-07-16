@@ -1,7 +1,21 @@
-import { describe, expect, it } from "vitest";
-import { getBrowserSupabaseConfig, resolveAuthMode } from "./env";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { getBrowserSupabaseConfig, getPublicBrowserEnvironment, resolveAuthMode } from "./env";
 
 describe("Supabase environment configuration", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("reads public values through direct client-safe environment references", () => {
+    vi.stubEnv("NEXT_PUBLIC_AUTH_MODE", "supabase");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "publishable-key");
+    expect(getPublicBrowserEnvironment()).toMatchObject({
+      NEXT_PUBLIC_AUTH_MODE: "supabase",
+      NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "publishable-key",
+    });
+    expect(getBrowserSupabaseConfig()).toMatchObject({ mode: "supabase", error: null });
+  });
+
   it("keeps local development in demo mode when no mode is supplied", () => {
     expect(resolveAuthMode({ NODE_ENV: "development" })).toBe("demo");
   });
