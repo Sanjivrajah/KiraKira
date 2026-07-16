@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { useAuth } from "@/components/auth/auth-provider";
-import { useBusiness } from "@/hooks/use-business";
+import { useBusiness, useBusinesses } from "@/hooks/use-business";
 import { businessTypeLabels } from "@/components/onboarding/business-preview";
 import { MobileNav } from "./mobile-nav";
 import { Sidebar } from "./sidebar";
@@ -13,8 +13,9 @@ import { Topbar } from "./topbar";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { session, signOut, resetDemo } = useAuth();
+  const { activeBusinessId, mode, session, setActiveBusinessId, signOut, resetDemo } = useAuth();
   const business = useBusiness().data;
+  const businesses = useBusinesses().data ?? [];
   const user = session?.user;
   const [menuOpen, setMenuOpen] = useState(false);
   const [dialog, setDialog] = useState<"signout" | "reset" | null>(null);
@@ -35,6 +36,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="app-layout">
       <Sidebar businessName={business?.name} businessType={business ? businessTypeLabels[business.type] : undefined} />
       <div className="app-main">
+        {mode === "supabase" && businesses.length > 1 ? <div className="active-business-selector">
+          <label>
+            <span>Active business</span>
+            <select onChange={(event) => setActiveBusinessId(event.target.value)} value={activeBusinessId ?? business?.id ?? ""}>
+              {businesses.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          </label>
+        </div> : null}
         <Topbar
           initials={initials}
           menuOpen={menuOpen}

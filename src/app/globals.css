@@ -915,6 +915,29 @@ li {
   margin-top: 7px;
 }
 
+.active-business-selector {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.75rem 1rem 0;
+}
+
+.active-business-selector label {
+  align-items: center;
+  color: var(--muted-foreground, #5c6673);
+  display: flex;
+  font-size: 0.8125rem;
+  gap: 0.5rem;
+}
+
+.active-business-selector select {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #d7dce2);
+  border-radius: 0.5rem;
+  color: inherit;
+  min-height: 2.75rem;
+  padding: 0 0.65rem;
+}
+
 .onboarding-actions.split {
   justify-content: space-between;
   gap: 10px;

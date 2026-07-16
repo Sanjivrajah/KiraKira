@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { BrandWordmark } from "@/components/shared/brand-mark";
 import { useSaveBusiness } from "@/hooks/use-business";
+import { useAuth } from "@/components/auth/auth-provider";
 import { useNiagaStore } from "@/store/use-niaga-store";
 import { browserStorage } from "@/lib/storage/browser-storage";
 import { FRONTEND_STORAGE_KEYS } from "@/frontend/storage";
@@ -16,6 +17,7 @@ export function OnboardingFlow() {
   const step = useNiagaStore((state) => state.onboardingStep);
   const setStep = useNiagaStore((state) => state.setOnboardingStep);
   const saveBusiness = useSaveBusiness();
+  const { mode } = useAuth();
   const [draft, setDraft] = useState(EMPTY_BUSINESS_ONBOARDING);
   const [saveError, setSaveError] = useState("");
 
@@ -46,8 +48,12 @@ export function OnboardingFlow() {
         email: draft.email,
         phone: draft.phone,
       });
-      const domain = businessOnboardingToDomain(draft, { id: saved.id, now, createdAt: saved.createdAt });
-      browserStorage.set(FRONTEND_STORAGE_KEYS.businesses, [domain]);
+      // Canonical browser storage remains a demo-only compatibility adapter.
+      // Supabase mode resolves its business context from active memberships.
+      if (mode === "demo") {
+        const domain = businessOnboardingToDomain(draft, { id: saved.id, now, createdAt: saved.createdAt });
+        browserStorage.set(FRONTEND_STORAGE_KEYS.businesses, [domain]);
+      }
       setStep(5);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Business setup could not be saved.");

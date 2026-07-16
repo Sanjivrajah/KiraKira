@@ -14,6 +14,8 @@ interface AuthContextValue {
   status: AuthStatus;
   mode: AuthMode;
   session: AuthSession | null;
+  activeBusinessId: string | null;
+  setActiveBusinessId(businessId: string | null): void;
   signIn(input: SignInInput): Promise<void>;
   signUp(input: SignUpInput): Promise<void>;
   signOut(): Promise<void>;
@@ -28,6 +30,7 @@ export function AuthProvider({ children, service = authService, mode = authMode 
   const queryClient = useQueryClient();
   const resetTemporaryUi = useNiagaStore((state) => state.resetTemporaryUi);
   const [session, setSession] = useState<AuthSession | null>(null);
+  const [activeBusinessId, setActiveBusinessId] = useState<string | null>(null);
   const [status, setStatus] = useState<AuthStatus>("loading");
 
   useEffect(() => {
@@ -35,11 +38,13 @@ export function AuthProvider({ children, service = authService, mode = authMode 
     const unsubscribe = service.subscribe((nextSession) => {
       if (!active) return;
       setSession(nextSession);
+      setActiveBusinessId(null);
       setStatus(nextSession ? "authenticated" : "unauthenticated");
     });
     void service.getSession().then((nextSession) => {
       if (!active) return;
       setSession(nextSession);
+      setActiveBusinessId(null);
       setStatus(nextSession ? "authenticated" : "unauthenticated");
     });
     return () => { active = false; unsubscribe(); };
@@ -60,7 +65,7 @@ export function AuthProvider({ children, service = authService, mode = authMode 
     else await service.signOut();
   }, [queryClient, resetTemporaryUi, service]);
 
-  const value = useMemo(() => ({ status, mode, session, signIn, signUp, signOut, resetDemo }), [mode, resetDemo, session, signIn, signOut, signUp, status]);
+  const value = useMemo(() => ({ status, mode, session, activeBusinessId, setActiveBusinessId, signIn, signUp, signOut, resetDemo }), [activeBusinessId, mode, resetDemo, session, signIn, signOut, signUp, status]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

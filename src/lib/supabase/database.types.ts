@@ -2017,7 +2017,97 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_manage_business: { Args: { p_business_id: string }; Returns: boolean }
+      can_write_evidence: {
+        Args: { p_evidence_file_id: string }
+        Returns: boolean
+      }
+      can_write_invoice: { Args: { p_invoice_id: string }; Returns: boolean }
+      can_write_party: { Args: { p_party_id: string }; Returns: boolean }
+      can_write_reminder: { Args: { p_reminder_id: string }; Returns: boolean }
+      can_write_transaction: {
+        Args: { p_transaction_id: string }
+        Returns: boolean
+      }
+      create_business: {
+        Args: {
+          p_business_activity_description?: string
+          p_entity_type?: string
+          p_legal_name: string
+          p_msic_code?: string
+          p_preferred_language?: string
+          p_trading_name?: string
+        }
+        Returns: {
+          business_activity_description: string | null
+          created_at: string
+          created_by: string | null
+          default_currency: string
+          entity_type: string
+          id: string
+          legal_name: string
+          msic_code: string | null
+          owner_user_id: string
+          preferred_language: string
+          timezone: string
+          trading_name: string | null
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "businesses"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       current_timestamp_utc: { Args: never; Returns: string }
+      has_business_role: {
+        Args: { p_business_id: string; p_roles: string[] }
+        Returns: boolean
+      }
+      is_business_member: { Args: { p_business_id: string }; Returns: boolean }
+      is_evidence_member: {
+        Args: { p_evidence_file_id: string }
+        Returns: boolean
+      }
+      is_invoice_member: { Args: { p_invoice_id: string }; Returns: boolean }
+      is_party_member: { Args: { p_party_id: string }; Returns: boolean }
+      is_reminder_member: { Args: { p_reminder_id: string }; Returns: boolean }
+      is_telegram_member: {
+        Args: { p_telegram_account_id: string }
+        Returns: boolean
+      }
+      is_transaction_member: {
+        Args: { p_transaction_id: string }
+        Returns: boolean
+      }
+      upsert_business_member: {
+        Args: {
+          p_business_id: string
+          p_role: string
+          p_status?: string
+          p_user_id: string
+        }
+        Returns: {
+          accepted_at: string | null
+          business_id: string
+          created_at: string
+          invited_at: string | null
+          invited_by: string | null
+          role: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "business_members"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       [_ in never]: never

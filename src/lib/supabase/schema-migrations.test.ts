@@ -18,6 +18,7 @@ describe("Supabase schema migrations", () => {
       "20260716090400_invoices_and_reminders.sql",
       "20260716090500_telegram_integrations.sql",
       "20260716090600_audit_and_idempotency.sql",
+      "20260716100000_rls_auth_and_membership.sql",
     ]);
   });
 
@@ -26,6 +27,16 @@ describe("Supabase schema migrations", () => {
       expect(migrationSql).toContain(`public.${table}`);
     }
     expect(migrationSql).not.toMatch(/create\s+policy[\s\S]*?using\s*\(\s*true\s*\)/i);
+  });
+
+  it("enables RLS and keeps identity, membership, and business creation behind controlled paths", () => {
+    expect(migrationSql).toContain("alter table public.transactions enable row level security");
+    expect(migrationSql).toContain("alter table public.audit_events enable row level security");
+    expect(migrationSql).toContain("function public.handle_new_auth_user()");
+    expect(migrationSql).toContain("function public.create_business(");
+    expect(migrationSql).toContain("function public.upsert_business_member(");
+    expect(migrationSql).toContain("set search_path = public");
+    expect(migrationSql).toContain("cross-business reference is not allowed");
   });
 
   it("keeps money in integer minor units and uses update timestamp triggers", () => {
