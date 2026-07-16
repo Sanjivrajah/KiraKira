@@ -32,7 +32,7 @@ const sourceLabels: Record<TransactionSourceType, string> = {
   manual: "Manual entry",
   csv: "Spreadsheet row",
   bank_statement: "Bank statement row",
-  whatsapp: "WhatsApp message",
+  whatsapp: "Telegram message",
 };
 const fieldLabels: Record<ReviewField, string> = {
   type: "Money in or out",

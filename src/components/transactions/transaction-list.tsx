@@ -15,7 +15,7 @@ import { DEMO_BUSINESS } from "@/data/demo";
 
 export const sourceLabels: Record<TransactionSourceType, string> = {
   receipt: "Receipt", voice: "Voice", manual: "Manual", csv: "CSV",
-  bank_statement: "Bank statement", whatsapp: "WhatsApp",
+  bank_statement: "Bank statement", whatsapp: "Telegram",
 };
 export const statusLabels: Record<TransactionStatus, string> = {
   draft: "Draft", needs_review: "Needs your check", confirmed: "Owner-approved", failed: "Needs attention",
