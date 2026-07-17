@@ -30,7 +30,7 @@ Show why an invoice is ineligible rather than hiding it without explanation.
 
 ## Additional-fields design
 
-Build from the Stage 1 field-source matrix. Each field definition must include:
+Build from the Stage 1 typed registry and `REFERENCE_INVOICE_V1_1_FIELD_REQUIREMENTS.md`. Each field definition must include:
 
 - Stable key and canonical destination path.
 - Label and help text.
@@ -124,4 +124,3 @@ Do not treat “combine data from several schemas” as a consolidated e-Invoice
 ## Handoff to Stage 3
 
 Stage 3 may start only when an approved preparation revision is immutable, fully schema-valid, reproducible from storage, and contains every value required for its selected scenario.
-
