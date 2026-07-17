@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEMO_BUSINESS, DEMO_INVOICES, DEMO_TRANSACTIONS } from "@/data/demo";
-import { deriveCashFlow, deriveDashboardInsights, deriveDashboardMetrics, deriveLoanReadiness } from "./derive";
+import { deriveCashFlow, deriveDashboardInsights, deriveDashboardMetrics } from "./derive";
 
 const now = new Date("2026-07-14T04:00:00.000Z");
 
@@ -36,11 +36,4 @@ describe("dashboard derivation", () => {
     expect(insights.find((item) => item.id === "overdue")?.description).toContain("RM");
   });
 
-  it("derives a bounded readiness preview from current records", () => {
-    const metrics = deriveDashboardMetrics(DEMO_TRANSACTIONS, DEMO_INVOICES, now);
-    expect(deriveLoanReadiness({ transactions: DEMO_TRANSACTIONS, invoices: DEMO_INVOICES, metrics, reviewCount: 2, business: DEMO_BUSINESS })).toEqual({
-      score: 70,
-      summary: "Review 2 transactions to make your local records more complete.",
-    });
-  });
 });

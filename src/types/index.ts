@@ -5,7 +5,6 @@ export * from "./customer";
 export * from "./e-invoice";
 export * from "./inventory";
 export * from "./invoice";
-export * from "./loan-readiness";
 export * from "./payment";
 export * from "./reminder";
 export * from "./source-document";

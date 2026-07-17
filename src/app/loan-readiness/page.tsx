@@ -1,5 +1,7 @@
-import { FeaturePlaceholder } from "@/components/shared/feature-placeholder";
+import { LoanReadinessWorkspace } from "@/components/loan-readiness/loan-readiness-workspace";
+import { AuthGate } from "@/components/auth/auth-gate";
+import { AppShell } from "@/components/layout/app-shell";
 
 export default function LoanReadinessPage() {
-  return <FeaturePlaceholder title="Loan readiness" description="A detailed financing-preparation workspace is planned for a later session." emptyTitle="Loan-readiness details coming next" emptyDescription="The dashboard score is a demo estimate based on current local records. It is not a financing decision or bank approval." />;
+  return <AuthGate gate="dashboard"><AppShell><LoanReadinessWorkspace /></AppShell></AuthGate>;
 }

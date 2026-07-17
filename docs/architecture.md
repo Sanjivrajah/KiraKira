@@ -87,6 +87,15 @@ migration:
 validation, mapping, UBL output, and reference data. It is not proof of a live
 submission or official approval.
 
+### Loan-readiness boundary
+
+The loan-readiness API is server-side and reads confirmed, non-voided Supabase
+transactions for the active business. It produces an indicative cash-flow
+assessment and does not mutate the transaction ledger. Future saved scenarios,
+reviewed inferred debt, and exports should pin the source snapshot and ruleset
+version before they are persisted. The browser-local dashboard score is not a
+production readiness source.
+
 ### Telegram orchestration boundary
 
 The Telegram transport normalizes supported inbound transaction updates into a

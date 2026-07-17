@@ -17,7 +17,8 @@ import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { useBusiness } from "@/hooks/use-business";
 import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
-import { deriveDashboardInsights, deriveLoanReadiness } from "@/lib/dashboard/derive";
+import { useLoanReadiness } from "@/hooks/use-loan-readiness";
+import { deriveDashboardInsights } from "@/lib/dashboard/derive";
 import { formatDashboardDate } from "@/lib/format/date";
 
 const quickActions: QuickAction[] = [
@@ -30,12 +31,13 @@ const quickActions: QuickAction[] = [
 
 export function DashboardContent({ now }: { now: string }) {
   const referenceDate = useMemo(() => new Date(now), [now]);
-  const { session } = useAuth();
+  const { session, mode } = useAuth();
   const business = useBusiness().data ?? null;
   const firstName = session?.user.name?.split(" ")[0] || "there";
   const businessName = business?.name || "your business";
   const businessId = business?.id ?? "";
   const summary = useDashboardSummary(businessId, referenceDate);
+  const readinessQuery = useLoanReadiness(mode === "supabase" ? businessId : "");
   const transactions = summary.data?.transactions ?? [];
   const metrics = summary.data?.metrics;
   const cashFlow = summary.data?.cashFlow ?? [];
@@ -47,9 +49,6 @@ export function DashboardContent({ now }: { now: string }) {
     { id: "outstanding", label: "Outstanding payments", value: metrics.outstandingPayments, trend: metrics.overdueInvoiceCount ? `${metrics.overdueInvoiceCount} overdue invoice${metrics.overdueInvoiceCount === 1 ? "" : "s"}` : "No overdue invoices", tone: metrics.overdueInvoiceCount ? "warning" as const : "neutral" as const },
   ] : [];
   const insights = metrics ? deriveDashboardInsights({ metrics, reviewCount, business, cashFlow }) : [];
-  const readiness = metrics && summary.data
-    ? deriveLoanReadiness({ transactions, invoices: summary.data.invoices, metrics, reviewCount, business })
-    : null;
 
   return (
     <AppShell>
@@ -63,7 +62,7 @@ export function DashboardContent({ now }: { now: string }) {
       {summary.isPending ? <LoadingState label="Loading dashboard summary" /> : null}
       {summary.isError ? <><ErrorState title="We could not load your dashboard" description="Your records are still on this device. Try loading the summary again." /><button className="button button-secondary" onClick={() => summary.refetch()} type="button">Try again</button></> : null}
 
-      {summary.isSuccess && readiness ? <>
+      {summary.isSuccess ? <>
         <section className="metrics-grid" aria-label="Financial summary">
           {metricCards.map((metric) => <MetricCard key={metric.id} {...metric} />)}
         </section>
@@ -72,7 +71,7 @@ export function DashboardContent({ now }: { now: string }) {
 
         <div className="dashboard-primary-grid">
           <CashOverview data={cashFlow} />
-          <LoanReadinessCard {...readiness} />
+          <LoanReadinessCard assessment={readinessQuery.data ?? null} />
         </div>
 
         <div className="dashboard-secondary-grid">

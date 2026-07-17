@@ -12,7 +12,6 @@ async function invalidateInvoiceDependents(queryClient: ReturnType<typeof useQue
     queryClient.invalidateQueries({ queryKey: queryKeys.invoices.list(businessId) }),
     queryClient.invalidateQueries({ queryKey: queryKeys.reminders.list(businessId) }),
     queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(businessId) }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.loanReadiness(businessId) }),
   ]);
 }
 
