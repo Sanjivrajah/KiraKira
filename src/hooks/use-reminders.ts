@@ -9,6 +9,7 @@ export function useReminders(businessId: string) {
   return useQuery({
     queryKey: queryKeys.reminders.list(businessId),
     queryFn: () => services.reminders.list(businessId),
+    enabled: Boolean(businessId),
   });
 }
 

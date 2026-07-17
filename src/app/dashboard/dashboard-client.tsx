@@ -15,7 +15,6 @@ import { AppShell } from "@/components/layout/app-shell";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeader } from "@/components/shared/page-header";
-import { DEMO_BUSINESS } from "@/data/demo";
 import { useBusiness } from "@/hooks/use-business";
 import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
 import { deriveDashboardInsights, deriveLoanReadiness } from "@/lib/dashboard/derive";
@@ -35,7 +34,7 @@ export function DashboardContent({ now }: { now: string }) {
   const business = useBusiness().data ?? null;
   const firstName = session?.user.name?.split(" ")[0] || "there";
   const businessName = business?.name || "your business";
-  const businessId = business?.id || DEMO_BUSINESS.id;
+  const businessId = business?.id ?? "";
   const summary = useDashboardSummary(businessId, referenceDate);
   const transactions = summary.data?.transactions ?? [];
   const metrics = summary.data?.metrics;
@@ -81,7 +80,7 @@ export function DashboardContent({ now }: { now: string }) {
           <InsightsPanel insights={insights} />
         </div>
 
-        <p className="foundation-note">Based on current local records · Stored on this device · No bank account is connected.</p>
+        <p className="foundation-note">Based on current workspace records · No bank account is connected.</p>
       </> : null}
     </AppShell>
   );

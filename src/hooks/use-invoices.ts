@@ -20,6 +20,7 @@ export function useInvoices(businessId: string) {
   return useQuery({
     queryKey: queryKeys.invoices.list(businessId),
     queryFn: () => services.invoices.initializeDemo(businessId),
+    enabled: Boolean(businessId),
   });
 }
 
@@ -30,6 +31,7 @@ export function useInvoice(businessId: string, invoiceId: string) {
       await services.invoices.initializeDemo(businessId);
       return services.invoices.getById(businessId, invoiceId);
     },
+    enabled: Boolean(businessId && invoiceId),
   });
 }
 

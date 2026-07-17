@@ -4082,6 +4082,7 @@ li {
 .voice-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .voice-controls .button { min-height: 44px; }
 .voice-privacy-note { max-width: 42ch; margin: 0; color: var(--ink-500); font-size: var(--text-small); }
+.voice-storage-state { margin: -6px 0 0; color: var(--brand-700); font-size: 0.75rem; }
 
 .voice-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .voice-draft-empty {
@@ -4176,6 +4177,38 @@ li {
 }
 .voice-capabilities h2 { margin: 0 0 10px; font-size: var(--text-subheading); }
 .voice-capabilities ul { display: flex; flex-direction: column; gap: 8px; margin: 0; padding-left: 18px; color: var(--ink-700); font-size: var(--text-small); }
+
+.voice-history {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.voice-history-heading h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--text-subheading); }
+.voice-history-heading h2 svg { flex: 0 0 auto; color: var(--brand-700); }
+.voice-history-heading p,
+.voice-history-state { margin: 7px 0 0; color: var(--ink-500); font-size: var(--text-small); line-height: 1.5; }
+.voice-history-list { display: grid; gap: 8px; margin-top: 16px; }
+.voice-history-item { min-width: 0; border: 1px solid var(--line); border-radius: 12px; background: #fbfcfb; }
+.voice-history-item summary {
+  min-height: 48px;
+  padding: 10px 12px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.voice-history-item summary span,
+.voice-history-item summary strong,
+.voice-history-item summary small { display: block; }
+.voice-history-item summary strong { font-size: 0.8125rem; }
+.voice-history-item summary small { margin-top: 3px; color: var(--ink-500); font-size: 0.75rem; font-weight: 400; }
+.voice-history-transcript { display: grid; gap: 8px; padding: 0 12px 12px; }
+.voice-history-turn { display: grid; gap: 3px; margin: 0; padding: 9px 10px; border-radius: 10px; background: var(--canvas); overflow-wrap: anywhere; }
+.voice-history-turn[data-role="assistant"] { background: var(--brand-100); }
+.voice-history-turn strong { color: var(--ink-700); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: .04em; }
+.voice-history-turn span { color: var(--ink-950); font-size: 0.8125rem; line-height: 1.45; white-space: pre-wrap; }
+.voice-history-delete { width: fit-content; margin-top: 4px; }
 
 .voice-captions { width: 100%; max-width: 46ch; margin: 0 auto; text-align: left; }
 .voice-captions-heading {

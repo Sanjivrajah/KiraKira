@@ -11,10 +11,11 @@ import { useInvoices } from "@/hooks/use-invoices";
 import { useBusiness } from "@/hooks/use-business";
 import { useMarkReminderSent, useReminders } from "@/hooks/use-reminders";
 import { useDialogFocus } from "@/hooks/use-dialog-focus";
+import { useAuth } from "@/components/auth/auth-provider";
+import { DEMO_BUSINESS } from "@/data/demo";
 import { daysFromDueDate, getEffectiveInvoiceStatus, parseLocalDate } from "@/lib/invoices/calculations";
 import { formatMoney } from "@/lib/format/money";
 import type { Invoice } from "@/types";
-import { DEMO_BUSINESS } from "@/data/demo";
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { day: "numeric", month: "long", year: "numeric" });
 const noInvoices: Invoice[] = [];
@@ -24,7 +25,8 @@ export function makeReminderMessage(invoice: Invoice) {
 }
 
 export function ReminderList() {
-  const businessId = useBusiness().data?.id || DEMO_BUSINESS.id;
+  const { mode } = useAuth();
+  const businessId = useBusiness().data?.id ?? (mode === "demo" ? DEMO_BUSINESS.id : "");
   const invoicesQuery = useInvoices(businessId);
   const remindersQuery = useReminders(businessId);
   const markReminderSent = useMarkReminderSent();
@@ -68,11 +70,11 @@ export function ReminderList() {
     <>
       <PageHeader eyebrow="Friendly follow-ups" title="Payment reminders" description="Review upcoming and overdue invoices, then preview a message before recording your follow-up." action={<Link className="button button-secondary" href="/invoices"><BellRing aria-hidden="true" size={18} />View invoices</Link>} />
       {invoicesQuery.isPending || remindersQuery.isPending ? <LoadingState label="Loading payment reminders" /> : null}
-      {invoicesQuery.isError || remindersQuery.isError ? <><ErrorState title="We could not load payment reminders" description="Your invoice and reminder records are still on this device. Try loading them again." /><button className="button button-secondary" onClick={() => { invoicesQuery.refetch(); remindersQuery.refetch(); }} type="button">Try again</button></> : null}
+      {invoicesQuery.isError || remindersQuery.isError ? <><ErrorState title="We could not load payment reminders" description="Your saved records were not changed. Try loading them again." /><button className="button button-secondary" onClick={() => { invoicesQuery.refetch(); remindersQuery.refetch(); }} type="button">Try again</button></> : null}
       {invoicesQuery.isSuccess && remindersQuery.isSuccess ? <>
       {message ? <div className="inline-success" role="status"><CheckCircle2 aria-hidden="true" size={18} />{message}<button aria-label="Dismiss message" onClick={() => setMessage("")} type="button">×</button></div> : null}
       {mutationError ? <div className="form-alert" role="alert">{mutationError}</div> : null}
-      <section className="reminder-summary" aria-label="Reminder summary"><article><span className="overdue-dot" /><div><strong>{overdueCount}</strong><span>Overdue</span></div></article><article><span className="upcoming-dot" /><div><strong>{upcomingCount}</strong><span>Upcoming</span></div></article><p><Clock3 aria-hidden="true" size={17} />Message previews are local only. Nothing is sent from this demo.</p></section>
+      <section className="reminder-summary" aria-label="Reminder summary"><article><span className="overdue-dot" /><div><strong>{overdueCount}</strong><span>Overdue</span></div></article><article><span className="upcoming-dot" /><div><strong>{upcomingCount}</strong><span>Upcoming</span></div></article><p><Clock3 aria-hidden="true" size={17} />{mode === "supabase" ? "Reminder status is saved to your workspace. Message sending is not connected yet." : "Message previews are local only. Nothing is sent from this demo."}</p></section>
 
       {dueInvoices.length === 0 ? <section className="transaction-empty panel"><h2>No payment reminders</h2><p>Sent invoices that are upcoming or overdue will appear here.</p><Link className="button button-primary" href="/invoices/new"><FilePlus2 aria-hidden="true" size={18} />Create invoice</Link></section> : <div className="reminder-grid">{dueInvoices.map((invoice) => {
         const days = daysFromDueDate(invoice.dueDate);

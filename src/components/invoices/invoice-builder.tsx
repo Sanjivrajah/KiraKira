@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, ChevronRight, Circle, Plus, Save, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { partySchema, type CommercialDocument, type Party } from "@/domain";
 import { FormField } from "@/components/forms/form-field";
@@ -11,6 +11,7 @@ import { SelectField } from "@/components/forms/select-field";
 import { TextareaField } from "@/components/forms/textarea-field";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { PageHeader } from "@/components/shared/page-header";
+import { useAuth } from "@/components/auth/auth-provider";
 import { DEMO_BUSINESS, DEMO_CUSTOMERS } from "@/data/demo";
 import { FRONTEND_STORAGE_KEYS } from "@/frontend/storage";
 import {
@@ -29,6 +30,7 @@ import { useCreateInvoice } from "@/hooks/use-invoices";
 import { calculateInvoiceTotals } from "@/lib/invoices/calculations";
 import { browserStorage } from "@/lib/storage/browser-storage";
 import { invoiceFormSchema, type InvoiceFormValues, type ValidInvoiceFormValues } from "@/lib/validation/invoice";
+import { createSupabaseParty, listSupabaseParties } from "@/services/party-service";
 
 const isoDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const makeItemId = () => `item_${typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
@@ -72,10 +74,11 @@ const emptyBuyer: PartyEditorViewModel = {
 export function InvoiceBuilder({ now }: { now: string }) {
   const router = useRouter();
   const createInvoice = useCreateInvoice();
+  const { mode } = useAuth();
   const business = useBusiness().data ?? null;
   const today = useMemo(() => new Date(now), [now]);
   const due = useMemo(() => new Date(today.getFullYear(), today.getMonth(), today.getDate() + 14), [today]);
-  const [parties, setParties] = useState(initialParties);
+  const [parties, setParties] = useState<Party[]>(() => mode === "demo" ? initialParties() : []);
   const [showBuyerEditor, setShowBuyerEditor] = useState(false);
   const [buyerDraft, setBuyerDraft] = useState(emptyBuyer);
   const [buyerError, setBuyerError] = useState("");
@@ -101,6 +104,20 @@ export function InvoiceBuilder({ now }: { now: string }) {
     },
   });
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
+  useEffect(() => {
+    if (mode !== "supabase" || !business?.id) return;
+    let active = true;
+    void listSupabaseParties(business.id)
+      .then((values) => {
+        if (!active) return;
+        setParties(values);
+        if (values[0]) setValue("buyerId", values[0].id, { shouldValidate: true });
+      })
+      .catch((error: unknown) => {
+        if (active) setBuyerError(error instanceof Error ? error.message : "Customers could not be loaded.");
+      });
+    return () => { active = false; };
+  }, [business?.id, mode, setValue]);
   const watched = useWatch({ control });
   const selectedBuyer = parties.find((party) => party.id === watched.buyerId);
   const items = (watched.items ?? []).map((item) => ({
@@ -205,13 +222,16 @@ export function InvoiceBuilder({ now }: { now: string }) {
     focusField(fieldPath);
   };
 
-  const createBuyer = () => {
+  const createBuyer = async () => {
     setBuyerError("");
     try {
-      const party = partyEditorToDomain(buyerDraft, { id: `party_${Date.now()}`, now: new Date().toISOString() });
+      const prepared = partyEditorToDomain(buyerDraft, { id: `party_${Date.now()}`, now: new Date().toISOString() });
+      const activeBusinessId = business?.id ?? (mode === "demo" ? DEMO_BUSINESS.id : "");
+      if (!activeBusinessId) throw new Error("Your business workspace is still loading.");
+      const party = mode === "supabase" ? await createSupabaseParty(activeBusinessId, prepared) : prepared;
       const next = [...parties.filter((existing) => existing.id !== party.id), party];
       setParties(next);
-      browserStorage.set(FRONTEND_STORAGE_KEYS.parties, next);
+      if (mode === "demo") browserStorage.set(FRONTEND_STORAGE_KEYS.parties, next);
       setValue("buyerId", party.id, { shouldValidate: true });
       setShowBuyerEditor(false);
       setBuyerDraft(emptyBuyer);
@@ -221,6 +241,8 @@ export function InvoiceBuilder({ now }: { now: string }) {
   };
 
   const submit = async (values: ValidInvoiceFormValues) => {
+    const activeBusinessId = business?.id ?? (mode === "demo" ? DEMO_BUSINESS.id : "");
+    if (!activeBusinessId) return setError("root", { message: "Your business workspace is still loading." });
     const buyer = parties.find((party) => party.id === values.buyerId);
     if (!buyer) return setError("buyerId", { message: "Choose or create a buyer." });
     try {
@@ -244,12 +266,12 @@ export function InvoiceBuilder({ now }: { now: string }) {
       };
       invoiceBuilderToDomain(domainInput, {
         id: `document_pending_${now.replace(/\W/g, "")}`,
-        businessId: business?.id || DEMO_BUSINESS.id,
-        supplierPartyId: `party_${business?.id || DEMO_BUSINESS.id}`,
+        businessId: activeBusinessId,
+        supplierPartyId: `party_${activeBusinessId}`,
         now: new Date().toISOString(),
       });
       const saved = await createInvoice.mutateAsync({
-        businessId: business?.id || DEMO_BUSINESS.id,
+        businessId: activeBusinessId,
         customerId: buyer.id,
         invoiceNumber: values.invoiceNumber,
         customerName: buyer.legalName,
@@ -270,9 +292,11 @@ export function InvoiceBuilder({ now }: { now: string }) {
         supplierPartyId: `party_${saved.businessId}`,
         now: saved.createdAt,
       });
-      const existing = browserStorage.get<CommercialDocument[]>(FRONTEND_STORAGE_KEYS.documents, []);
-      browserStorage.set(FRONTEND_STORAGE_KEYS.parties, parties);
-      browserStorage.set(FRONTEND_STORAGE_KEYS.documents, [domain, ...existing.filter((document) => document.id !== domain.id)]);
+      if (mode === "demo") {
+        const existing = browserStorage.get<CommercialDocument[]>(FRONTEND_STORAGE_KEYS.documents, []);
+        browserStorage.set(FRONTEND_STORAGE_KEYS.parties, parties);
+        browserStorage.set(FRONTEND_STORAGE_KEYS.documents, [domain, ...existing.filter((document) => document.id !== domain.id)]);
+      }
       router.push("/invoices?created=1");
     } catch (error) {
       setError("root", { message: error instanceof Error ? error.message : "Invoice could not be saved." });

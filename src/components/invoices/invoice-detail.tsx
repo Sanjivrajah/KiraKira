@@ -11,11 +11,12 @@ import { LoadingState } from "@/components/shared/loading-state";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { useDeleteInvoice, useInvoice, useUpdateInvoice } from "@/hooks/use-invoices";
 import { useBusiness } from "@/hooks/use-business";
+import { useAuth } from "@/components/auth/auth-provider";
+import { DEMO_BUSINESS } from "@/data/demo";
 import { getEffectiveInvoiceStatus, parseLocalDate } from "@/lib/invoices/calculations";
 import { formatMoney } from "@/lib/format/money";
 import type { InvoiceStatus } from "@/types";
 import { invoiceStatusLabels } from "./invoice-list";
-import { DEMO_BUSINESS } from "@/data/demo";
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "long" });
 const dateTimeFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "medium", timeStyle: "short" });
@@ -23,7 +24,8 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "medium"
 export function InvoiceDetail({ id }: { id: string }) {
   const router = useRouter();
   const business = useBusiness().data;
-  const businessId = business?.id || DEMO_BUSINESS.id;
+  const { mode } = useAuth();
+  const businessId = business?.id ?? (mode === "demo" ? DEMO_BUSINESS.id : "");
   const invoiceQuery = useInvoice(businessId, id);
   const updateInvoice = useUpdateInvoice();
   const deleteInvoice = useDeleteInvoice();

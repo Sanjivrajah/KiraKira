@@ -38,6 +38,17 @@ const copy = {
 
 export function messages(locale: BotLocale) { return copy[locale]; }
 
+export function helpMessage(locale: BotLocale, persistenceMode: "local" | "supabase") {
+  if (persistenceMode === "local") return copy[locale].help;
+  const localDisclosure = locale === "ms"
+    ? "Demo setempat ini menyimpan data pada komputer yang menjalankan bot sahaja."
+    : "This local demo stores data only on the machine running the bot.";
+  const liveDisclosure = locale === "ms"
+    ? "Rekod yang disahkan disimpan dalam ruang kerja pangkalan data yang dipautkan."
+    : "Confirmed records are saved to the linked database workspace.";
+  return copy[locale].help.replace(localDisclosure, liveDisclosure);
+}
+
 const paymentMethodLabels: Record<NonNullable<TelegramUserPreference["defaultPaymentMethod"]>, [string, string]> = {
   cash: ["Cash", "Tunai"],
   bank_transfer: ["Bank transfer", "Pindahan bank"],

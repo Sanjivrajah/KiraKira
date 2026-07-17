@@ -53,7 +53,7 @@ export function SignUpForm() {
       <button className="button button-primary button-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? "Creating account…" : mode === "supabase" ? "Create account" : "Create demo account"}
       </button>
-      <p className="auth-switch">Already have a demo account? <Link href="/login">Sign in</Link></p>
+      <p className="auth-switch">{mode === "supabase" ? "Already have an account?" : "Already have a demo account?"} <Link href="/login">Sign in</Link></p>
     </form>
   );
 }

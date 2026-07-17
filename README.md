@@ -86,11 +86,10 @@ NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<local publishable-or-anon-key>
 ```
 
-For browser-local demo mode, set `NEXT_PUBLIC_AUTH_MODE=demo`. In development,
-an omitted mode defaults to demo for compatibility; production treats an omitted
-mode as Supabase, so missing credentials produce a clear configuration failure
-rather than a silent demo fallback. Use the browser-safe Supabase publishable
-key, never a secret or service-role key.
+For browser-local demo mode, explicitly set `NEXT_PUBLIC_AUTH_MODE=demo`.
+An omitted mode defaults to Supabase in every environment, so missing credentials
+produce a clear configuration failure rather than a silent demo fallback. Use
+the browser-safe Supabase publishable key, never a secret or service-role key.
 
 Useful local commands:
 

@@ -9,9 +9,10 @@ import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { useTransactions } from "@/hooks/use-transactions";
 import { useBusiness } from "@/hooks/use-business";
+import { useAuth } from "@/components/auth/auth-provider";
+import { DEMO_BUSINESS } from "@/data/demo";
 import { emptyTransactionFilters, filterAndSortTransactions, type TransactionFilters, type TransactionSort } from "@/lib/transactions/query";
 import type { Transaction, TransactionSourceType, TransactionStatus } from "@/types";
-import { DEMO_BUSINESS } from "@/data/demo";
 
 export const sourceLabels: Record<TransactionSourceType, string> = {
   receipt: "Receipt", voice: "Voice", manual: "Manual", csv: "CSV",
@@ -32,7 +33,8 @@ function Counterparty({ transaction }: { transaction: Transaction }) {
 }
 
 export function TransactionList() {
-  const businessId = useBusiness().data?.id || DEMO_BUSINESS.id;
+  const { mode } = useAuth();
+  const businessId = useBusiness().data?.id ?? (mode === "demo" ? DEMO_BUSINESS.id : "");
   const transactionsQuery = useTransactions(businessId);
   const transactions = transactionsQuery.data ?? noTransactions;
   const [filters, setFilters] = useState<TransactionFilters>(emptyTransactionFilters);

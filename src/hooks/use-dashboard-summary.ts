@@ -18,5 +18,6 @@ export function useDashboardSummary(businessId: string, referenceDate: Date) {
       }
       return services.dashboard.getSummary(businessId, referenceDate);
     },
+    enabled: Boolean(businessId),
   });
 }

@@ -10,6 +10,7 @@ import { useBusiness } from "@/hooks/use-business";
 import { useAuth } from "@/components/auth/auth-provider";
 import type { ValidTransactionFormValues } from "@/lib/validation/transaction";
 import type { Transaction, TransactionSourceType } from "@/types";
+import { DEMO_BUSINESS, DEMO_USER } from "@/data/demo";
 import { DemoSourceInput, type TransactionFileImportResult } from "./demo-source-input";
 import { InputMethodSelector } from "./input-method-selector";
 import { ProcessingState } from "./processing-state";
@@ -17,7 +18,6 @@ import { ReceiptUploader, type ReceiptBatchResult } from "./receipt-uploader";
 import { TransactionReviewForm, type TransactionDraft, type TransactionReviewHints } from "./transaction-review-form";
 import { TransactionSuccessState } from "./transaction-success-state";
 import { VoiceRecorder, type VoiceTransactionResult } from "./voice-recorder";
-import { DEMO_BUSINESS, DEMO_USER } from "@/data/demo";
 import {
   DEMO_REVIEW_RECEIPT_EXTRACTION,
   DEMO_REVIEW_EXTRACTION_RUN,
@@ -96,9 +96,10 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
 }) {
   const createTransaction = useCreateTransaction();
   const updateTransaction = useUpdateTransaction();
-  const businessId = useBusiness().data?.id || DEMO_BUSINESS.id;
+  const { mode, session } = useAuth();
+  const businessId = useBusiness().data?.id ?? (mode === "demo" ? DEMO_BUSINESS.id : "");
   const reviewedTransaction = useTransaction(businessId, reviewTransactionId);
-  const userId = useAuth().session?.user.id || DEMO_USER.id;
+  const userId = session?.user.id ?? (mode === "demo" ? DEMO_USER.id : "");
   const [source, setSource] = useState<TransactionSourceType | null>(initialMethod ?? null);
   const [stage, setStage] = useState<Stage>(demoScenario ? "review" : initialMethod === "manual" ? "review" : initialMethod ? "input" : "select");
   const [draft, setDraft] = useState<TransactionDraft>(() => demoScenario
@@ -291,6 +292,10 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
 
   const confirm = async (values: ValidTransactionFormValues) => {
     setSaveError("");
+    if (!businessId || !userId) {
+      setSaveError("Your workspace is still loading. Please try again.");
+      return;
+    }
     if (reviewTransactionId && !reviewedTransaction.data) {
       setSaveError("We couldn’t load this record. Return to Records and open it again.");
       return;
@@ -342,7 +347,7 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
         now: reviewedAt,
         ...(approvedRun ? { extractionRun: approvedRun } : {}),
       });
-      if (activeProvenance && approvedRun) {
+      if (mode === "demo" && activeProvenance && approvedRun) {
         persistReviewProvenance(activeProvenance.sourceDocument, approvedRun);
         setApprovalTimeline(deriveApprovalAuditTimeline({
           sourceDocument: activeProvenance.sourceDocument,

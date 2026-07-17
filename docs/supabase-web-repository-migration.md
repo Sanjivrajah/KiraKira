@@ -1,9 +1,10 @@
 # Supabase web repository migration
 
-Session 5 retains an explicit two-adapter boundary for the web application:
+The web application retains an explicit two-adapter boundary. Supabase is the
+default; demo persistence is enabled only by its explicit toggle:
 
 - `NEXT_PUBLIC_AUTH_MODE=demo` uses browser-local repositories and deterministic fixtures.
-- `NEXT_PUBLIC_AUTH_MODE=supabase` uses typed Supabase business context and transaction repositories. A failed database write is surfaced to the UI; it never falls back to browser storage.
+- `NEXT_PUBLIC_AUTH_MODE=supabase` (or an omitted mode) uses typed Supabase business context and live repositories. A failed database write is surfaced to the UI; it never falls back to browser storage.
 
 ## Persistence inventory
 
@@ -14,7 +15,7 @@ Session 5 retains an explicit two-adapter boundary for the web application:
 | Zustand onboarding step and active-business selection | Temporary UI state | Retained locally; active business is resolved against active memberships. |
 | React Query cache | Cache | Retained and invalidated by business identity after writes. |
 | `src/data/demo` fixtures and demo source inputs | Demo-only fixtures | Retained for the explicit demo experience and tests. |
-| Invoices, payments, reminders | Server-persisted domain data | Deliberately unchanged here; Session 6 owns their migration. |
+| Invoices, payments, reminders | Server-persisted domain data | Supabase repositories and lifecycle RPCs in live mode; local adapters only in explicit demo mode. |
 
 ## Operational behavior
 

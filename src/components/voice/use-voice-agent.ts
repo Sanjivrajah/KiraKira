@@ -13,6 +13,11 @@ import { createVoiceClientTools, type VoiceDraftController } from "./client-tool
 import { kualaLumpurToday } from "./voice-finance";
 import { useVoiceDraftStore } from "./voice-draft-store";
 import { appendTranscriptTurn, type TranscriptTurn } from "./voice-transcript";
+import {
+  finishStoredVoiceConversation,
+  saveStoredVoiceTurn,
+  startStoredVoiceConversation,
+} from "./voice-conversation-api";
 
 // The store actions are stable, so a single controller instance stays valid for the session.
 const draftController: VoiceDraftController = {
@@ -62,6 +67,8 @@ export interface UseVoiceAgentResult {
   isMuted: boolean;
   error: string | null;
   transcript: TranscriptTurn[];
+  transcriptStorage: "disabled" | "idle" | "saving" | "saved" | "error";
+  historyRefreshKey: number;
   /** Stable getters for the current mic / assistant output level (0–1). */
   getInputVolume: () => number;
   getOutputVolume: () => number;
@@ -74,12 +81,16 @@ export function useVoiceAgent(): UseVoiceAgentResult {
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  const { session } = useAuth();
+  const { mode, session } = useAuth();
   const { data: business } = useBusiness();
 
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptTurn[]>([]);
+  const [transcriptStorage, setTranscriptStorage] = useState<UseVoiceAgentResult["transcriptStorage"]>(
+    mode === "supabase" ? "idle" : "disabled",
+  );
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   // Best-effort "thinking" signal: the user's turn has landed but the assistant
   // has not started speaking yet. Cleared once the assistant replies (below).
   const [awaitingReply, setAwaitingReply] = useState(false);
@@ -88,12 +99,51 @@ export function useVoiceAgent(): UseVoiceAgentResult {
   const businessName = business?.name ?? "your business";
   const pathnameRef = useRef(pathname);
   const businessNameRef = useRef(businessName);
+  const businessIdRef = useRef(business?.id ?? null);
+  const authModeRef = useRef(mode);
+  const transcriptRef = useRef<TranscriptTurn[]>([]);
+  const storageSessionRef = useRef<Promise<string | null> | null>(null);
+  const storageQueueRef = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
   useEffect(() => { businessNameRef.current = businessName; }, [businessName]);
+  useEffect(() => { businessIdRef.current = business?.id ?? null; }, [business?.id]);
+  useEffect(() => { authModeRef.current = mode; }, [mode]);
+
+  const queueTranscriptTurn = useCallback((turn: TranscriptTurn) => {
+    const session = storageSessionRef.current;
+    if (!session) return;
+    setTranscriptStorage("saving");
+    const operation = storageQueueRef.current.then(async () => {
+      const conversationId = await session;
+      if (conversationId) await saveStoredVoiceTurn(conversationId, turn);
+    });
+    storageQueueRef.current = operation.catch(() => { setTranscriptStorage("error"); });
+    void operation.then(() => setTranscriptStorage("saved"), () => setTranscriptStorage("error"));
+  }, []);
+
+  const finishTranscriptStorage = useCallback((status: "completed" | "failed") => {
+    const session = storageSessionRef.current;
+    if (!session) return;
+    storageSessionRef.current = null;
+    const operation = storageQueueRef.current.then(async () => {
+      const conversationId = await session;
+      if (conversationId) await finishStoredVoiceConversation(conversationId, status);
+    });
+    storageQueueRef.current = operation.catch(() => { setTranscriptStorage("error"); });
+    void operation.then(() => {
+      setTranscriptStorage("saved");
+      setHistoryRefreshKey((key) => key + 1);
+    }, () => setTranscriptStorage("error"));
+  }, []);
 
   const conversation = useConversation({
     onMessage: ({ message, source }) => {
-      setTranscript((turns) => appendTranscriptTurn(turns, { message, source }));
+      const previous = transcriptRef.current;
+      const next = appendTranscriptTurn(previous, { message, source });
+      transcriptRef.current = next;
+      setTranscript(next);
+      const latest = next[next.length - 1];
+      if (latest && next !== previous) queueTranscriptTurn(latest);
       // A user turn opens the "thinking" gap; an assistant turn closes it.
       setAwaitingReply(source === "user");
     },
@@ -102,6 +152,7 @@ export function useVoiceAgent(): UseVoiceAgentResult {
       setError(typeof message === "string" && message ? message : "The voice assistant hit a problem.");
     },
     onDisconnect: (details) => {
+      finishTranscriptStorage(details.reason === "error" || details.reason === "agent" ? "failed" : "completed");
       if (details.reason === "error") {
         console.error("[voice] disconnected", details);
         setError(details.message || details.closeReason || "The voice session ended unexpectedly.");
@@ -114,7 +165,17 @@ export function useVoiceAgent(): UseVoiceAgentResult {
         console.info("[voice] session ended", details);
       }
     },
-    onConnect: ({ conversationId }) => console.info("[voice] connected", conversationId),
+    onConnect: ({ conversationId }) => {
+      const currentBusinessId = businessIdRef.current;
+      if (authModeRef.current !== "supabase" || !currentBusinessId) return;
+      setTranscriptStorage("saving");
+      const session = startStoredVoiceConversation(currentBusinessId, conversationId);
+      storageSessionRef.current = session;
+      void session.then(
+        (storedId) => setTranscriptStorage(storedId ? "saved" : "disabled"),
+        () => setTranscriptStorage("error"),
+      );
+    },
   });
 
   const businessId = business?.id ?? null;
@@ -129,7 +190,11 @@ export function useVoiceAgent(): UseVoiceAgentResult {
     setError(null);
     setConnecting(true);
     setTranscript([]);
+    transcriptRef.current = [];
     setAwaitingReply(false);
+    setTranscriptStorage(mode === "supabase" ? "idle" : "disabled");
+    storageSessionRef.current = null;
+    storageQueueRef.current = Promise.resolve();
     try {
       const response = await fetch("/api/voice/session", { headers: { Accept: "application/json" } });
       if (!response.ok) {
@@ -193,7 +258,7 @@ export function useVoiceAgent(): UseVoiceAgentResult {
     } finally {
       setConnecting(false);
     }
-  }, [businessId, createdBy, conversation, queryClient, router, session]);
+  }, [businessId, createdBy, conversation, mode, queryClient, router, session]);
 
   const disconnect = useCallback(() => {
     conversation.endSession();
@@ -208,7 +273,10 @@ export function useVoiceAgent(): UseVoiceAgentResult {
   // `conversation` here would tear the session down on every re-render.
   const endSessionRef = useRef(conversation.endSession);
   useEffect(() => { endSessionRef.current = conversation.endSession; });
-  useEffect(() => () => { endSessionRef.current(); }, []);
+  useEffect(() => () => {
+    endSessionRef.current();
+    finishTranscriptStorage("completed");
+  }, [finishTranscriptStorage]);
 
   // Volume getters change identity every render too; expose stable wrappers so
   // the orb's animation loop isn't torn down and rebuilt on each re-render.
@@ -251,6 +319,8 @@ export function useVoiceAgent(): UseVoiceAgentResult {
     isMuted,
     error,
     transcript,
+    transcriptStorage,
+    historyRefreshKey,
     getInputVolume,
     getOutputVolume,
     connect,

@@ -1,5 +1,5 @@
 import { Bot, InputFile, type Context } from "grammy";
-import { messages, interfaceText, clarificationMessage, formatDraft, settingsMessage, type BotLocale } from "@/bot/messages";
+import { messages, helpMessage, interfaceText, clarificationMessage, formatDraft, settingsMessage, type BotLocale } from "@/bot/messages";
 import { getHomeAction, homeKeyboard } from "@/bot/keyboards/home-keyboard";
 import { clarificationKeyboard, correctionKeyboard, duplicateKeyboard, paymentSettingsKeyboard, replacementKeyboard, reviewKeyboard, settingsKeyboard, timezoneSettingsKeyboard, undoKeyboard } from "@/bot/keyboards/transaction-keyboards";
 import { LocalUserPreferenceRepository, type UserPreferenceRepository } from "@/bot/user-preferences";
@@ -130,7 +130,7 @@ export function createTelegramBot(environment: BotEnvironment, draftService?: Tr
   };
 
   bot.command("start", async (context) => { const locale = await localeFor(context); return replyHome(context, messages(locale).start, locale); });
-  bot.command("help", async (context) => { const locale = await localeFor(context); return replyHome(context, messages(locale).help, locale); });
+  bot.command("help", async (context) => { const locale = await localeFor(context); return replyHome(context, helpMessage(locale, BOT_PERSISTENCE_MODE), locale); });
   bot.command("settings", showSettings);
   bot.command("link", async (context) => {
     const code = context.match?.trim() ?? "";
@@ -270,7 +270,7 @@ export function createTelegramBot(environment: BotEnvironment, draftService?: Tr
     if (action === "record") return context.reply(messages(locale).record);
     if (action === "recent") return showRecent(context);
     if (action === "summary") return showSummary(context);
-    if (action === "help") return replyHome(context, messages(locale).help, locale);
+    if (action === "help") return replyHome(context, helpMessage(locale, BOT_PERSISTENCE_MODE), locale);
     if (parseFinancialInsightQuery(text, now(), (await preferences.getSettings(String(context.from.id))).timezone)) return showInsight(context, text);
     if (!await allowProviderCall(context, locale)) return;
     let status: Awaited<ReturnType<typeof context.reply>> | undefined;

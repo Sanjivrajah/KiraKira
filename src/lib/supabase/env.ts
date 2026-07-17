@@ -30,9 +30,9 @@ export function resolveAuthMode(environment: BrowserEnvironment = getPublicBrows
   if (configuredMode === "demo" || configuredMode === "supabase") return configuredMode;
   if (configuredMode) throw new Error("NEXT_PUBLIC_AUTH_MODE must be either 'demo' or 'supabase'.");
 
-  // Existing local checkouts remain usable, but production never quietly becomes
-  // a browser-local demo when its configuration was omitted.
-  return environment.NODE_ENV === "production" ? "supabase" : "demo";
+  // Live persistence is the default in every environment. Browser-local demo
+  // storage is available only through the explicit demo toggle.
+  return "supabase";
 }
 
 export function getBrowserSupabaseConfig(environment: BrowserEnvironment = getPublicBrowserEnvironment()) {

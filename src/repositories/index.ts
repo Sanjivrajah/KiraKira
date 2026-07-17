@@ -6,6 +6,8 @@ import { LocalReminderRepository } from "./local/local-reminder-repository";
 import { LocalTransactionRepository } from "./local/local-transaction-repository";
 import { LegacyTransactionRepositoryAdapter } from "./supabase/legacy-transaction-repository-adapter";
 import { LegacyInvoiceRepositoryAdapter } from "./supabase/legacy-invoice-repository-adapter";
+import { SupabasePaymentRepository } from "./supabase/payment-repository";
+import { SupabaseReminderRepository } from "./supabase/reminder-repository";
 import { resolveAuthMode } from "@/lib/supabase/env";
 
 const persistenceMode = resolveAuthMode();
@@ -16,8 +18,8 @@ export const repositories = {
   // storage when a database operation fails.
   transactions: persistenceMode === "demo" ? new LocalTransactionRepository() : new LegacyTransactionRepositoryAdapter(),
   invoices: persistenceMode === "demo" ? new LocalInvoiceRepository() : new LegacyInvoiceRepositoryAdapter(),
-  payments: new LocalPaymentRepository(),
-  reminders: new LocalReminderRepository(),
+  payments: persistenceMode === "demo" ? new LocalPaymentRepository() : new SupabasePaymentRepository(),
+  reminders: persistenceMode === "demo" ? new LocalReminderRepository() : new SupabaseReminderRepository(),
 };
 
 export * from "./contracts";
@@ -26,3 +28,5 @@ export { LegacyTransactionRepositoryAdapter } from "./supabase/legacy-transactio
 export { LegacyInvoiceRepositoryAdapter } from "./supabase/legacy-invoice-repository-adapter";
 export { SupabaseTransactionRepository } from "./supabase/transaction-repository";
 export { SupabaseInvoiceLifecycleRepository } from "./supabase/invoice-lifecycle-repository";
+export { SupabasePaymentRepository } from "./supabase/payment-repository";
+export { SupabaseReminderRepository } from "./supabase/reminder-repository";

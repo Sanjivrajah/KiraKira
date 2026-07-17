@@ -16,9 +16,10 @@ import { LoadingState } from "@/components/shared/loading-state";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { useDeleteTransaction, useTransaction, useUpdateTransaction } from "@/hooks/use-transactions";
 import { useBusiness } from "@/hooks/use-business";
+import { useAuth } from "@/components/auth/auth-provider";
+import { DEMO_BUSINESS } from "@/data/demo";
 import { transactionFormSchema } from "@/lib/validation/transaction";
 import type { Transaction } from "@/types";
-import { DEMO_BUSINESS } from "@/data/demo";
 import { sourceLabels, statusLabels } from "./transaction-list";
 
 const editSchema = transactionFormSchema.omit({ source: true }).extend({
@@ -33,7 +34,8 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "medium"
 
 export function TransactionDetail({ id }: { id: string }) {
   const router = useRouter();
-  const businessId = useBusiness().data?.id || DEMO_BUSINESS.id;
+  const { mode } = useAuth();
+  const businessId = useBusiness().data?.id ?? (mode === "demo" ? DEMO_BUSINESS.id : "");
   const transactionQuery = useTransaction(businessId, id);
   const updateTransaction = useUpdateTransaction();
   const deleteTransaction = useDeleteTransaction();

@@ -19,7 +19,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const user = session?.user;
   const [menuOpen, setMenuOpen] = useState(false);
   const [dialog, setDialog] = useState<"signout" | "reset" | null>(null);
-  const initials = (user?.name || "Demo User").split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  const initials = (user?.name || "Workspace User").split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 
   const confirm = async () => {
     if (dialog === "signout") {
@@ -47,6 +47,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Topbar
           initials={initials}
           menuOpen={menuOpen}
+          mode={mode}
           onReset={() => { setMenuOpen(false); setDialog("reset"); }}
           onSignOut={() => { setMenuOpen(false); setDialog("signout"); }}
           onToggleMenu={() => setMenuOpen((open) => !open)}
@@ -58,7 +59,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         confirmLabel={dialog === "reset" ? "Reset demo" : "Sign out"}
         description={dialog === "reset"
           ? "This removes the demo user, business profile, transactions, invoices, and reminder history stored on this device. This cannot be undone."
-          : "This ends the active session, but keeps the business profile on this demo device for your next sign-in."}
+          : mode === "supabase" ? "This ends the active session. Your workspace records remain saved in the database." : "This ends the active session, but keeps the business profile on this demo device for your next sign-in."}
         onCancel={() => setDialog(null)}
         onConfirm={confirm}
         open={dialog !== null}

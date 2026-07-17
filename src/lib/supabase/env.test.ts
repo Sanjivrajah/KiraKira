@@ -16,8 +16,8 @@ describe("Supabase environment configuration", () => {
     expect(getBrowserSupabaseConfig()).toMatchObject({ mode: "supabase", error: null });
   });
 
-  it("keeps local development in demo mode when no mode is supplied", () => {
-    expect(resolveAuthMode({ NODE_ENV: "development" })).toBe("demo");
+  it("defaults local development to Supabase when no mode is supplied", () => {
+    expect(resolveAuthMode({ NODE_ENV: "development" })).toBe("supabase");
   });
 
   it("never silently defaults production to demo mode", () => {

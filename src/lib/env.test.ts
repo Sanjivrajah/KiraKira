@@ -20,7 +20,7 @@ describe("getBotEnvironment", () => {
       ELEVENLABS_STT_MODEL: "scribe_v2",
       MAX_VOICE_FILE_BYTES: 20 * 1024 * 1024,
       LOCAL_DATA_DIRECTORY: "./data",
-      BOT_PERSISTENCE_MODE: "local",
+      BOT_PERSISTENCE_MODE: "supabase",
     });
   });
 

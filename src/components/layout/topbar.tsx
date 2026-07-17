@@ -5,9 +5,10 @@ import { useEffect, useRef } from "react";
 import { BrandWordmark } from "@/components/shared/brand-mark";
 import { Bell, RotateCcw, LogOut } from "lucide-react";
 
-export function Topbar({ initials, menuOpen, onToggleMenu, onSignOut, onReset }: {
+export function Topbar({ initials, menuOpen, mode, onToggleMenu, onSignOut, onReset }: {
   initials: string;
   menuOpen: boolean;
+  mode: "demo" | "supabase";
   onToggleMenu: () => void;
   onSignOut: () => void;
   onReset: () => void;
@@ -44,9 +45,9 @@ export function Topbar({ initials, menuOpen, onToggleMenu, onSignOut, onReset }:
         </button>
         {menuOpen ? (
           <div className="user-menu" id="user-menu" role="menu">
-            <strong>Demo session</strong>
+            <strong>{mode === "supabase" ? "Connected workspace" : "Demo session"}</strong>
             <button onClick={onSignOut} role="menuitem" type="button"><LogOut aria-hidden="true" size={17} />Sign out</button>
-            <button onClick={onReset} role="menuitem" type="button"><RotateCcw aria-hidden="true" size={17} />Reset demo</button>
+            {mode === "demo" ? <button onClick={onReset} role="menuitem" type="button"><RotateCcw aria-hidden="true" size={17} />Reset demo</button> : null}
           </div>
         ) : null}
       </div>

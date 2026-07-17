@@ -34,6 +34,7 @@ describe("Supabase schema migrations", () => {
       "20260717140000_telegram_confirmation_category_fallback.sql",
       "20260717150000_telegram_confirmation_source_provenance.sql",
       "20260717160000_profile_display_name_backfill.sql",
+      "20260717170000_voice_conversation_history.sql",
     ]);
   });
 
@@ -48,7 +49,7 @@ describe("Supabase schema migrations", () => {
   });
 
   it("contains all business-owned persistence surfaces without permissive RLS policies", () => {
-    for (const table of ["profiles", "businesses", "business_members", "transactions", "evidence_files", "extraction_runs", "invoices", "payment_reminders", "telegram_accounts", "audit_events"]) {
+    for (const table of ["profiles", "businesses", "business_members", "transactions", "evidence_files", "extraction_runs", "invoices", "payment_reminders", "telegram_accounts", "voice_conversations", "voice_conversation_turns", "audit_events"]) {
       expect(migrationSql).toContain(`public.${table}`);
     }
     expect(migrationSql).not.toMatch(/create\s+policy[\s\S]*?using\s*\(\s*true\s*\)/i);
