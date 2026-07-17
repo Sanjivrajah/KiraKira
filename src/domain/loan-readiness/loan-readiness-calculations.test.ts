@@ -28,4 +28,25 @@ describe("loan readiness calculations", () => {
     expect(result.status).toBe("insufficient_data");
     expect(result.averageMonthlyCfads).toBeLessThan(500);
   });
+
+  it("keeps indicative capacity when six-month cash flow and the latest quarter are positive", () => {
+    const monthly = [
+      ["02", 2_450, 1_280.5],
+      ["03", 3_200, 486.4],
+      ["04", 1_850, 188],
+      ["05", 980, 140],
+      ["06", 0, 51_200],
+      ["07", 201_470, 58_264.4],
+    ] as const;
+    const transactions = monthly.flatMap(([month, income, expenses], index) => [
+      ...(income ? [{ id: `40000000-0000-4000-8000-00000000000${index}`, date: `2026-${month}-15`, direction: "income" as const, lifecycle: "confirmed" as const, categoryCode: "sales", amount: income, confidence: 1 }] : []),
+      { id: `50000000-0000-4000-8000-00000000000${index}`, date: `2026-${month}-18`, direction: "expense" as const, lifecycle: "confirmed" as const, categoryCode: "operating-expense", amount: expenses, confidence: 1 },
+    ]);
+
+    const result = assessReadiness({ transactions });
+
+    expect(result.averageMonthlyCfads).toBe(16_398.45);
+    expect(result.maximumMonthlyRepayment).toBeGreaterThan(0);
+    expect(result.potentialLoanAmount).toBeGreaterThan(0);
+  });
 });

@@ -30,6 +30,13 @@ function average(values: number[]) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
 }
 
+function conservativeCashFlow(values: number[]) {
+  const trailingSix = values.slice(-6);
+  const candidates = [average(trailingSix)];
+  if (trailingSix.length >= 3) candidates.push(average(trailingSix.slice(-3)));
+  return Math.min(...candidates);
+}
+
 function isOperating(transaction: ReadinessTransaction) {
   return !EXCLUDED_CATEGORY_TERMS.some((term) => transaction.categoryCode.toLowerCase().includes(term));
 }
@@ -92,21 +99,12 @@ export function assessReadiness({ transactions, debts, terms }: {
   const existingDebtService = roundMoney(inferredDebts.reduce((sum, item) => sum + item.monthlyRepayment, 0));
   const proposedInstalment = terms ? monthlyInstalment(terms) : 0;
   const totalDebtService = existingDebtService + proposedInstalment;
-  const primaryCfads = [
-    average(cfads.map((item) => item.value)),
-    average(cfads.slice(-6).map((item) => item.value)),
-    ...cfads.slice(-5).map((_, index, values) => average(values.slice(index, index + 3).map((item) => item.value))),
-  ].filter(Number.isFinite);
-  const conservativeCfads = roundMoney(Math.min(...primaryCfads));
+  const conservativeCfads = roundMoney(conservativeCashFlow(cfads.map((item) => item.value)));
   const dscr = totalDebtService > 0 ? conservativeCfads / totalDebtService : null;
   const scenarioDscr = (inflowFactor: number, outflowFactor: number) => {
     if (totalDebtService <= 0) return null;
     const scenarioCfads = cfads.map((item) => item.inflows * inflowFactor - item.outflows * outflowFactor);
-    const conservative = Math.min(
-      average(scenarioCfads),
-      average(scenarioCfads.slice(-6)),
-      ...scenarioCfads.slice(-5).map((_, index, values) => average(values.slice(index, index + 3))),
-    );
+    const conservative = conservativeCashFlow(scenarioCfads);
     return conservative / totalDebtService;
   };
   const maximumMonthlyRepayment = roundMoney(Math.max(0, conservativeCfads / 1.25 - existingDebtService));
