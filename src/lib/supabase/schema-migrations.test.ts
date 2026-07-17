@@ -33,6 +33,7 @@ describe("Supabase schema migrations", () => {
       "20260717130000_financial_insights_orchestration.sql",
       "20260717140000_telegram_confirmation_category_fallback.sql",
       "20260717150000_telegram_confirmation_source_provenance.sql",
+      "20260717160000_profile_display_name_backfill.sql",
     ]);
   });
 

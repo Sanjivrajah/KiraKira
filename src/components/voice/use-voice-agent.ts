@@ -5,6 +5,7 @@ import { useConversation } from "@elevenlabs/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/query-keys";
+import { resolveVoiceOwnerName } from "@/lib/voice/owner-name";
 import { services } from "@/services";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useBusiness } from "@/hooks/use-business";
@@ -139,7 +140,7 @@ export function useVoiceAgent(): UseVoiceAgentResult {
             : "Couldn't start the voice assistant. Please try again.");
         return;
       }
-      const { token } = (await response.json()) as { token?: string };
+      const { token, ownerName } = (await response.json()) as { token?: string; ownerName?: string };
       if (!token) {
         setError("The voice assistant returned no session. Please try again.");
         return;
@@ -181,7 +182,7 @@ export function useVoiceAgent(): UseVoiceAgentResult {
         connectionType: "webrtc",
         dynamicVariables: {
           business_name: businessNameRef.current,
-          owner_name: session?.user.email?.split("@")[0] ?? "there",
+          owner_name: resolveVoiceOwnerName(ownerName, session?.user.name),
           today: kualaLumpurToday(),
           currency: "MYR",
         },

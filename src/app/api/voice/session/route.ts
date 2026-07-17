@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { resolveAuthMode } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server-client";
+import { resolveVoiceOwnerName } from "@/lib/voice/owner-name";
 
 export const runtime = "nodejs";
 
@@ -23,10 +24,23 @@ export async function GET() {
     return failure("The voice assistant is not configured.", 503);
   }
 
+  let ownerName: string | undefined;
   if (resolveAuthMode() === "supabase") {
     const client = await createSupabaseServerClient();
     const { data: auth, error: authError } = await client.auth.getUser();
     if (authError || !auth.user) return failure("Sign in before using the voice assistant.", 401);
+
+    const { data: profile, error: profileError } = await client
+      .from("profiles")
+      .select("display_name")
+      .eq("id", auth.user.id)
+      .maybeSingle();
+    if (profileError) console.warn("Unable to load the voice-session display name.");
+
+    const metadata = auth.user.user_metadata;
+    const metadataName = typeof metadata.name === "string" ? metadata.name : undefined;
+    const metadataFullName = typeof metadata.full_name === "string" ? metadata.full_name : undefined;
+    ownerName = resolveVoiceOwnerName(profile?.display_name, metadataName, metadataFullName);
   }
 
   let response: Response;
@@ -50,5 +64,8 @@ export async function GET() {
     return failure("The voice assistant returned an unexpected response.", 502);
   }
 
-  return NextResponse.json({ token: body.token }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(
+    { token: body.token, ...(ownerName ? { ownerName } : {}) },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }
