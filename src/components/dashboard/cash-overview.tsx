@@ -4,9 +4,14 @@ import { MoneyDisplay } from "@/components/shared/money-display";
 import { formatMoney } from "@/lib/format/money";
 import type { CashFlowPoint } from "@/lib/dashboard/derive";
 
-export function CashOverview({ data }: { data: CashFlowPoint[] }) {
+function barHeight(value: number, maxValue: number) {
+  if (value <= 0) return "0%";
+  return `${Math.max(3, (value / maxValue) * 100)}%`;
+}
+
+export function CashOverview({ data, showDetailsLink = true }: { data: CashFlowPoint[]; showDetailsLink?: boolean }) {
   const maxValue = Math.max(1, ...data.flatMap((point) => [point.income, point.expenses]));
-  const current = data.at(-1);
+  const totalNet = data.reduce((sum, point) => sum + point.net, 0);
 
   return (
     <section className="panel cash-panel" aria-labelledby="cash-overview-title">
@@ -15,7 +20,7 @@ export function CashOverview({ data }: { data: CashFlowPoint[] }) {
           <p className="section-kicker">Last 6 months</p>
           <h2 id="cash-overview-title">Cash overview</h2>
         </div>
-        <Link className="text-button" href="/cash-flow">About preview <ArrowUpRight aria-hidden="true" size={16} /></Link>
+        {showDetailsLink ? <Link className="text-button" href="/cash-flow">View cash flow <ArrowUpRight aria-hidden="true" size={16} /></Link> : null}
       </div>
 
       <div className="chart-legend" aria-hidden="true">
@@ -27,18 +32,18 @@ export function CashOverview({ data }: { data: CashFlowPoint[] }) {
         {data.map((point) => (
           <div className="chart-column" key={point.month}>
             <div className="bar-pair" aria-hidden="true">
-              <span className="chart-bar income" style={{ height: `${Math.max(8, (point.income / maxValue) * 100)}%` }} />
-              <span className="chart-bar expenses" style={{ height: `${Math.max(8, (point.expenses / maxValue) * 100)}%` }} />
+              <span className="chart-bar income" style={{ height: barHeight(point.income, maxValue) }} />
+              <span className="chart-bar expenses" style={{ height: barHeight(point.expenses, maxValue) }} />
             </div>
             <span className="chart-month">{point.month}</span>
           </div>
         ))}
       </div>
 
-      {current ? (
+      {data.length ? (
         <div className="net-cash-summary">
-          <span>{current.month} net cash flow</span>
-          <MoneyDisplay amount={current.net} prefix={current.net > 0 ? "+" : ""} />
+          <span>Last 6 months net cash flow</span>
+          <MoneyDisplay amount={totalNet} prefix={totalNet > 0 ? "+" : ""} />
         </div>
       ) : null}
     </section>

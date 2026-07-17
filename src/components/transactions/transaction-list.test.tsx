@@ -21,6 +21,7 @@ describe("TransactionList", () => {
     render(<TransactionList />);
     const reviewLinks = await screen.findAllByRole("link", { name: /Check record/ });
     expect(reviewLinks.some((link) => link.getAttribute("href") === "/transactions/new?method=receipt&demo=ambiguous&reviewId=txn_002")).toBe(true);
+    expect(reviewLinks.some((link) => link.getAttribute("href") === "/transactions/new?method=voice&reviewId=txn_004")).toBe(true);
     expect(screen.queryByRole("button", { name: "Mark reviewed" })).not.toBeInTheDocument();
   });
 });

@@ -3,6 +3,20 @@ import { describe, expect, it, vi } from "vitest";
 import { DemoSourceInput } from "./demo-source-input";
 
 describe("DemoSourceInput transaction imports", () => {
+  it("offers a parser-compatible sample CSV from the CSV import step", () => {
+    render(<DemoSourceInput onBack={vi.fn()} onContinue={vi.fn()} onImported={vi.fn()} source="csv" />);
+
+    const link = screen.getByRole("link", { name: "Download sample CSV" });
+    expect(link).toHaveAttribute("href", "/samples/niaga-transaction-import-sample.csv");
+    expect(link).toHaveAttribute("download");
+  });
+
+  it("does not show the transaction template for a bank statement", () => {
+    render(<DemoSourceInput onBack={vi.fn()} onContinue={vi.fn()} onImported={vi.fn()} source="bank_statement" />);
+
+    expect(screen.queryByRole("link", { name: "Download sample CSV" })).not.toBeInTheDocument();
+  });
+
   it("parses a CSV locally and returns every valid row", async () => {
     const onImported = vi.fn();
     const fetchSpy = vi.spyOn(globalThis, "fetch");
