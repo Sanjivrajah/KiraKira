@@ -17,6 +17,7 @@ Treat these as versioned inputs:
 - MyInvois code lists and validation rules.
 - Official sample payloads.
 - The Stage 1 field-source matrix.
+- `REFERENCE_INVOICE_V1_1_FIELD_REQUIREMENTS.md`, including SDK expansions and annexure fields.
 
 Record the source URL, retrieval date, supported document type, and version beside fixtures or reference metadata. Do not scrape official pages at runtime.
 
@@ -127,4 +128,3 @@ Where possible, validate fixtures with official schemas/examples and later submi
 ## Handoff to Stage 4
 
 Stage 4 may start only when an approved invoice produces deterministic, size-checked, schema-aligned unsigned bytes and a reproducible SHA-256 hash without any network call.
-
