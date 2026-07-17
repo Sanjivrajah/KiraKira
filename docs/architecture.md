@@ -120,6 +120,7 @@ user-facing errors without provider payloads, stack traces, or evidence.
 | Web voice text transcripts (Supabase mode) | `voice_conversations` + `voice_conversation_turns` | Signed-in speaker and active business | Private per user, no raw audio, 90-day retention target |
 | API credentials | `.env.local` / runtime env | Server/process | Never expose or commit |
 | Supabase evidence (prepared Session 4 boundary) | Private Storage + `evidence_files` metadata | Active business membership | Server-only orchestration; browser-local capture remains active until Session 5 |
+| E-Invoice preparation | Supabase `e_invoice_documents` | Active business membership | Separate from payment status; approved canonical and party snapshots are immutable |
 
 ## Private evidence storage boundary
 

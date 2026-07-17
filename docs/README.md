@@ -30,6 +30,7 @@ the browser; the bot stores development data in `LOCAL_DATA_DIRECTORY`.
 | Understand layers, ownership, and data flow | [Architecture](architecture.md) |
 | Add or modify code while following project patterns | [Engineering conventions](engineering-conventions.md) |
 | Change Telegram commands, conversation flow, or its local persistence | [Telegram agent](telegram-agent.md) |
+| Prepare and approve persisted e-Invoice revisions | [e-Invoice preparation](e-invoice-preparation.md) |
 | Understand the purpose and current product claims | [`PRODUCT.md`](../PRODUCT.md) |
 | Run the project, configure integrations, or use the demo | [`README.md`](../README.md) |
 | See the documentation scope and upkeep rules | [Documentation plan](documentation-plan.md) |

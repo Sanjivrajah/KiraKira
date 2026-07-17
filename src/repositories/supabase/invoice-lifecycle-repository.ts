@@ -2,6 +2,8 @@ import { calculateInvoiceTotalsMinor } from "@/lib/invoices/calculations";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 import type { Json } from "@/lib/supabase/database.types";
 import type { Invoice, InvoiceLineItem } from "@/types";
+import type { CommercialDocument, Party } from "@/domain";
+import type { SupplierSnapshot } from "@/application/e-invoices";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -38,6 +40,26 @@ export class SupabaseInvoiceLifecycleRepository {
 
   issue(invoiceId: string, prefix = "INV-", fiscalPeriod = "") {
     return this.unwrap(this.client.rpc("issue_invoice", { p_invoice_id: invoiceId, p_prefix: prefix, p_fiscal_period: fiscalPeriod }));
+  }
+
+  /** Persists the rich canonical fields and full party snapshots before a draft is issued. */
+  saveComplianceDetails(input: {
+    businessId: string;
+    invoiceId: string;
+    document: CommercialDocument;
+    supplierSnapshot: SupplierSnapshot;
+    buyerSnapshot: Party;
+    supplementalFields?: Record<string, unknown>;
+  }) {
+    const asJson = (value: unknown) => JSON.parse(JSON.stringify(value)) as Json;
+    return this.unwrap(this.client.rpc("save_invoice_compliance_details", {
+      p_business_id: input.businessId,
+      p_invoice_id: input.invoiceId,
+      p_document: asJson(input.document),
+      p_supplier_snapshot: asJson(input.supplierSnapshot),
+      p_buyer_snapshot: asJson(input.buyerSnapshot),
+      p_supplemental_fields: asJson(input.supplementalFields ?? {}),
+    }));
   }
 
   recordPayment(input: { invoiceId: string; amountMinor: number; currency: string; paidAt: string; method?: string | null; reference?: string | null; transactionId?: string | null }) {

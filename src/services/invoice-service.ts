@@ -37,6 +37,7 @@ export class InvoiceService {
   lifecycle(repository: SupabaseInvoiceLifecycleRepository) {
     return {
       saveDraft: (invoice: Invoice) => repository.saveDraft(invoice),
+      saveComplianceDetails: (input: Parameters<SupabaseInvoiceLifecycleRepository["saveComplianceDetails"]>[0]) => repository.saveComplianceDetails(input),
       issue: (invoiceId: string, prefix?: string, fiscalPeriod?: string) => repository.issue(invoiceId, prefix, fiscalPeriod),
       recordPayment: (input: Parameters<SupabaseInvoiceLifecycleRepository["recordPayment"]>[0]) => repository.recordPayment(input),
       reversePayment: (paymentId: string, reason: string) => repository.reversePayment(paymentId, reason),

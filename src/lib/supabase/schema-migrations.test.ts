@@ -35,6 +35,8 @@ describe("Supabase schema migrations", () => {
       "20260717150000_telegram_confirmation_source_provenance.sql",
       "20260717160000_profile_display_name_backfill.sql",
       "20260717170000_voice_conversation_history.sql",
+      "20260717180000_e_invoice_persistence_and_assembly.sql",
+      "20260717210000_e_invoice_preparation_workspace.sql",
     ]);
   });
 
@@ -70,6 +72,22 @@ describe("Supabase schema migrations", () => {
     expect(migrationSql).toContain("function public.set_updated_at()");
     expect(migrationSql).not.toMatch(/\b(real|double precision)\b/i);
     expect(migrationSql).toContain("constraint invoices_totals_reconcile_check");
+  });
+
+  it("separates e-invoice preparation from payment state with tenant and revision guards", () => {
+    expect(migrationSql).toContain("create table public.e_invoice_documents");
+    expect(migrationSql).toContain("business_tax_identifiers");
+    expect(migrationSql).toContain("business_registration_identifiers");
+    expect(migrationSql).toContain("status in ('needs_information','ready','approved')");
+    expect(migrationSql).toContain("source_invoice_revision");
+    expect(migrationSql).toContain("function public.save_e_invoice_supplemental_fields");
+    expect(migrationSql).toContain("function public.approve_e_invoice_document");
+    expect(migrationSql).toContain("function public.save_invoice_compliance_details");
+    expect(migrationSql).toContain("stale or immutable e-invoice preparation revision");
+    expect(migrationSql).toContain("approved e-invoice preparation revisions are immutable");
+    expect(migrationSql).toContain("function public.create_e_invoice_revision");
+    expect(migrationSql).toContain("e_invoice_documents_one_active_source_revision");
+    expect(migrationSql).toContain("authoritative internal preparation checks must pass before approval");
   });
 
   it("keeps evidence buckets private and storage paths business-scoped", () => {

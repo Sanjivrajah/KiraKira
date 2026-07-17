@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -34,6 +39,133 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_orchestration_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          failure_code: string | null
+          id: string
+          idempotency_key: string
+          input_kind: string
+          input_summary: Json
+          locale: string
+          outcome: string | null
+          routed_intent: string | null
+          source_message_id: string
+          source_update_id: string
+          started_at: string
+          status: string
+          telegram_account_id: string
+          telegram_chat_id: number
+          telegram_user_id: number
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          failure_code?: string | null
+          id?: string
+          idempotency_key: string
+          input_kind: string
+          input_summary?: Json
+          locale: string
+          outcome?: string | null
+          routed_intent?: string | null
+          source_message_id: string
+          source_update_id: string
+          started_at?: string
+          status: string
+          telegram_account_id: string
+          telegram_chat_id: number
+          telegram_user_id: number
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          failure_code?: string | null
+          id?: string
+          idempotency_key?: string
+          input_kind?: string
+          input_summary?: Json
+          locale?: string
+          outcome?: string | null
+          routed_intent?: string | null
+          source_message_id?: string
+          source_update_id?: string
+          started_at?: string
+          status?: string
+          telegram_account_id?: string
+          telegram_chat_id?: number
+          telegram_user_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_orchestration_runs_telegram_account_id_fkey"
+            columns: ["telegram_account_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_orchestration_steps: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          duration_ms: number | null
+          error_code: string | null
+          id: string
+          intent: string
+          provider: string | null
+          run_id: string
+          sequence: number
+          started_at: string
+          status: string
+          step_key: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_code?: string | null
+          id?: string
+          intent: string
+          provider?: string | null
+          run_id: string
+          sequence: number
+          started_at?: string
+          status: string
+          step_key: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_code?: string | null
+          id?: string
+          intent?: string
+          provider?: string | null
+          run_id?: string
+          sequence?: number
+          started_at?: string
+          status?: string
+          step_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_orchestration_steps_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "agent_orchestration_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_events: {
         Row: {
           action: string
@@ -249,6 +381,50 @@ export type Database = {
           },
         ]
       }
+      business_registration_identifiers: {
+        Row: {
+          business_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_primary: boolean
+          issuing_country_code: string | null
+          scheme: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_primary?: boolean
+          issuing_country_code?: string | null
+          scheme: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_primary?: boolean
+          issuing_country_code?: string | null
+          scheme?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_registration_identifiers_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_settings: {
         Row: {
           business_id: string
@@ -282,6 +458,50 @@ export type Database = {
             foreignKeyName: "business_settings_business_id_fkey"
             columns: ["business_id"]
             isOneToOne: true
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_tax_identifiers: {
+        Row: {
+          business_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_primary: boolean
+          issuing_country_code: string | null
+          scheme: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_primary?: boolean
+          issuing_country_code?: string | null
+          scheme: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_primary?: boolean
+          issuing_country_code?: string | null
+          scheme?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_tax_identifiers_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
             referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
@@ -410,6 +630,103 @@ export type Database = {
             columns: ["requested_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      e_invoice_documents: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          active: boolean
+          business_id: string
+          buyer_snapshot: Json
+          canonical_document: Json | null
+          created_at: string
+          document_type: string
+          document_version: string
+          id: string
+          provenance: Json
+          readiness_result: Json
+          revision: number
+          scenario: string
+          source_invoice_id: string
+          source_invoice_revision: number
+          status: string
+          submission_eligible: boolean
+          supplemental_fields: Json
+          supersedes_document_id: string | null
+          supplier_snapshot: Json
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          active?: boolean
+          business_id: string
+          buyer_snapshot: Json
+          canonical_document?: Json | null
+          created_at?: string
+          document_type: string
+          document_version?: string
+          id?: string
+          provenance?: Json
+          readiness_result: Json
+          revision?: number
+          scenario: string
+          source_invoice_id: string
+          source_invoice_revision: number
+          status: string
+          submission_eligible?: boolean
+          supplemental_fields?: Json
+          supersedes_document_id?: string | null
+          supplier_snapshot: Json
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          active?: boolean
+          business_id?: string
+          buyer_snapshot?: Json
+          canonical_document?: Json | null
+          created_at?: string
+          document_type?: string
+          document_version?: string
+          id?: string
+          provenance?: Json
+          readiness_result?: Json
+          revision?: number
+          scenario?: string
+          source_invoice_id?: string
+          source_invoice_revision?: number
+          status?: string
+          submission_eligible?: boolean
+          supplemental_fields?: Json
+          supersedes_document_id?: string | null
+          supplier_snapshot?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "e_invoice_documents_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "e_invoice_documents_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "e_invoice_documents_source_invoice_id_fkey"
+            columns: ["source_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -848,15 +1165,18 @@ export type Database = {
         Row: {
           charge_minor: number
           classification_code: string | null
+          country_of_origin: string | null
           description: string
           discount_minor: number
           exemption_reason: string | null
           id: string
           invoice_id: string
+          item_metadata: Json
           line_number: number
           product_service_id: string | null
           quantity: number
           subtotal_minor: number
+          tariff_code: string | null
           tax_minor: number
           tax_rate: number
           tax_type_code: string
@@ -867,15 +1187,18 @@ export type Database = {
         Insert: {
           charge_minor?: number
           classification_code?: string | null
+          country_of_origin?: string | null
           description: string
           discount_minor?: number
           exemption_reason?: string | null
           id?: string
           invoice_id: string
+          item_metadata?: Json
           line_number: number
           product_service_id?: string | null
           quantity: number
           subtotal_minor: number
+          tariff_code?: string | null
           tax_minor?: number
           tax_rate: number
           tax_type_code: string
@@ -886,15 +1209,18 @@ export type Database = {
         Update: {
           charge_minor?: number
           classification_code?: string | null
+          country_of_origin?: string | null
           description?: string
           discount_minor?: number
           exemption_reason?: string | null
           id?: string
           invoice_id?: string
+          item_metadata?: Json
           line_number?: number
           product_service_id?: string | null
           quantity?: number
           subtotal_minor?: number
+          tariff_code?: string | null
           tax_minor?: number
           tax_rate?: number
           tax_type_code?: string
@@ -1092,25 +1418,44 @@ export type Database = {
       invoices: {
         Row: {
           amount_paid_minor: number
+          bank_account_identifier: string | null
+          billing_period_end: string | null
+          billing_period_start: string | null
           business_id: string
+          charge_minor: number
           created_at: string
           created_by: string | null
           currency: string
           customer_id: string | null
           customer_snapshot: Json
           discount_minor: number
+          document_allowances: Json
+          document_charges: Json
+          document_references: Json
           document_type: string
           due_date: string | null
+          exchange_rate: number | null
           id: string
           invoice_number: string
+          invoice_purpose: string | null
           issue_date: string
+          issue_time: string | null
           issued_at: string | null
           notes: string | null
+          payment_mode_code: string | null
+          payment_reference: string | null
           payment_terms: string | null
+          prepaid_minor: number
+          prepayment_date: string | null
+          prepayment_reference: string | null
+          prepayment_time: string | null
           rounding_minor: number
+          shipping_recipient_party_id: string | null
           status: string
           subtotal_minor: number
+          supplemental_fields: Json
           supplier_snapshot: Json
+          tax_currency: string | null
           tax_minor: number
           total_minor: number
           updated_at: string
@@ -1122,25 +1467,44 @@ export type Database = {
         }
         Insert: {
           amount_paid_minor?: number
+          bank_account_identifier?: string | null
+          billing_period_end?: string | null
+          billing_period_start?: string | null
           business_id: string
+          charge_minor?: number
           created_at?: string
           created_by?: string | null
           currency: string
           customer_id?: string | null
           customer_snapshot?: Json
           discount_minor?: number
+          document_allowances?: Json
+          document_charges?: Json
+          document_references?: Json
           document_type?: string
           due_date?: string | null
+          exchange_rate?: number | null
           id?: string
           invoice_number: string
+          invoice_purpose?: string | null
           issue_date: string
+          issue_time?: string | null
           issued_at?: string | null
           notes?: string | null
+          payment_mode_code?: string | null
+          payment_reference?: string | null
           payment_terms?: string | null
+          prepaid_minor?: number
+          prepayment_date?: string | null
+          prepayment_reference?: string | null
+          prepayment_time?: string | null
           rounding_minor?: number
+          shipping_recipient_party_id?: string | null
           status: string
           subtotal_minor: number
+          supplemental_fields?: Json
           supplier_snapshot?: Json
+          tax_currency?: string | null
           tax_minor?: number
           total_minor: number
           updated_at?: string
@@ -1152,25 +1516,44 @@ export type Database = {
         }
         Update: {
           amount_paid_minor?: number
+          bank_account_identifier?: string | null
+          billing_period_end?: string | null
+          billing_period_start?: string | null
           business_id?: string
+          charge_minor?: number
           created_at?: string
           created_by?: string | null
           currency?: string
           customer_id?: string | null
           customer_snapshot?: Json
           discount_minor?: number
+          document_allowances?: Json
+          document_charges?: Json
+          document_references?: Json
           document_type?: string
           due_date?: string | null
+          exchange_rate?: number | null
           id?: string
           invoice_number?: string
+          invoice_purpose?: string | null
           issue_date?: string
+          issue_time?: string | null
           issued_at?: string | null
           notes?: string | null
+          payment_mode_code?: string | null
+          payment_reference?: string | null
           payment_terms?: string | null
+          prepaid_minor?: number
+          prepayment_date?: string | null
+          prepayment_reference?: string | null
+          prepayment_time?: string | null
           rounding_minor?: number
+          shipping_recipient_party_id?: string | null
           status?: string
           subtotal_minor?: number
+          supplemental_fields?: Json
           supplier_snapshot?: Json
+          tax_currency?: string | null
           tax_minor?: number
           total_minor?: number
           updated_at?: string
@@ -1198,6 +1581,13 @@ export type Database = {
           {
             foreignKeyName: "invoices_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_shipping_recipient_party_id_fkey"
+            columns: ["shipping_recipient_party_id"]
             isOneToOne: false
             referencedRelation: "parties"
             referencedColumns: ["id"]
@@ -1699,7 +2089,9 @@ export type Database = {
       }
       telegram_conversation_states: {
         Row: {
+          collected_values: Json
           created_at: string
+          current_action_id: string | null
           draft: Json
           draft_id: string
           expires_at: string
@@ -1710,9 +2102,15 @@ export type Database = {
           telegram_account_id: string
           updated_at: string
           version: number
+          workflow_id: string
+          workflow_status: string
+          workflow_type: string
+          workflow_version: number
         }
         Insert: {
+          collected_values?: Json
           created_at?: string
+          current_action_id?: string | null
           draft: Json
           draft_id: string
           expires_at: string
@@ -1723,9 +2121,15 @@ export type Database = {
           telegram_account_id: string
           updated_at?: string
           version?: number
+          workflow_id: string
+          workflow_status: string
+          workflow_type: string
+          workflow_version: number
         }
         Update: {
+          collected_values?: Json
           created_at?: string
+          current_action_id?: string | null
           draft?: Json
           draft_id?: string
           expires_at?: string
@@ -1736,6 +2140,10 @@ export type Database = {
           telegram_account_id?: string
           updated_at?: string
           version?: number
+          workflow_id?: string
+          workflow_status?: string
+          workflow_type?: string
+          workflow_version?: number
         }
         Relationships: [
           {
@@ -1826,98 +2234,6 @@ export type Database = {
             columns: ["telegram_account_id"]
             isOneToOne: true
             referencedRelation: "telegram_accounts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      voice_conversation_turns: {
-        Row: {
-          content: string
-          conversation_id: string
-          created_at: string
-          id: string
-          role: string
-          turn_index: number
-          updated_at: string
-        }
-        Insert: {
-          content: string
-          conversation_id: string
-          created_at?: string
-          id?: string
-          role: string
-          turn_index: number
-          updated_at?: string
-        }
-        Update: {
-          content?: string
-          conversation_id?: string
-          created_at?: string
-          id?: string
-          role?: string
-          turn_index?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "voice_conversation_turns_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "voice_conversations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      voice_conversations: {
-        Row: {
-          business_id: string
-          created_at: string
-          ended_at: string | null
-          id: string
-          provider_conversation_id: string
-          retention_delete_after: string
-          started_at: string
-          status: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          business_id: string
-          created_at?: string
-          ended_at?: string | null
-          id?: string
-          provider_conversation_id: string
-          retention_delete_after?: string
-          started_at?: string
-          status?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          business_id?: string
-          created_at?: string
-          ended_at?: string | null
-          id?: string
-          provider_conversation_id?: string
-          retention_delete_after?: string
-          started_at?: string
-          status?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "voice_conversations_business_id_fkey"
-            columns: ["business_id"]
-            isOneToOne: false
-            referencedRelation: "businesses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "voice_conversations_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2296,11 +2612,168 @@ export type Database = {
           },
         ]
       }
+      voice_conversation_turns: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+          turn_index: number
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+          turn_index: number
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+          turn_index?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_conversation_turns_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "voice_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_conversations: {
+        Row: {
+          business_id: string
+          created_at: string
+          ended_at: string | null
+          id: string
+          provider_conversation_id: string
+          retention_delete_after: string
+          started_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          provider_conversation_id: string
+          retention_delete_after?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          provider_conversation_id?: string
+          retention_delete_after?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_conversations_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_conversations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      approve_e_invoice_document: {
+        Args: {
+          p_business_id: string
+          p_document_id: string
+          p_expected_revision: number
+          p_readiness_result: Json
+        }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          active: boolean
+          business_id: string
+          buyer_snapshot: Json
+          canonical_document: Json | null
+          created_at: string
+          document_type: string
+          document_version: string
+          id: string
+          provenance: Json
+          readiness_result: Json
+          revision: number
+          scenario: string
+          source_invoice_id: string
+          source_invoice_revision: number
+          status: string
+          submission_eligible: boolean
+          supplemental_fields: Json
+          supersedes_document_id: string | null
+          supplier_snapshot: Json
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "e_invoice_documents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_e_invoice_revision: {
+        Args: { p_business_id: string; p_document_id: string }
+        Returns: {
+          active: boolean
+          approved_at: string | null
+          approved_by: string | null
+          business_id: string
+          buyer_snapshot: Json
+          canonical_document: Json | null
+          created_at: string
+          document_type: string
+          document_version: string
+          id: string
+          provenance: Json
+          readiness_result: Json
+          revision: number
+          scenario: string
+          source_invoice_id: string
+          source_invoice_revision: number
+          status: string
+          submission_eligible: boolean
+          supplemental_fields: Json
+          supersedes_document_id: string | null
+          supplier_snapshot: Json
+          updated_at: string
+        }
+      }
       can_access_evidence_object: {
         Args: { p_object_name: string }
         Returns: boolean
@@ -2363,6 +2836,15 @@ export type Database = {
           p_legal_name: string
           p_msic_code?: string
           p_preferred_language?: string
+          p_primary_address?: Json
+          p_primary_email?: string
+          p_primary_phone?: string
+          p_registration_country_code?: string
+          p_registration_scheme?: string
+          p_registration_value?: string
+          p_sst_registration?: string
+          p_tin?: string
+          p_tourism_tax_registration?: string
           p_trading_name?: string
         }
         Returns: {
@@ -2427,25 +2909,44 @@ export type Database = {
         }
         Returns: {
           amount_paid_minor: number
+          bank_account_identifier: string | null
+          billing_period_end: string | null
+          billing_period_start: string | null
           business_id: string
+          charge_minor: number
           created_at: string
           created_by: string | null
           currency: string
           customer_id: string | null
           customer_snapshot: Json
           discount_minor: number
+          document_allowances: Json
+          document_charges: Json
+          document_references: Json
           document_type: string
           due_date: string | null
+          exchange_rate: number | null
           id: string
           invoice_number: string
+          invoice_purpose: string | null
           issue_date: string
+          issue_time: string | null
           issued_at: string | null
           notes: string | null
+          payment_mode_code: string | null
+          payment_reference: string | null
           payment_terms: string | null
+          prepaid_minor: number
+          prepayment_date: string | null
+          prepayment_reference: string | null
+          prepayment_time: string | null
           rounding_minor: number
+          shipping_recipient_party_id: string | null
           status: string
           subtotal_minor: number
+          supplemental_fields: Json
           supplier_snapshot: Json
+          tax_currency: string | null
           tax_minor: number
           total_minor: number
           updated_at: string
@@ -2499,25 +3000,147 @@ export type Database = {
         Args: { p_payment_id: string; p_reason: string }
         Returns: {
           amount_paid_minor: number
+          bank_account_identifier: string | null
+          billing_period_end: string | null
+          billing_period_start: string | null
           business_id: string
+          charge_minor: number
           created_at: string
           created_by: string | null
           currency: string
           customer_id: string | null
           customer_snapshot: Json
           discount_minor: number
+          document_allowances: Json
+          document_charges: Json
+          document_references: Json
           document_type: string
           due_date: string | null
+          exchange_rate: number | null
           id: string
           invoice_number: string
+          invoice_purpose: string | null
           issue_date: string
+          issue_time: string | null
           issued_at: string | null
           notes: string | null
+          payment_mode_code: string | null
+          payment_reference: string | null
           payment_terms: string | null
+          prepaid_minor: number
+          prepayment_date: string | null
+          prepayment_reference: string | null
+          prepayment_time: string | null
           rounding_minor: number
+          shipping_recipient_party_id: string | null
           status: string
           subtotal_minor: number
+          supplemental_fields: Json
           supplier_snapshot: Json
+          tax_currency: string | null
+          tax_minor: number
+          total_minor: number
+          updated_at: string
+          updated_by: string | null
+          version: number
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "invoices"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      save_e_invoice_supplemental_fields: {
+        Args: {
+          p_business_id: string
+          p_document_id: string
+          p_expected_revision: number
+          p_supplemental_fields: Json
+        }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          active: boolean
+          business_id: string
+          buyer_snapshot: Json
+          canonical_document: Json | null
+          created_at: string
+          document_type: string
+          document_version: string
+          id: string
+          provenance: Json
+          readiness_result: Json
+          revision: number
+          scenario: string
+          source_invoice_id: string
+          source_invoice_revision: number
+          status: string
+          submission_eligible: boolean
+          supplemental_fields: Json
+          supersedes_document_id: string | null
+          supplier_snapshot: Json
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "e_invoice_documents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      save_invoice_compliance_details: {
+        Args: {
+          p_business_id: string
+          p_buyer_snapshot: Json
+          p_document: Json
+          p_invoice_id: string
+          p_supplemental_fields?: Json
+          p_supplier_snapshot: Json
+        }
+        Returns: {
+          amount_paid_minor: number
+          bank_account_identifier: string | null
+          billing_period_end: string | null
+          billing_period_start: string | null
+          business_id: string
+          charge_minor: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          customer_id: string | null
+          customer_snapshot: Json
+          discount_minor: number
+          document_allowances: Json
+          document_charges: Json
+          document_references: Json
+          document_type: string
+          due_date: string | null
+          exchange_rate: number | null
+          id: string
+          invoice_number: string
+          invoice_purpose: string | null
+          issue_date: string
+          issue_time: string | null
+          issued_at: string | null
+          notes: string | null
+          payment_mode_code: string | null
+          payment_reference: string | null
+          payment_terms: string | null
+          prepaid_minor: number
+          prepayment_date: string | null
+          prepayment_reference: string | null
+          prepayment_time: string | null
+          rounding_minor: number
+          shipping_recipient_party_id: string | null
+          status: string
+          subtotal_minor: number
+          supplemental_fields: Json
+          supplier_snapshot: Json
+          tax_currency: string | null
           tax_minor: number
           total_minor: number
           updated_at: string
@@ -2543,25 +3166,44 @@ export type Database = {
         }
         Returns: {
           amount_paid_minor: number
+          bank_account_identifier: string | null
+          billing_period_end: string | null
+          billing_period_start: string | null
           business_id: string
+          charge_minor: number
           created_at: string
           created_by: string | null
           currency: string
           customer_id: string | null
           customer_snapshot: Json
           discount_minor: number
+          document_allowances: Json
+          document_charges: Json
+          document_references: Json
           document_type: string
           due_date: string | null
+          exchange_rate: number | null
           id: string
           invoice_number: string
+          invoice_purpose: string | null
           issue_date: string
+          issue_time: string | null
           issued_at: string | null
           notes: string | null
+          payment_mode_code: string | null
+          payment_reference: string | null
           payment_terms: string | null
+          prepaid_minor: number
+          prepayment_date: string | null
+          prepayment_reference: string | null
+          prepayment_time: string | null
           rounding_minor: number
+          shipping_recipient_party_id: string | null
           status: string
           subtotal_minor: number
+          supplemental_fields: Json
           supplier_snapshot: Json
+          tax_currency: string | null
           tax_minor: number
           total_minor: number
           updated_at: string
@@ -2615,25 +3257,44 @@ export type Database = {
         Args: { p_cancelled?: boolean; p_invoice_id: string; p_reason: string }
         Returns: {
           amount_paid_minor: number
+          bank_account_identifier: string | null
+          billing_period_end: string | null
+          billing_period_start: string | null
           business_id: string
+          charge_minor: number
           created_at: string
           created_by: string | null
           currency: string
           customer_id: string | null
           customer_snapshot: Json
           discount_minor: number
+          document_allowances: Json
+          document_charges: Json
+          document_references: Json
           document_type: string
           due_date: string | null
+          exchange_rate: number | null
           id: string
           invoice_number: string
+          invoice_purpose: string | null
           issue_date: string
+          issue_time: string | null
           issued_at: string | null
           notes: string | null
+          payment_mode_code: string | null
+          payment_reference: string | null
           payment_terms: string | null
+          prepaid_minor: number
+          prepayment_date: string | null
+          prepayment_reference: string | null
+          prepayment_time: string | null
           rounding_minor: number
+          shipping_recipient_party_id: string | null
           status: string
           subtotal_minor: number
+          supplemental_fields: Json
           supplier_snapshot: Json
+          tax_currency: string | null
           tax_minor: number
           total_minor: number
           updated_at: string
