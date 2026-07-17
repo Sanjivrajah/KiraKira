@@ -54,8 +54,8 @@ export class GenerateEInvoicePayloadSnapshotService {
     businessId: string,
     documentId: string,
     generatedAtInput: string,
-    targetDocumentVersion: "1.0" | "1.1" = "1.1",
   ): Promise<EInvoicePayloadSnapshotRecord> {
+    const targetDocumentVersion = "1.0" as const;
     const generatedAt = isoDateTimeSchema.parse(generatedAtInput);
     const asOfDate = isoDateSchema.parse(generatedAt.slice(0, 10));
     this.referenceData.assertUsable(requiredReferenceSets, asOfDate);
@@ -66,6 +66,12 @@ export class GenerateEInvoicePayloadSnapshotService {
     }
     if (!approved.canonicalDocument) {
       throw new EInvoicePayloadGenerationError("document.snapshot_missing", "The approved canonical document snapshot is missing.");
+    }
+    if (approved.documentVersion !== "1.0") {
+      throw new EInvoicePayloadGenerationError(
+        "document.unsupported_historical_version",
+        "This historical preparation uses a document version that is no longer supported. Create a new unsigned Invoice v1.0 preparation.",
+      );
     }
 
     const supplierSnapshot = approved.supplierSnapshot as Partial<SupplierSnapshot>;

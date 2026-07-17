@@ -18,6 +18,21 @@ type SupabaseBusinessRow = {
   business_contacts?: Array<{ contact_type: string; value: string; is_primary: boolean }>;
 };
 
+export interface BusinessComplianceUpdate {
+  businessId: string;
+  msicCode: string;
+  businessActivityDescription: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  postcode?: string;
+  stateCode?: string;
+  countryCode: string;
+  phone: string;
+}
+
+const businessComplianceSelect = "*,business_tax_identifiers(scheme,value,is_primary),business_registration_identifiers(scheme,value,is_primary),business_addresses(line1,line2,city,postal_code,state_code,country_code,is_primary),business_contacts(contact_type,value,is_primary)";
+
 function toBusiness(row: SupabaseBusinessRow): Business {
   const address = row.business_addresses?.find((item) => item.is_primary) ?? row.business_addresses?.[0];
   const contact = (type: string) => row.business_contacts?.find((item) => item.contact_type === type && item.is_primary)?.value ?? row.business_contacts?.find((item) => item.contact_type === type)?.value;
@@ -83,8 +98,34 @@ export async function createSupabaseBusiness(input: BusinessInput): Promise<Busi
   if (error) throw new Error(`Could not create business: ${error.message}`);
   if (!data) throw new Error("Business creation completed without returning a business.");
   const { data: reloaded, error: reloadError } = await client.from("businesses")
-    .select("*,business_tax_identifiers(scheme,value,is_primary),business_registration_identifiers(scheme,value,is_primary),business_addresses(line1,line2,city,postal_code,state_code,country_code,is_primary),business_contacts(contact_type,value,is_primary)")
+    .select(businessComplianceSelect)
     .eq("id", data.id).single();
   if (reloadError) throw new Error(`Business was created but its compliance details could not be loaded: ${reloadError.message}`);
+  return toBusiness(reloaded as unknown as SupabaseBusinessRow);
+}
+
+export async function updateSupabaseBusinessCompliance(input: BusinessComplianceUpdate): Promise<Business> {
+  const client = getSupabaseBrowserClient();
+  const { error } = await client.rpc("update_business_compliance_profile", {
+    p_business_id: input.businessId,
+    p_msic_code: input.msicCode,
+    p_business_activity_description: input.businessActivityDescription,
+    p_primary_address: {
+      line1: input.addressLine1,
+      line2: input.addressLine2 || null,
+      city: input.city,
+      postal_code: input.postcode || null,
+      state_code: input.stateCode || null,
+      country_code: input.countryCode,
+    },
+    p_primary_phone: input.phone,
+  });
+  if (error) throw new Error(`Could not update business details: ${error.message}`);
+
+  const { data: reloaded, error: reloadError } = await client.from("businesses")
+    .select(businessComplianceSelect)
+    .eq("id", input.businessId)
+    .single();
+  if (reloadError) throw new Error(`Business details were updated but could not be reloaded: ${reloadError.message}`);
   return toBusiness(reloaded as unknown as SupabaseBusinessRow);
 }

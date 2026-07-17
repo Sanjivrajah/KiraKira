@@ -5,8 +5,8 @@
   "Invoice": [{
     "ID": [{ "_": "INV-FIXTURE-001" }],
     "IssueDate": [{ "_": "2026-07-15" }],
-    "IssueTime": [{ "_": "09:30:00" }],
-    "InvoiceTypeCode": [{ "_": "01", "listVersionID": "1.1" }],
+    "IssueTime": [{ "_": "01:30:00Z" }],
+    "InvoiceTypeCode": [{ "_": "01", "listVersionID": "1.0" }],
     "DocumentCurrencyCode": [{ "_": "MYR" }],
     "Note": [{ "_": "Generated from deterministic Session 6 fixtures." }],
     "AccountingSupplierParty": [{ "Party": [{

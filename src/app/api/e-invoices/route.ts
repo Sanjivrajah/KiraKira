@@ -18,6 +18,11 @@ function responseError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status, headers: { "Cache-Control": "no-store" } });
 }
 
+function safeErrorCode(error: unknown): string {
+  if (error && typeof error === "object" && "code" in error && typeof error.code === "string") return error.code;
+  return error instanceof Error ? error.name : "unknown";
+}
+
 async function membership(client: Client, businessId: string) {
   const { data: auth, error: authError } = await client.auth.getUser();
   if (authError || !auth.user) return null;
@@ -66,6 +71,11 @@ export async function POST(request: Request) {
           : await service.createRevision(parsed.data.businessId, parsed.data.documentId);
     return NextResponse.json({ result }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
+    console.error("[e-invoices.preparation_failed]", {
+      businessId: parsed.data.businessId,
+      action: parsed.data.action,
+      code: safeErrorCode(error),
+    });
     const message = error instanceof Error && (
       error.message.includes("blocking internal") || error.message.includes("changed while") || error.message.includes("new revision")
     ) ? error.message : "We could not save that e-Invoice preparation. Reload and try again.";

@@ -19,7 +19,7 @@ function readyInput() {
 function record(overrides: Partial<EInvoicePreparationRecord> = {}): EInvoicePreparationRecord {
   return {
     id: "prepared-1", businessId: "business-1", sourceInvoiceId: "invoice-1", sourceInvoiceRevision: 2,
-    documentType: "invoice", documentVersion: "1.1", scenario: "b2b_invoice", canonicalDocument: UBL_STANDARD_B2B_INVOICE,
+    documentType: "invoice", documentVersion: "1.0", scenario: "b2b_invoice", canonicalDocument: UBL_STANDARD_B2B_INVOICE,
     supplierSnapshot: readyInput().supplierSnapshot, buyerSnapshot: UBL_FIXTURE_BUYER, supplementalFields: {}, provenance: [],
     readinessResult: evaluatePreparationReadiness(readyInput(), now), status: "ready", revision: 3,
     active: true, submissionEligible: false, createdAt: now, updatedAt: now, ...overrides,
@@ -39,6 +39,12 @@ describe("EInvoicePreparationService", () => {
     const readiness = evaluatePreparationReadiness({ ...input, buyerSnapshot: { ...UBL_FIXTURE_BUYER, phone: undefined } }, now);
     expect(readiness.ready).toBe(false);
     expect(readiness.diagnostics).toContainEqual(expect.objectContaining({ fieldPath: "buyer.phone", severity: "error" }));
+  });
+
+  it("blocks unverified scenarios before approval", () => {
+    const readiness = evaluatePreparationReadiness({ ...readyInput(), scenario: "foreign_buyer" }, now);
+    expect(readiness.ready).toBe(false);
+    expect(readiness.diagnostics).toContainEqual(expect.objectContaining({ code: "scenario.not_verified", group: "scenario" }));
   });
 
   it("keeps approved source revisions visible but ineligible for duplicate preparation", async () => {

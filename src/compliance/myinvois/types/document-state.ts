@@ -20,7 +20,6 @@ export interface MyInvoisDocumentSnapshot {
   readonly documentVersion: string;
   readonly format: MyInvoisPayloadFormat;
   readonly unsignedPayload: JsonValue | string;
-  readonly signedPayload?: JsonValue | string;
   readonly payloadHash: string;
   readonly generatedAt: ISODateTime;
   readonly mapperVersion: string;

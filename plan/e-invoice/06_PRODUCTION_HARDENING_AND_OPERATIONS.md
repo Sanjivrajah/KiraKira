@@ -4,10 +4,16 @@
 
 Prepare the completed sandbox workflow for a controlled production rollout with security review, operational controls, reconciliation, observability, recovery procedures, and explicit activation gates.
 
+## Approved v1.0 production constraint
+
+NiagaAI will submit **unsigned MyInvois Invoice v1.0** documents because an organisation digital certificate is not currently available. Invoice v1.1 signing and certificate operations are not activation requirements for this rollout. As reverified on 17 July 2026, the official MyInvois FAQ states that v1.0 may be submitted without digital-signature validation until HASiL announces its retirement; the document-types page also warns that v1.0 will be deprecated later.
+
+This is a controlled compatibility choice, not a claim that v1.0 is permanent. Operations must monitor HASiL release notices. If v1.0 retirement is announced, production must be disabled before the effective date and must not silently switch payload versions.
+
 ## Production activation model
 
 - Production is disabled by default per business.
-- Enabling production requires an authorised role, verified taxpayer delegation, valid credentials, valid certificate, completed sandbox checklist, and explicit confirmation.
+- Enabling production requires an authorised role, verified taxpayer delegation, valid OAuth credentials, completed v1.0 sandbox checklist, and explicit confirmation. A signing certificate is intentionally not required for v1.0.
 - Sandbox and production records, tokens, secrets, endpoints, queues, and metrics must remain distinguishable.
 - UI must always show the active environment before approval and submission.
 - Never automatically promote sandbox configuration to production.
@@ -20,7 +26,7 @@ Define and enforce a permission matrix for:
 - Editing reusable business/customer data.
 - Editing document supplements.
 - Approving revisions.
-- Managing credentials and certificates.
+- Managing OAuth credential references.
 - Submitting batches.
 - Retrying failed transport attempts.
 - Cancelling valid documents.
@@ -46,7 +52,6 @@ High-risk actions require recent authentication and clear confirmation. Record a
 Capture structured, redacted metrics and logs for:
 
 - Token acquisition success/failure and latency.
-- Signing success/failure and certificate expiry window.
 - Submission count, document count, encoded size, latency, and HTTP outcome.
 - Accepted/rejected ratios.
 - Time spent in Submitted/Processing.
@@ -65,14 +70,15 @@ Use correlation IDs, local submission IDs, and MyInvois submission UIDs. Do not 
 - Provide exportable audit history for a business and document.
 - Define retention and deletion rules compatible with tax, privacy, and business requirements before production use.
 
-## Certificate and secret operations
+## Secret and version-lifecycle operations
 
-- Certificate-expiry alerts at configurable thresholds.
-- Documented rotation with overlap and rollback.
 - Secret rotation without redeploying browser assets.
 - Immediate connection disable/revoke control.
-- Restricted access to certificate metadata and connection diagnostics.
-- Runbook for compromised credentials or signing keys.
+- Restricted access to connection diagnostics.
+- Runbook for compromised OAuth credentials.
+- Alert and disable gate for any announced MyInvois v1.0 retirement date.
+
+Certificate expiry and signing-key rotation apply only if the product later adopts v1.1 and obtains an organisation certificate; they are not part of this v1.0 production rollout.
 
 ## Cancellation and correction
 
@@ -103,7 +109,7 @@ Implement controlled cancellation only against eligible valid MyInvois documents
 - Run the full repository verification gate.
 - Run migration tests against a clean database and an upgraded representative database.
 - Load-test token caching, batching, submission throttles, and poll workers below official limits.
-- Exercise invalid certificate, expired token, 401, 403, 422, 429, timeout, malformed response, and upstream outage scenarios.
+- Exercise expired token, 401, 403, 422, 429, timeout, oversized or malformed response, and upstream outage scenarios. Invalid-certificate testing is not applicable to unsigned v1.0.
 - Complete sandbox tests for every enabled document type and scenario.
 - Conduct a small controlled production pilot with explicit rollback/disable steps.
 
@@ -113,7 +119,7 @@ Deliver:
 
 - Configuration guide for sandbox and production.
 - Taxpayer delegation and intermediary setup checklist.
-- Certificate provisioning and rotation guide.
+- v1.0 support-lifecycle monitoring and controlled-disable guide.
 - Submission failure and stuck-processing runbook.
 - Invalid-document correction guide.
 - Cancellation/correction guide.
@@ -128,7 +134,6 @@ Production rollout is ready only when:
 - Tenant isolation is verified at database and server boundaries.
 - Duplicate submission protections are demonstrated.
 - Queue recovery and reconciliation are tested.
-- Alerts and runbooks exist for certificate, authentication, submission, and polling failures.
+- Alerts and runbooks exist for v1.0 retirement, authentication, submission, cancellation, and polling failures.
 - A controlled pilot can be disabled without losing immutable local history.
 - Product copy clearly distinguishes prepared, submitted, valid, invalid, and cancelled states.
-

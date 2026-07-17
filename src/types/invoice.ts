@@ -32,6 +32,7 @@ export interface Invoice extends AuditableEntity {
   subtotal: MoneyAmount;
   tax: MoneyAmount;
   total: MoneyAmount;
+  prepaymentAmount?: MoneyAmount;
   amountPaid: MoneyAmount;
   notes?: string | null;
   paymentTerms?: string | null;

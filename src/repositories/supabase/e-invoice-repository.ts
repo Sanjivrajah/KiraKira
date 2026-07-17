@@ -9,12 +9,10 @@ import type {
   EInvoicePreparationRepository,
   EInvoicePayloadSnapshotRecord,
   EInvoicePayloadSnapshotRepository,
-  EInvoiceSignedSnapshotRecord,
-  EInvoiceSigningRepository,
+  EInvoiceConnectionRepository,
   MyInvoisConnectionRecord,
   MyInvoisEnvironment,
   PersistEInvoicePayloadSnapshotInput,
-  PersistEInvoiceSignedSnapshotInput,
   PersistMyInvoisConnectionInput,
   EInvoiceSourceRepository,
   StoredAddressSource,
@@ -22,7 +20,6 @@ import type {
   StoredInvoiceSource,
   StoredPartySource,
   PreparationReadinessResult,
-  SigningCertificateMetadata,
 } from "@/application/e-invoices";
 import type { Database, Json, Tables } from "@/lib/supabase/database.types";
 
@@ -41,6 +38,7 @@ type InvoiceJoin = Tables<"invoices"> & { invoice_items: Tables<"invoice_items">
 
 const businessSelection = "*,business_tax_identifiers(scheme,value,issuing_country_code,description),business_registration_identifiers(scheme,value,issuing_country_code,description),business_addresses(line1,line2,line3,city,postal_code,state_code,country_code,is_primary),business_contacts(contact_type,value,is_primary)";
 const partySelection = "*,party_tax_identifiers(scheme,value,issuing_country_code,description),party_registration_identifiers(scheme,value,issuing_country_code,description),party_addresses(address_type,line1,line2,line3,city,postal_code,state_code,country_code,is_primary)";
+const connectionSelection = "id,business_id,environment,auth_mode,taxpayer_tin,taxpayer_registration_scheme,taxpayer_registration_value,onbehalfof_value,credential_set_id,client_id_secret_ref,client_secret_secret_ref,enabled,document_version,verified_at,verified_by,sandbox_verified_at,sandbox_verified_by,production_activated_at,production_activated_by,production_disabled_at,production_disabled_by,production_activation_reason,created_at,updated_at";
 
 function json(value: unknown): Json {
   return JSON.parse(JSON.stringify(value)) as Json;
@@ -111,7 +109,7 @@ function mapPreparation(row: Tables<"e_invoice_documents">): EInvoicePreparation
   return {
     id: row.id, businessId: row.business_id, sourceInvoiceId: row.source_invoice_id,
     sourceInvoiceRevision: row.source_invoice_revision, documentType: row.document_type as EInvoicePreparationRecord["documentType"],
-    documentVersion: "1.1", scenario: row.scenario as EInvoicePreparationRecord["scenario"], canonicalDocument,
+    documentVersion: row.document_version === "1.0" ? "1.0" : "unsupported_historical", scenario: row.scenario as EInvoicePreparationRecord["scenario"], canonicalDocument,
     supplierSnapshot: row.supplier_snapshot as Record<string, unknown>, buyerSnapshot: row.buyer_snapshot as Record<string, unknown>,
     supplementalFields: row.supplemental_fields as Record<string, unknown>, provenance: row.provenance as unknown as AssemblyProvenanceEntry[],
     readinessResult: readiness, status: row.status as EInvoicePreparationRecord["status"], revision: row.revision,
@@ -139,7 +137,15 @@ function mapPayloadSnapshot(row: Tables<"e_invoice_payload_snapshots">): EInvoic
   };
 }
 
-function mapConnection(row: Tables<"myinvois_connections">): MyInvoisConnectionRecord {
+type ActiveConnectionRow = Omit<Tables<"myinvois_connections">,
+  "signing_certificate_secret_ref" | "signing_private_key_secret_ref" |
+  "signing_key_passphrase_secret_ref" | "signing_certificate_chain_secret_ref" |
+  "certificate_serial_number" | "certificate_issuer" | "certificate_not_before" |
+  "certificate_not_after" | "certificate_fingerprint_sha256" | "certificate_metadata_updated_at" |
+  "certificate_subject" | "certificate_thumbprint"
+>;
+
+function mapConnection(row: ActiveConnectionRow): MyInvoisConnectionRecord {
   return {
     id: row.id,
     businessId: row.business_id,
@@ -148,52 +154,29 @@ function mapConnection(row: Tables<"myinvois_connections">): MyInvoisConnectionR
     taxpayerTin: row.taxpayer_tin,
     taxpayerRegistrationScheme: row.taxpayer_registration_scheme as MyInvoisConnectionRecord["taxpayerRegistrationScheme"],
     taxpayerRegistrationValue: row.taxpayer_registration_value ?? undefined,
-    onbehalfofValue: row.onbehalfof_value,
+    onbehalfofValue: row.onbehalfof_value
+      ?? (row.taxpayer_registration_value ? `${row.taxpayer_tin}:${row.taxpayer_registration_value}` : row.taxpayer_tin),
     credentialSetId: row.credential_set_id,
     clientIdSecretRef: row.client_id_secret_ref,
     clientSecretSecretRef: row.client_secret_secret_ref,
-    signingCertificateSecretRef: row.signing_certificate_secret_ref ?? undefined,
-    signingPrivateKeySecretRef: row.signing_private_key_secret_ref ?? undefined,
-    signingKeyPassphraseSecretRef: row.signing_key_passphrase_secret_ref ?? undefined,
-    signingCertificateChainSecretRef: row.signing_certificate_chain_secret_ref ?? undefined,
     enabled: row.enabled,
+    documentVersion: row.document_version as "1.0",
     verifiedAt: row.verified_at ?? undefined,
     verifiedBy: row.verified_by ?? undefined,
-    certificateThumbprint: row.certificate_thumbprint ?? undefined,
-    certificateSubject: row.certificate_subject ?? undefined,
-    certificateIssuer: row.certificate_issuer ?? undefined,
-    certificateSerialNumber: row.certificate_serial_number ?? undefined,
-    certificateNotBefore: row.certificate_not_before ?? undefined,
-    certificateNotAfter: row.certificate_not_after ?? undefined,
+    sandboxVerifiedAt: row.sandbox_verified_at ?? undefined,
+    sandboxVerifiedBy: row.sandbox_verified_by ?? undefined,
+    productionActivatedAt: row.production_activated_at ?? undefined,
+    productionActivatedBy: row.production_activated_by ?? undefined,
+    productionDisabledAt: row.production_disabled_at ?? undefined,
+    productionDisabledBy: row.production_disabled_by ?? undefined,
+    productionActivationReason: row.production_activation_reason ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-function mapSignedSnapshot(row: Tables<"e_invoice_signed_snapshots">): EInvoiceSignedSnapshotRecord {
-  return {
-    id: row.id,
-    businessId: row.business_id,
-    unsignedSnapshotId: row.unsigned_snapshot_id,
-    unsignedPayloadHash: row.unsigned_payload_hash,
-    signedPayload: row.signed_payload,
-    signedPayloadHash: row.signed_payload_hash,
-    certificateThumbprint: row.certificate_thumbprint,
-    certificateSubject: row.certificate_subject,
-    certificateIssuer: row.certificate_issuer,
-    certificateSerialNumber: row.certificate_serial_number,
-    certificateNotAfter: row.certificate_not_after,
-    signingAlgorithm: row.signing_algorithm as "RSA-SHA256",
-    implementationVersion: row.implementation_version,
-    environment: row.environment as MyInvoisEnvironment,
-    connectionId: row.connection_id,
-    signingTimestamp: row.signing_timestamp,
-    createdAt: row.created_at,
-  };
-}
-
 /** Supabase-only adapter. It never consults browser storage or local demo repositories. */
-export class SupabaseEInvoiceRepository implements EInvoiceSourceRepository, EInvoicePreparationRepository, EInvoicePayloadSnapshotRepository, EInvoiceSigningRepository {
+export class SupabaseEInvoiceRepository implements EInvoiceSourceRepository, EInvoicePreparationRepository, EInvoicePayloadSnapshotRepository, EInvoiceConnectionRepository {
   constructor(private readonly client: SupabaseClient<Database>) {}
 
   async loadAssemblyBundle(businessId: string, invoiceId: string): Promise<EInvoiceAssemblyBundle | null> {
@@ -241,7 +224,7 @@ export class SupabaseEInvoiceRepository implements EInvoiceSourceRepository, EIn
   async createOrRefresh(input: CreateOrRefreshPreparationInput): Promise<EInvoicePreparationRecord> {
     const payload = {
       business_id: input.businessId, source_invoice_id: input.sourceInvoiceId, source_invoice_revision: input.sourceInvoiceRevision,
-      document_type: input.documentType, document_version: "1.1", scenario: input.scenario,
+      document_type: input.documentType, document_version: "1.0", scenario: input.scenario,
       canonical_document: input.canonicalDocument ? json(input.canonicalDocument) : null,
       supplier_snapshot: json(input.supplierSnapshot), buyer_snapshot: json(input.buyerSnapshot),
       supplemental_fields: json(input.supplementalFields), provenance: json(input.provenance),
@@ -355,7 +338,7 @@ export class SupabaseEInvoiceRepository implements EInvoiceSourceRepository, EIn
   }
 
   async findConnection(businessId: string, environment: MyInvoisEnvironment): Promise<MyInvoisConnectionRecord | null> {
-    const { data, error } = await this.client.from("myinvois_connections").select()
+    const { data, error } = await this.client.from("myinvois_connections").select(connectionSelection)
       .eq("business_id", businessId).eq("environment", environment).maybeSingle();
     if (error) throw error;
     return data ? mapConnection(data) : null;
@@ -372,13 +355,10 @@ export class SupabaseEInvoiceRepository implements EInvoiceSourceRepository, EIn
       credential_set_id: input.credentialSetId,
       client_id_secret_ref: input.clientIdSecretRef,
       client_secret_secret_ref: input.clientSecretSecretRef,
-      signing_certificate_secret_ref: input.signingCertificateSecretRef ?? null,
-      signing_private_key_secret_ref: input.signingPrivateKeySecretRef ?? null,
-      signing_key_passphrase_secret_ref: input.signingKeyPassphraseSecretRef ?? null,
-      signing_certificate_chain_secret_ref: input.signingCertificateChainSecretRef ?? null,
       enabled: input.enabled,
+      document_version: "1.0",
     };
-    const { data, error } = await this.client.from("myinvois_connections").upsert(payload, { onConflict: "business_id,environment" }).select().single();
+    const { data, error } = await this.client.from("myinvois_connections").upsert(payload, { onConflict: "business_id,environment" }).select(connectionSelection).single();
     if (error) throw error;
     return mapConnection(data);
   }
@@ -390,67 +370,4 @@ export class SupabaseEInvoiceRepository implements EInvoiceSourceRepository, EIn
     if (!data) throw new Error("The MyInvois connection could not be verified for this business.");
   }
 
-  async updateCertificateMetadata(connectionId: string, businessId: string, metadata: SigningCertificateMetadata): Promise<void> {
-    const { data, error } = await this.client.from("myinvois_connections").update({
-      certificate_thumbprint: metadata.thumbprintSha256,
-      certificate_subject: metadata.subject,
-      certificate_issuer: metadata.issuer,
-      certificate_serial_number: metadata.serialNumber,
-      certificate_not_before: metadata.notBefore,
-      certificate_not_after: metadata.notAfter,
-    }).eq("id", connectionId).eq("business_id", businessId).select("id").maybeSingle();
-    if (error) throw error;
-    if (!data) throw new Error("The signing certificate metadata could not be stored for this business.");
-  }
-
-  async findUnsignedSnapshot(businessId: string, snapshotId: string): Promise<EInvoicePayloadSnapshotRecord | null> {
-    const { data, error } = await this.client.from("e_invoice_payload_snapshots").select()
-      .eq("business_id", businessId).eq("id", snapshotId).maybeSingle();
-    if (error) throw error;
-    if (!data) return null;
-    const source = await this.client.from("e_invoice_documents").select("status,active,submission_eligible,revision")
-      .eq("business_id", businessId).eq("id", data.e_invoice_document_id).maybeSingle();
-    if (source.error) throw source.error;
-    if (!source.data || source.data.status !== "approved" || !source.data.active || !source.data.submission_eligible || source.data.revision !== data.document_revision) return null;
-    return mapPayloadSnapshot(data);
-  }
-
-  async findSignedSnapshot(unsignedSnapshotId: string, certificateThumbprint: string, implementationVersion: string): Promise<EInvoiceSignedSnapshotRecord | null> {
-    const { data, error } = await this.client.from("e_invoice_signed_snapshots").select()
-      .eq("unsigned_snapshot_id", unsignedSnapshotId)
-      .eq("certificate_thumbprint", certificateThumbprint)
-      .eq("implementation_version", implementationVersion)
-      .maybeSingle();
-    if (error) throw error;
-    return data ? mapSignedSnapshot(data) : null;
-  }
-
-  async persistSignedSnapshot(input: PersistEInvoiceSignedSnapshotInput): Promise<EInvoiceSignedSnapshotRecord> {
-    const payload: Database["public"]["Tables"]["e_invoice_signed_snapshots"]["Insert"] = {
-      business_id: input.businessId,
-      unsigned_snapshot_id: input.unsignedSnapshotId,
-      unsigned_payload_hash: input.unsignedPayloadHash,
-      signed_payload: input.signedPayload,
-      signed_payload_hash: input.signedPayloadHash,
-      certificate_thumbprint: input.certificateThumbprint,
-      certificate_subject: input.certificateSubject,
-      certificate_issuer: input.certificateIssuer,
-      certificate_serial_number: input.certificateSerialNumber,
-      certificate_not_after: input.certificateNotAfter,
-      signing_algorithm: input.signingAlgorithm,
-      implementation_version: input.implementationVersion,
-      environment: input.environment,
-      connection_id: input.connectionId,
-      signing_timestamp: input.signingTimestamp,
-    };
-    const { data, error } = await this.client.from("e_invoice_signed_snapshots").insert(payload).select().single();
-    if (error) {
-      if (error.code === "23505") {
-        const existing = await this.findSignedSnapshot(input.unsignedSnapshotId, input.certificateThumbprint, input.implementationVersion);
-        if (existing) return existing;
-      }
-      throw error;
-    }
-    return mapSignedSnapshot(data);
-  }
 }

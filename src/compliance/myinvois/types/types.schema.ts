@@ -12,7 +12,6 @@ export const myInvoisDocumentSnapshotSchema = z
     documentVersion: z.string().regex(/^\d+\.\d+$/),
     format: z.enum(["json", "xml"]),
     unsignedPayload: payloadSchema,
-    signedPayload: payloadSchema.optional(),
     payloadHash: z.string().regex(/^[a-f0-9]{64}$/i, "Use a SHA-256 payload hash."),
     generatedAt: isoDateTimeSchema,
     mapperVersion: identifierSchema,

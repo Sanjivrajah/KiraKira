@@ -173,7 +173,7 @@ export interface EInvoicePreparationRecord {
   sourceInvoiceId: string;
   sourceInvoiceRevision: number;
   documentType: CommercialDocument["documentType"];
-  documentVersion: "1.1";
+  documentVersion: "1.0" | "unsupported_historical";
   scenario: EInvoiceScenario;
   canonicalDocument: CommercialDocument | null;
   supplierSnapshot: SupplierSnapshot | Record<string, unknown>;
@@ -236,7 +236,7 @@ export interface EInvoicePayloadSnapshotRecord {
   businessId: string;
   eInvoiceDocumentId: string;
   documentRevision: number;
-  documentVersion: "1.0" | "1.1";
+  documentVersion: "1.0";
   mapperVersion: string;
   referenceDataVersion: string;
   format: EInvoicePayloadFormat;
@@ -273,19 +273,18 @@ export interface MyInvoisConnectionRecord {
   credentialSetId: string;
   clientIdSecretRef: string;
   clientSecretSecretRef: string;
-  signingCertificateSecretRef?: string;
-  signingPrivateKeySecretRef?: string;
-  signingKeyPassphraseSecretRef?: string;
-  signingCertificateChainSecretRef?: string;
   enabled: boolean;
+  /** Production submission remains unsigned v1.0 until HASiL retires that version. */
+  documentVersion: "1.0";
   verifiedAt?: string;
   verifiedBy?: string;
-  certificateThumbprint?: string;
-  certificateSubject?: string;
-  certificateIssuer?: string;
-  certificateSerialNumber?: string;
-  certificateNotBefore?: string;
-  certificateNotAfter?: string;
+  sandboxVerifiedAt?: string;
+  sandboxVerifiedBy?: string;
+  productionActivatedAt?: string;
+  productionActivatedBy?: string;
+  productionDisabledAt?: string;
+  productionDisabledBy?: string;
+  productionActivationReason?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -293,54 +292,19 @@ export interface MyInvoisConnectionRecord {
 export type PersistMyInvoisConnectionInput = Omit<
   MyInvoisConnectionRecord,
   "id" | "onbehalfofValue" | "verifiedAt" | "verifiedBy" |
-  "certificateThumbprint" | "certificateSubject" | "certificateIssuer" |
-  "certificateSerialNumber" | "certificateNotBefore" | "certificateNotAfter" |
+  "documentVersion" | "sandboxVerifiedAt" | "sandboxVerifiedBy" |
+  "productionActivatedAt" | "productionActivatedBy" | "productionDisabledAt" |
+  "productionDisabledBy" | "productionActivationReason" |
   "createdAt" | "updatedAt"
 >;
 
-export interface SigningCertificateMetadata {
-  thumbprintSha256: string;
-  subject: string;
-  issuer: string;
-  serialNumber: string;
-  notBefore: string;
-  notAfter: string;
-  expiresWithinDays: number;
-}
-
-export interface EInvoiceSignedSnapshotRecord {
-  id: string;
-  businessId: string;
-  unsignedSnapshotId: string;
-  unsignedPayloadHash: string;
-  signedPayload: string;
-  signedPayloadHash: string;
-  certificateThumbprint: string;
-  certificateSubject: string;
-  certificateIssuer: string;
-  certificateSerialNumber: string;
-  certificateNotAfter: string;
-  signingAlgorithm: "RSA-SHA256";
-  implementationVersion: string;
-  environment: MyInvoisEnvironment;
-  connectionId: string;
-  signingTimestamp: string;
-  createdAt: string;
-}
-
-export type PersistEInvoiceSignedSnapshotInput = Omit<EInvoiceSignedSnapshotRecord, "id" | "createdAt">;
-
-export interface EInvoiceSigningRepository {
+export interface EInvoiceConnectionRepository {
   findConnection(businessId: string, environment: MyInvoisEnvironment): Promise<MyInvoisConnectionRecord | null>;
   upsertConnection(input: PersistMyInvoisConnectionInput): Promise<MyInvoisConnectionRecord>;
   markConnectionVerified(connectionId: string, businessId: string, verifiedBy: string, verifiedAt: string): Promise<void>;
-  updateCertificateMetadata(connectionId: string, businessId: string, metadata: SigningCertificateMetadata): Promise<void>;
-  findUnsignedSnapshot(businessId: string, snapshotId: string): Promise<EInvoicePayloadSnapshotRecord | null>;
-  findSignedSnapshot(unsignedSnapshotId: string, certificateThumbprint: string, implementationVersion: string): Promise<EInvoiceSignedSnapshotRecord | null>;
-  persistSignedSnapshot(input: PersistEInvoiceSignedSnapshotInput): Promise<EInvoiceSignedSnapshotRecord>;
 }
 
-export type EInvoiceSubmissionStatus = "pending" | "submitted" | "processing" | "completed" | "failed";
+export type EInvoiceSubmissionStatus = "pending" | "submitted" | "processing" | "completed" | "failed" | "dead_letter";
 export type EInvoiceDocumentSubmissionStatus = "submitted" | "processing" | "valid" | "invalid" | "cancelled" | "failed";
 
 export interface EInvoiceSubmissionCandidate {
@@ -348,7 +312,8 @@ export interface EInvoiceSubmissionCandidate {
   businessId: string;
   eInvoiceDocumentId: string;
   documentRevision: number;
-  documentVersion: "1.0" | "1.1";
+  documentVersion: "1.0";
+  scenario: EInvoiceScenario;
   format: EInvoicePayloadFormat;
   unsignedPayload: string;
   unsignedPayloadHash: string;
@@ -397,6 +362,10 @@ export interface EInvoiceSubmissionRecord {
   retryAfter?: string;
   errorCode?: string;
   errorMessage?: string;
+  leaseOwner?: string;
+  leaseExpiresAt?: string;
+  deadLetteredAt?: string;
+  deadLetterReason?: string;
   documents: EInvoiceSubmissionDocumentRecord[];
 }
 
@@ -441,15 +410,31 @@ export interface ReconcileSubmissionInput {
   >>;
 }
 
+export interface CancelEInvoiceDocumentInput {
+  businessId: string;
+  submissionId: string;
+  eInvoiceDocumentId: string;
+  reason: string;
+  cancelledAt: string;
+  correlationId?: string;
+  rawResponse?: unknown;
+}
+
 export interface EInvoiceSubmissionRepository {
   listSubmissionCandidates(businessId: string, environment: MyInvoisEnvironment): Promise<EInvoiceSubmissionCandidate[]>;
   loadSubmissionCandidates(businessId: string, payloadSnapshotIds: string[]): Promise<EInvoiceSubmissionCandidate[]>;
   findConnection(businessId: string, environment: MyInvoisEnvironment): Promise<MyInvoisConnectionRecord | null>;
+  reserveProviderCall(businessId: string, connection: MyInvoisConnectionRecord, endpoint: "submit" | "get_submission" | "get_document_details" | "cancel", limit: number, at: string): Promise<boolean>;
   findSubmissionByIdempotencyKey(businessId: string, idempotencyKey: string): Promise<EInvoiceSubmissionRecord | null>;
   createPendingSubmission(input: CreatePendingSubmissionInput): Promise<{ record: EInvoiceSubmissionRecord; created: boolean }>;
   recordSubmissionResponse(input: RecordSubmissionResponseInput): Promise<EInvoiceSubmissionRecord>;
   findSubmission(businessId: string, submissionId: string): Promise<EInvoiceSubmissionRecord | null>;
   listSubmissions(businessId: string): Promise<EInvoiceSubmissionRecord[]>;
-  listDueSubmissions(limit: number, at: string): Promise<EInvoiceSubmissionRecord[]>;
+  claimDueSubmissions(workerId: string, limit: number, at: string): Promise<EInvoiceSubmissionRecord[]>;
+  recordWorkerFailure(businessId: string, submissionId: string, workerId: string, reason: string, at: string): Promise<void>;
+  recordWorkerSuccess(businessId: string, submissionId: string, workerId: string): Promise<void>;
   reconcileSubmission(input: ReconcileSubmissionInput): Promise<EInvoiceSubmissionRecord>;
+  claimCancellation(input: Pick<CancelEInvoiceDocumentInput, "businessId" | "submissionId" | "eInvoiceDocumentId" | "reason" | "cancelledAt">): Promise<boolean>;
+  recordCancellationFailure(input: Pick<CancelEInvoiceDocumentInput, "businessId" | "submissionId" | "eInvoiceDocumentId" | "cancelledAt"> & { errorSummary: string }): Promise<void>;
+  recordCancellation(input: CancelEInvoiceDocumentInput): Promise<EInvoiceSubmissionRecord>;
 }

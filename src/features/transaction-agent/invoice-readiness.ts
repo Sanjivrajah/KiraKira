@@ -79,7 +79,7 @@ export function evaluateInvoiceReadiness(input: InvoiceReadinessInput): InvoiceR
     referenceData: catalog,
     asOfDate: document.issueDate,
     validatedAt: document.updatedAt,
-    documentVersion: "1.1",
+    documentVersion: "1.0",
   };
   const readiness = validateMyInvoisReadiness(context);
   const schemaFindings: InvoiceReadinessFinding[] = parsedDocument.success ? [] : parsedDocument.error.issues.map((issue) => {

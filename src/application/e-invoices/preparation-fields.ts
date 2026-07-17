@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  INVOICE_V1_1_FIELD_REGISTRY,
+  INVOICE_V1_0_FIELD_REGISTRY,
   type InvoiceFieldDefinition,
 } from "@/compliance/myinvois";
 import type { EInvoiceScenario } from "./contracts";
@@ -50,7 +50,7 @@ export interface PreparationFieldDefinition {
 }
 
 function registry(key: string) {
-  const definition = INVOICE_V1_1_FIELD_REGISTRY.find((field) => field.key === key);
+  const definition = INVOICE_V1_0_FIELD_REGISTRY.find((field) => field.key === key);
   if (!definition) throw new Error(`Missing Stage 1 field registry definition: ${key}`);
   return definition;
 }
@@ -78,4 +78,3 @@ export const PREPARATION_FIELD_REGISTRY: readonly PreparationFieldDefinition[] =
   define({ key: "certifiedExporterAuthorisation", registryKey: "annexure.certified_exporter", label: "Certified exporter authorisation", helpText: "Export-only authorisation number where applicable.", inputType: "text", cardinality: "0..1", scope: "document", reusable: false, documentOnly: true, appliesWhen: importExport }),
   define({ key: "customsForm2", registryKey: "annexure.customs_form_2", label: "Customs Form No. 2 reference", helpText: "Export declaration reference where applicable.", inputType: "text", cardinality: "0..1", scope: "document", reusable: false, documentOnly: true, appliesWhen: importExport }),
 ]);
-

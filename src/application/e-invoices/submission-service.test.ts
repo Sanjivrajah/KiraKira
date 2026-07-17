@@ -17,8 +17,8 @@ const connection: MyInvoisConnectionRecord = {
   id: "20000000-0000-4000-8000-000000000001", businessId, environment: "sandbox", authMode: "intermediary",
   taxpayerTin: "C1234567890", taxpayerRegistrationScheme: "ROB", taxpayerRegistrationValue: "202401234567",
   onbehalfofValue: "C1234567890:202401234567", credentialSetId: "sandbox", clientIdSecretRef: "client",
-  clientSecretSecretRef: "secret", signingCertificateSecretRef: "certificate", signingPrivateKeySecretRef: "key",
-  enabled: true, createdAt: "2026-07-18T00:00:00.000Z", updatedAt: "2026-07-18T00:00:00.000Z",
+  clientSecretSecretRef: "secret",
+  enabled: true, documentVersion: "1.0", createdAt: "2026-07-18T00:00:00.000Z", updatedAt: "2026-07-18T00:00:00.000Z",
 };
 
 function candidate(index: number, overrides: Partial<EInvoiceSubmissionCandidate> = {}): EInvoiceSubmissionCandidate {
@@ -27,7 +27,7 @@ function candidate(index: number, overrides: Partial<EInvoiceSubmissionCandidate
     payloadSnapshotId: `30000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
     businessId,
     eInvoiceDocumentId: `40000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
-    documentRevision: 1, documentVersion: "1.0", format: "json", unsignedPayload,
+    documentRevision: 1, documentVersion: "1.0", scenario: "b2b_invoice", format: "json", unsignedPayload,
     unsignedPayloadHash: createHash("sha256").update(unsignedPayload).digest("hex"),
     invoiceCodeNumber: `INV-${index}`, approved: true, active: true, submissionEligible: true,
     ...overrides,
@@ -42,6 +42,7 @@ class MemoryRepository implements EInvoiceSubmissionRepository {
   async listSubmissionCandidates() { return this.candidates; }
   async loadSubmissionCandidates(selectedBusinessId: string, ids: string[]) { return this.candidates.filter((item) => item.businessId === selectedBusinessId && ids.includes(item.payloadSnapshotId)); }
   async findConnection(selectedBusinessId: string) { return selectedBusinessId === businessId ? connection : null; }
+  async reserveProviderCall() { return true; }
   async findSubmissionByIdempotencyKey(selectedBusinessId: string, key: string) { return this.submissions.find((item) => item.businessId === selectedBusinessId && item.idempotencyKey === key) ?? null; }
   async createPendingSubmission(input: CreatePendingSubmissionInput) {
     const existing = await this.findSubmissionByIdempotencyKey(input.businessId, input.idempotencyKey);
@@ -64,18 +65,27 @@ class MemoryRepository implements EInvoiceSubmissionRepository {
   }
   async findSubmission(selectedBusinessId: string, submissionId: string) { return this.submissions.find((item) => item.businessId === selectedBusinessId && item.id === submissionId) ?? null; }
   async listSubmissions(selectedBusinessId: string) { return this.submissions.filter((item) => item.businessId === selectedBusinessId); }
-  async listDueSubmissions() { return this.submissions.filter((item) => ["submitted", "processing"].includes(item.status)); }
+  async claimDueSubmissions() { return this.submissions.filter((item) => ["submitted", "processing"].includes(item.status)); }
+  async recordWorkerFailure() {}
+  async recordWorkerSuccess() {}
   async reconcileSubmission(input: ReconcileSubmissionInput) {
     const record = this.submissions.find((item) => item.id === input.submissionId)!;
     record.status = input.status; record.retryAfter = input.retryAfter; record.retryCount += 1;
     for (const result of input.documents) Object.assign(record.documents.find((item) => item.invoiceCodeNumber === result.invoiceCodeNumber)!, result);
     return record;
   }
+  async recordCancellation(input: import("./contracts").CancelEInvoiceDocumentInput) {
+    const record = this.submissions.find((item) => item.id === input.submissionId)!;
+    record.documents.find((item) => item.eInvoiceDocumentId === input.eInvoiceDocumentId)!.status = "cancelled";
+    return record;
+  }
+  async claimCancellation() { return true; }
+  async recordCancellationFailure() {}
 }
 
 function transport(overrides: Partial<MyInvoisSubmissionTransport> = {}) {
   return {
-    submit: vi.fn(), getSubmission: vi.fn(), getDocumentDetails: vi.fn(), ...overrides,
+    submit: vi.fn(), getSubmission: vi.fn(), getDocumentDetails: vi.fn(), cancelDocument: vi.fn(), ...overrides,
   } as unknown as MyInvoisSubmissionTransport;
 }
 
@@ -99,6 +109,22 @@ describe("EInvoiceSubmissionService", () => {
     ]));
   });
 
+  it("records an all-rejected HTTP 202 as failed with provider validation details", async () => {
+    const selected = candidate(1);
+    const repository = new MemoryRepository([selected]);
+    const rejection = { errorCode: "3", message: "Validation Error", innerErrors: [{ message: "TimeExpected", propertyPath: "#/Invoice[0].IssueTime[0]" }] };
+    const submit = vi.fn().mockResolvedValue({
+      httpStatus: 202,
+      data: { submissionUID: undefined, acceptedDocuments: [], rejectedDocuments: [{ invoiceCodeNumber: "INV-1", error: rejection }] },
+    });
+
+    const result = await new EInvoiceSubmissionService(repository, transport({ submit }))
+      .submit(businessId, "sandbox", [selected.payloadSnapshotId], "2026-07-18T00:00:00.000Z");
+
+    expect(result).toMatchObject({ status: "failed", errorCode: "3", errorMessage: "Validation Error", submissionUid: undefined });
+    expect(result.documents[0]).toMatchObject({ accepted: false, status: "failed", rejectionError: rejection });
+  });
+
   it("returns the existing local attempt on a repeated click without another provider call", async () => {
     const selected = candidate(1);
     const repository = new MemoryRepository([selected]);
@@ -108,6 +134,33 @@ describe("EInvoiceSubmissionService", () => {
     const second = await service.submit(businessId, "sandbox", [selected.payloadSnapshotId], "2026-07-18T00:00:01.000Z");
     expect(second.id).toBe(first.id);
     expect(submit).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects replay of a failed immutable payload instead of reporting success", async () => {
+    const selected = candidate(1);
+    const repository = new MemoryRepository([selected]);
+    const submit = vi.fn().mockResolvedValue({
+      httpStatus: 0,
+      error: { errorCode: "secret.invalid_reference", message: "Invalid secret reference" },
+    });
+    const service = new EInvoiceSubmissionService(repository, transport({ submit }));
+    const first = await service.submit(businessId, "sandbox", [selected.payloadSnapshotId], "2026-07-18T00:00:00.000Z");
+    expect(first.status).toBe("failed");
+
+    await expect(service.submit(businessId, "sandbox", [selected.payloadSnapshotId], "2026-07-18T00:00:01.000Z"))
+      .rejects.toMatchObject({ code: "submission.previous_attempt_failed" });
+    expect(submit).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed for production until the independent v1.0 connection is verified and activated", async () => {
+    const selected = candidate(1);
+    const repository = new MemoryRepository([selected]);
+    repository.findConnection = vi.fn().mockResolvedValue({ ...connection, environment: "production", verifiedAt: undefined, productionActivatedAt: undefined });
+    const submit = vi.fn();
+    const service = new EInvoiceSubmissionService(repository, transport({ submit }));
+    await expect(service.submit(businessId, "production", [selected.payloadSnapshotId], "2026-07-18T00:00:00.000Z"))
+      .rejects.toMatchObject({ code: "production.not_activated" });
+    expect(submit).not.toHaveBeenCalled();
   });
 
   it("retries one transport failure but never retries a permission response", async () => {
@@ -125,12 +178,18 @@ describe("EInvoiceSubmissionService", () => {
       .submit(businessId, "sandbox", [selected.payloadSnapshotId], "2026-07-18T00:00:00.000Z");
     expect(permissionSubmit).toHaveBeenCalledTimes(1);
     expect(denied.status).toBe("failed");
+
+    const configurationSubmit = vi.fn().mockResolvedValue({ httpStatus: 0, error: { errorCode: "secret.invalid_reference", message: "Invalid secret reference" } });
+    const misconfigured = await new EInvoiceSubmissionService(new MemoryRepository([selected]), transport({ submit: configurationSubmit }))
+      .submit(businessId, "sandbox", [selected.payloadSnapshotId], "2026-07-18T00:00:00.000Z");
+    expect(configurationSubmit).toHaveBeenCalledTimes(1);
+    expect(misconfigured).toMatchObject({ status: "failed", retryCount: 0, errorCode: "secret.invalid_reference" });
   });
 
   it.each([
     ["unsigned hash mismatch", { unsignedPayloadHash: "0".repeat(64) }, "document.hash_mismatch"],
     ["superseded revision", { active: false }, "selection.not_submittable"],
-    ["unsupported version", { documentVersion: "1.1" as const }, "selection.unsupported_version"],
+    ["unsupported version", { documentVersion: "1.1" as never }, "selection.unsupported_version"],
     ["cross tenant", { businessId: "10000000-0000-4000-8000-000000000099" }, "selection.not_found"],
   ])("rejects %s before a network call", async (_label, override, code) => {
     const selected = candidate(1, override);
@@ -138,6 +197,26 @@ describe("EInvoiceSubmissionService", () => {
     const service = new EInvoiceSubmissionService(new MemoryRepository([selected]), transport({ submit }));
     await expect(service.submit(businessId, "sandbox", [selected.payloadSnapshotId], "2026-07-18T00:00:00.000Z"))
       .rejects.toMatchObject({ code });
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it("rejects unverified scenarios in production before a network call", async () => {
+    const selected = candidate(1, { scenario: "foreign_buyer" });
+    const repository = new MemoryRepository([selected]);
+    repository.findConnection = vi.fn().mockResolvedValue({
+      ...connection,
+      environment: "production",
+      verifiedAt: "2026-07-18T00:00:00.000Z",
+      sandboxVerifiedAt: "2026-07-18T00:00:00.000Z",
+      productionActivatedAt: "2026-07-18T00:00:00.000Z",
+    });
+    const submit = vi.fn();
+    await expect(new EInvoiceSubmissionService(repository, transport({ submit })).submit(
+      businessId,
+      "production",
+      [selected.payloadSnapshotId],
+      "2026-07-18T00:00:01.000Z",
+    )).rejects.toMatchObject({ code: "production.unsupported_scenario" });
     expect(submit).not.toHaveBeenCalled();
   });
 
@@ -161,5 +240,25 @@ describe("EInvoiceSubmissionService", () => {
     expect(getDocumentDetails).toHaveBeenCalledTimes(1);
     await service.refresh(businessId, submitted.id, "2026-07-18T00:00:10.000Z");
     expect(getSubmission).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancels only a valid document inside its deadline and keeps immutable local history", async () => {
+    const selected = candidate(1);
+    const repository = new MemoryRepository([selected]);
+    repository.submissions.push({
+      id: "50000000-0000-4000-8000-000000000001", businessId, environment: "sandbox",
+      idempotencyKey: "a".repeat(64), requestHash: "b".repeat(64), status: "completed",
+      requestedAt: "2026-07-18T00:00:00.000Z", retryCount: 1, documents: [{
+        submissionId: "50000000-0000-4000-8000-000000000001",
+        eInvoiceDocumentId: selected.eInvoiceDocumentId, payloadSnapshotId: selected.payloadSnapshotId,
+        invoiceCodeNumber: "INV-1", status: "valid", myinvoisUuid: "UUID-1",
+        cancellationEligibleUntil: "2026-07-21T00:00:00.000Z",
+      }],
+    });
+    const cancelDocument = vi.fn().mockResolvedValue({ httpStatus: 200, correlationId: "corr-cancel", data: { uuid: "UUID-1", status: "Cancelled" }, rawResponse: { status: "Cancelled" } });
+    const service = new EInvoiceSubmissionService(repository, transport({ cancelDocument }));
+    const result = await service.cancel(businessId, repository.submissions[0].id, selected.eInvoiceDocumentId, "Incorrect buyer details", "2026-07-18T01:00:00.000Z");
+    expect(cancelDocument).toHaveBeenCalledWith(connection, "UUID-1", "Incorrect buyer details");
+    expect(result.documents[0].status).toBe("cancelled");
   });
 });

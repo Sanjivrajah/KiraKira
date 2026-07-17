@@ -22,7 +22,7 @@ function toParty(row: PartyRow): Party {
   return partySchema.parse({
     id: row.id, kind: row.kind, legalName: row.legal_name, tradingName: row.trading_name ?? undefined,
     roles: row.roles as Party["roles"], email: row.email ?? undefined, phone: row.phone ?? undefined,
-    defaultCurrency: row.default_currency as Party["defaultCurrency"], defaultPaymentTermsDays: row.default_payment_terms_days ?? undefined,
+    defaultCurrency: row.default_currency ?? undefined, defaultPaymentTermsDays: row.default_payment_terms_days ?? undefined,
     taxIdentifiers: row.party_tax_identifiers.map((item) => ({ scheme: item.scheme as Party["taxIdentifiers"][number]["scheme"], value: item.value, issuingCountryCode: item.issuing_country_code ?? undefined, description: item.description ?? undefined })),
     registrationIdentifiers: row.party_registration_identifiers.map((item) => ({ scheme: item.scheme as Party["registrationIdentifiers"][number]["scheme"], value: item.value, issuingCountryCode: item.issuing_country_code ?? undefined, description: item.description ?? undefined })),
     billingAddress: address("billing"), shippingAddress: address("shipping"), createdAt: row.created_at, updatedAt: row.updated_at,

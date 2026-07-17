@@ -1,8 +1,8 @@
-export type InvoiceFieldRequirement = "mandatory" | "conditional" | "optional";
-export type InvoiceFieldScope = "business" | "buyer" | "document" | "line" | "calculated" | "signing";
-export type InvoiceFieldSource = "business" | "party" | "invoice" | "invoice_line" | "calculated" | "supplemental" | "signing";
-export type InvoiceFieldAvailability = "available" | "partial" | "derived" | "stage_later";
-export type InvoiceValueSchema = "text" | "email" | "phone" | "identifier" | "code" | "date" | "time" | "decimal" | "money" | "address" | "signature" | "allowance_charge";
+export type InvoiceFieldRequirement = "mandatory" | "conditional" | "optional" | "not_applicable";
+export type InvoiceFieldScope = "business" | "buyer" | "document" | "line" | "calculated";
+export type InvoiceFieldSource = "business" | "party" | "invoice" | "invoice_line" | "calculated" | "supplemental";
+export type InvoiceFieldAvailability = "available" | "partial" | "derived";
+export type InvoiceValueSchema = "text" | "email" | "phone" | "identifier" | "code" | "date" | "time" | "decimal" | "money" | "address" | "allowance_charge";
 
 export interface InvoiceFieldDefinition {
   key: string;
@@ -27,7 +27,7 @@ export interface InvoiceFieldDefinition {
 }
 
 type Options = Partial<Pick<InvoiceFieldDefinition, "appliesWhen" | "cardinality" | "characterLimit" | "codeList" | "availability" | "gap">>;
-const SOURCE_VERSION = "HASiL e-Invoice Guideline 4.6 PDF / 4.7 listing; MyInvois SDK Invoice 1.1";
+const SOURCE_VERSION = "HASiL e-Invoice Guideline 4.6 PDF / 4.7 listing; MyInvois SDK Invoice 1.0";
 const VERIFIED_AT = "2026-07-17";
 const INVOICE = "invoices / e_invoice_documents canonical snapshot";
 const LINE = "invoice_items / e_invoice_documents canonical snapshot";
@@ -47,7 +47,7 @@ function guideline(
 ) {
   return field({
     guidelineNumber, key, group: "guideline", label, requirement, scope, canonicalPath, ublPath,
-    valueSchema, source, persistenceLocation, appliesWhen: options.appliesWhen ?? "standard Invoice v1.1",
+    valueSchema, source, persistenceLocation, appliesWhen: options.appliesWhen ?? "standard unsigned Invoice v1.0",
     cardinality: options.cardinality ?? (requirement === "optional" ? "0..1" : "1"),
     availability: options.availability ?? "available", characterLimit: options.characterLimit,
     codeList: options.codeList, gap: options.gap,
@@ -74,7 +74,7 @@ const x = (...args: Parameters<typeof related> extends [unknown, ...infer Rest] 
 const a = (...args: Parameters<typeof related> extends [unknown, ...infer Rest] ? Rest : never) => related("annexure", ...args);
 
 /** Shared typed contract for capture, readiness, persistence and later UBL mapping. */
-export const INVOICE_V1_1_FIELD_REGISTRY: readonly InvoiceFieldDefinition[] = Object.freeze([
+export const INVOICE_V1_0_FIELD_REGISTRY: readonly InvoiceFieldDefinition[] = Object.freeze([
   g(1, "supplier.name", "Supplier's Name", "mandatory", "business", "supplier.legalName", "AccountingSupplierParty.Party.PartyLegalEntity.RegistrationName", "text", "business", SUPPLIER, { characterLimit: 300 }),
   g(2, "buyer.name", "Buyer's Name", "mandatory", "buyer", "buyer.legalName", "AccountingCustomerParty.Party.PartyLegalEntity.RegistrationName", "text", "party", BUYER, { characterLimit: 300 }),
   g(3, "supplier.tin", "Supplier's TIN", "mandatory", "business", "supplier.taxIdentifiers[tin]", "AccountingSupplierParty.Party.PartyIdentification[schemeID=TIN].ID", "identifier", "business", SUPPLIER),
@@ -94,13 +94,13 @@ export const INVOICE_V1_1_FIELD_REGISTRY: readonly InvoiceFieldDefinition[] = Ob
   g(17, "buyer.phone", "Buyer's Contact Number", "mandatory", "buyer", "buyer.phone", "AccountingCustomerParty.Party.Contact.Telephone", "phone", "party", BUYER),
   g(18, "document.version", "e-Invoice Version", "mandatory", "calculated", "preparation.documentVersion", "InvoiceTypeCode.listVersionID", "code", "calculated", "e_invoice_documents.document_version", { availability: "derived" }),
   g(19, "document.type", "e-Invoice Type", "mandatory", "document", "document.documentType", "InvoiceTypeCode", "code", "invoice", INVOICE, { codeList: "MyInvois document types" }),
-  g(20, "document.number", "e-Invoice Code / Number", "mandatory", "document", "document.internalDocumentNumber", "ID", "text", "invoice", INVOICE, { characterLimit: 100 }),
+  g(20, "document.number", "e-Invoice Code / Number", "mandatory", "document", "document.internalDocumentNumber", "ID", "text", "invoice", INVOICE, { characterLimit: 50 }),
   g(21, "document.original_reference", "Original e-Invoice Reference Number", "conditional", "document", "document.references[original_invoice]", "BillingReference.InvoiceDocumentReference.UUID", "identifier", "invoice", INVOICE, { appliesWhen: "credit, debit or refund note" }),
   g(22, "document.issued_at", "e-Invoice Date and Time", "mandatory", "document", "document.issueDate + document.issueTime", "IssueDate + IssueTime", "time", "invoice", INVOICE, { cardinality: "1 each" }),
-  g(23, "document.signature", "Issuer's Digital Signature", "mandatory", "signing", "submission.signature", "UBLExtensions.UBLExtension.ExtensionContent.Signature", "signature", "signing", "Stage 3 signing boundary", { appliesWhen: "submission", availability: "stage_later", gap: "Out of scope until signing stage." }),
+  g(23, "document.signature", "Issuer's Digital Signature", "not_applicable", "calculated", "notApplicable", "not emitted", "text", "calculated", "not persisted", { appliesWhen: "not applicable because Invoice v1.0 is submitted without signature validation", availability: "derived", gap: "A future signature-validating document version requires a separate roadmap." }),
   g(24, "document.currency", "Invoice Currency Code", "mandatory", "document", "document.currency", "DocumentCurrencyCode", "code", "invoice", INVOICE, { characterLimit: 3, codeList: "ISO 4217" }),
   g(25, "document.exchange_rate", "Currency Exchange Rate", "conditional", "document", "document.exchangeRate", "TaxExchangeRate.CalculationRate", "decimal", "invoice", INVOICE, { appliesWhen: "document currency is not MYR" }),
-  g(26, "document.billing_frequency", "Frequency of Billing", "optional", "document", "supplemental.billingFrequency", "InvoicePeriod.DescriptionCode", "code", "supplemental", SUPPLEMENT, { availability: "partial", gap: "No current capture UI." }),
+  g(26, "document.billing_frequency", "Frequency of Billing", "optional", "document", "supplemental.billingFrequency", "InvoicePeriod.Description", "text", "supplemental", SUPPLEMENT),
   g(27, "document.billing_period", "Billing Period", "optional", "document", "document.billingPeriod", "InvoicePeriod", "date", "invoice", INVOICE),
   g(28, "line.classification", "Classification", "mandatory", "line", "document.lines[].classificationCode", "InvoiceLine.Item.CommodityClassification.ItemClassificationCode", "code", "invoice_line", LINE, { appliesWhen: "each line", cardinality: "1..n per line", codeList: "MyInvois classification" }),
   g(29, "line.description", "Description of Product or Service", "mandatory", "line", "document.lines[].description", "InvoiceLine.Item.Description", "text", "invoice_line", LINE, { appliesWhen: "each line", cardinality: "1 per line", characterLimit: 300 }),
@@ -136,7 +136,7 @@ export const INVOICE_V1_1_FIELD_REGISTRY: readonly InvoiceFieldDefinition[] = Ob
     const scope = party === "supplier" ? "business" as const : "buyer" as const;
     const persistence = party === "supplier" ? SUPPLIER : BUYER;
     const required = party === "shippingRecipient" ? "optional" as const : "mandatory" as const;
-    const condition = party === "shippingRecipient" ? "shipping recipient supplied" : "standard Invoice v1.1";
+    const condition = party === "shippingRecipient" ? "shipping recipient supplied" : "standard unsigned Invoice v1.0";
     return [
       x(`${party}.address.line0`, `${party} address line 0`, required, scope, `${party}.billingAddress.addressLines[0]`, `${party}.PostalAddress.AddressLine[0].Line`, "text", source, persistence, { appliesWhen: condition }),
       x(`${party}.address.line1`, `${party} address line 1`, "optional", scope, `${party}.billingAddress.addressLines[1]`, `${party}.PostalAddress.AddressLine[1].Line`, "text", source, persistence),
@@ -157,7 +157,6 @@ export const INVOICE_V1_1_FIELD_REGISTRY: readonly InvoiceFieldDefinition[] = Ob
   x("allowance_charge.repeatable", "Repeatable invoice allowance/charge", "optional", "document", "document.allowances[] + document.charges[]", "AllowanceCharge[]", "allowance_charge", "invoice", INVOICE, { cardinality: "0..n" }),
   x("line.classifications.repeatable", "Repeatable line classifications", "mandatory", "line", "document.lines[].classificationCode", "InvoiceLine.Item.CommodityClassification[]", "code", "invoice_line", LINE, { cardinality: "1..n", availability: "partial", gap: "Canonical model currently stores one primary classification." }),
   x("prepayment.time", "Prepayment time", "optional", "document", "supplemental.prepayment.time", "PrepaidPayment.PaidTime", "time", "invoice", INVOICE),
-  x("signature.structure", "UBL signature extension", "mandatory", "signing", "submission.signature", "UBLExtensions.UBLExtension.ExtensionContent.Signature", "signature", "signing", "Stage 3 signing boundary", { appliesWhen: "submission", availability: "stage_later", gap: "Out of scope until signing stage." }),
 
   a("annexure.customs_form_1_9", "Reference Number of Customs Form No.1, 9, etc.", "conditional", "document", "document.references[customs_form]", "AdditionalDocumentReference[documentType=Customs].ID", "identifier", "supplemental", SUPPLEMENT, { appliesWhen: "relevant import/export of goods", cardinality: "1..n", availability: "partial", gap: "No current capture UI." }),
   a("annexure.shipping_name", "Shipping Recipient's Name", "optional", "buyer", "shippingRecipient.legalName", "Delivery.DeliveryParty.PartyLegalEntity.RegistrationName", "text", "party", BUYER, { appliesWhen: "recipient differs from buyer" }),
@@ -173,9 +172,9 @@ export const INVOICE_V1_1_FIELD_REGISTRY: readonly InvoiceFieldDefinition[] = Ob
   a("annexure.other_charges", "Details of Other Charges", "optional", "document", "document.charges[]", "AllowanceCharge[ChargeIndicator=true]", "allowance_charge", "supplemental", INVOICE, { cardinality: "0..n" }),
 ]);
 
-export const INVOICE_V1_1_GUIDELINE_FIELDS = INVOICE_V1_1_FIELD_REGISTRY.filter((field) => field.group === "guideline");
-export const INVOICE_V1_1_SDK_EXPANSIONS = INVOICE_V1_1_FIELD_REGISTRY.filter((field) => field.group === "sdk_expansion");
-export const INVOICE_V1_1_ANNEXURE_FIELDS = INVOICE_V1_1_FIELD_REGISTRY.filter((field) => field.group === "annexure");
+export const INVOICE_V1_0_GUIDELINE_FIELDS = INVOICE_V1_0_FIELD_REGISTRY.filter((field) => field.group === "guideline");
+export const INVOICE_V1_0_SDK_EXPANSIONS = INVOICE_V1_0_FIELD_REGISTRY.filter((field) => field.group === "sdk_expansion");
+export const INVOICE_V1_0_ANNEXURE_FIELDS = INVOICE_V1_0_FIELD_REGISTRY.filter((field) => field.group === "annexure");
 
 export interface InvoiceScenarioOverlay {
   key: "b2b_invoice" | "consolidated_transaction" | "foreign_buyer" | "self_billed_invoice" | "credit_note" | "debit_note" | "refund_note" | "tax_exempt" | "foreign_currency" | "import_export" | "shipping_recipient";
@@ -191,7 +190,7 @@ const overlay = (key: InvoiceScenarioOverlay["key"], appliesWhen: string, releva
 });
 
 /** Explicit applicability overlays. Values are never substituted by this metadata. */
-export const INVOICE_V1_1_SCENARIO_OVERLAYS: readonly InvoiceScenarioOverlay[] = Object.freeze([
+export const INVOICE_V1_0_SCENARIO_OVERLAYS: readonly InvoiceScenarioOverlay[] = Object.freeze([
   overlay("b2b_invoice", "standard Malaysian B2B or B2G invoice", ["supplier.tin", "buyer.tin", "buyer.registration"]),
   overlay("consolidated_transaction", "consolidated e-Invoice or General Public", ["buyer.name", "buyer.tin", "buyer.registration", "buyer.phone", "line.classification"]),
   overlay("foreign_buyer", "buyer is a foreign entity", ["buyer.tin", "buyer.registration", "buyer.address", "buyer.address.country"]),

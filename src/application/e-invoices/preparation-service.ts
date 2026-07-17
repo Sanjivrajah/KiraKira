@@ -1,6 +1,6 @@
 import {
   MYINVOIS_DEVELOPMENT_REFERENCE_CODES,
-  INVOICE_V1_1_FIELD_REGISTRY,
+  INVOICE_V1_0_FIELD_REGISTRY,
   createMyInvoisReferenceCatalog,
   validateMyInvoisReadiness,
   type MyInvoisValidationScenario,
@@ -50,16 +50,26 @@ function assemblyDiagnostic(diagnostic: AssemblyDiagnostic): PreparationDiagnost
 }
 
 function registryDiagnostic(code: string, fieldPath: string, message: string, registryKey: string): PreparationDiagnostic {
-  const definition = INVOICE_V1_1_FIELD_REGISTRY.find((field) => field.key === registryKey);
+  const definition = INVOICE_V1_0_FIELD_REGISTRY.find((field) => field.key === registryKey);
   return {
     code, fieldPath, message, severity: "error", group: groupFor(fieldPath),
-    sourceReferenceLabel: definition?.label ?? "MyInvois Invoice v1.1 field requirements",
+    sourceReferenceLabel: definition?.label ?? "MyInvois Invoice v1.0 field requirements",
   };
 }
 
 export function evaluatePreparationReadiness(input: Pick<EInvoiceAssemblyResult, "canonicalDocument" | "supplierSnapshot" | "buyerSnapshot" | "supplementalFields" | "diagnostics" | "scenario">, now: string): PreparationReadinessResult {
   const validatedAt = isoDateTimeSchema.parse(now);
   const diagnostics: PreparationDiagnostic[] = input.diagnostics.map(assemblyDiagnostic);
+  if (input.scenario !== "b2b_invoice") {
+    diagnostics.push({
+      code: "scenario.not_verified",
+      fieldPath: "scenario",
+      message: "Only standard Malaysian B2B invoices are enabled. This scenario requires dedicated golden fixtures and sandbox verification.",
+      severity: "error",
+      group: "scenario",
+      sourceReferenceLabel: "NiagaAI Invoice v1.0 production scope",
+    });
+  }
   const supplierSnapshot = input.supplierSnapshot as Partial<SupplierSnapshot>;
   const supplier = partySchema.safeParse(supplierSnapshot.party);
   const buyer = partySchema.safeParse(input.buyerSnapshot);
@@ -96,7 +106,7 @@ export function evaluatePreparationReadiness(input: Pick<EInvoiceAssemblyResult,
       referenceData,
       asOfDate: isoDateSchema.parse(validatedAt.slice(0, 10)),
       validatedAt,
-      documentVersion: "1.1",
+      documentVersion: "1.0",
     });
     diagnostics.push(...result.allIssues.map((issue) => ({
       code: issue.ruleId,
@@ -133,8 +143,16 @@ export function evaluatePreparationReadiness(input: Pick<EInvoiceAssemblyResult,
       }
     }
     input.canonicalDocument.lines.forEach((line, index) => {
-      if (line.description.length > 300) diagnostics.push(registryDiagnostic("line.description.too_long", `document.lines[${index}].description`, "Line description cannot exceed 300 characters for Invoice v1.1.", "line.description"));
+      if (line.description.length > 300) diagnostics.push(registryDiagnostic("line.description.too_long", `document.lines[${index}].description`, "Line description cannot exceed 300 characters for Invoice v1.0.", "line.description"));
     });
+    if (input.canonicalDocument.internalDocumentNumber.length > 50) {
+      diagnostics.push(registryDiagnostic("document.number.too_long", "document.internalDocumentNumber", "The e-Invoice code cannot exceed 50 characters.", "document.number"));
+    }
+    const prepaymentMetadataPresent = ["prepaymentDate", "prepaymentTime", "prepaymentReference"]
+      .some((key) => typeof input.supplementalFields[key] === "string" && String(input.supplementalFields[key]).trim());
+    if (prepaymentMetadataPresent && Number(input.canonicalDocument.monetaryTotals.prepaidAmount.amount) <= 0) {
+      diagnostics.push(registryDiagnostic("prepayment.amount.missing", "document.monetaryTotals.prepaidAmount", "Prepayment metadata requires a positive prepayment amount on the source invoice.", "prepayment.amount"));
+    }
     if (input.scenario === "shipping_recipient" && !input.supplementalFields._shippingRecipientSnapshot) {
       diagnostics.push(registryDiagnostic("shipping.snapshot.missing", "shippingRecipient", "The shipping recipient must be frozen with this preparation revision.", "annexure.shipping_address"));
     }

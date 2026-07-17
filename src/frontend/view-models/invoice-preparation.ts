@@ -60,7 +60,7 @@ export function createInvoicePreparationResult(input: {
     referenceData,
     asOfDate: isoDateSchema.parse(validatedAt.slice(0, 10)),
     validatedAt,
-    documentVersion: "1.1",
+    documentVersion: "1.0",
   });
 }
 

@@ -53,7 +53,7 @@ const defaultBaseUrls: Record<MyInvoisEnvironment, string> = {
   production: "https://api.myinvois.hasil.gov.my",
 };
 
-export class MyInvoisIntermediaryOAuthClient {
+export class MyInvoisOAuthClient {
   private readonly cache = new Map<string, CachedToken>();
   private readonly pending = new Map<string, Promise<CachedToken>>();
   private readonly fetch: FetchLike;
@@ -148,7 +148,7 @@ export class MyInvoisIntermediaryOAuthClient {
       if (![429, 500, 502, 503, 504].includes(response.status) || attempt + 1 >= this.maxAttempts) {
         throw new MyInvoisAuthenticationError(
           response.status === 429 ? "auth.throttled" : "auth.rejected",
-          response.status === 429 ? "MyInvois login is rate limited. Try again later." : "MyInvois rejected the configured intermediary credentials or delegation.",
+          response.status === 429 ? "MyInvois login is rate limited. Try again later." : "MyInvois rejected the configured credentials or represented-taxpayer delegation.",
           response.status,
         );
       }

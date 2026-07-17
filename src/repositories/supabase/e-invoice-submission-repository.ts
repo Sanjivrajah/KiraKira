@@ -27,6 +27,10 @@ interface SubmissionRow {
   retry_after: string | null;
   error_code: string | null;
   error_message: string | null;
+  lease_owner: string | null;
+  lease_expires_at: string | null;
+  dead_lettered_at: string | null;
+  dead_letter_reason: string | null;
 }
 
 interface SubmissionDocumentRow {
@@ -43,6 +47,8 @@ interface SubmissionDocumentRow {
   validation_result: unknown;
   cancellation_eligible_until: string | null;
 }
+
+const submissionSelection = "id,business_id,environment,idempotency_key,request_hash,submission_uid,status,requested_at,responded_at,http_status,correlation_id,retry_count,retry_after,error_code,error_message,lease_owner,lease_expires_at,dead_lettered_at,dead_letter_reason";
 
 function document(row: SubmissionDocumentRow): EInvoiceSubmissionDocumentRecord {
   return {
@@ -78,6 +84,10 @@ function submission(row: SubmissionRow, documents: SubmissionDocumentRow[]): EIn
     retryAfter: row.retry_after ?? undefined,
     errorCode: row.error_code ?? undefined,
     errorMessage: row.error_message ?? undefined,
+    leaseOwner: row.lease_owner ?? undefined,
+    leaseExpiresAt: row.lease_expires_at ?? undefined,
+    deadLetteredAt: row.dead_lettered_at ?? undefined,
+    deadLetterReason: row.dead_letter_reason ?? undefined,
     documents: documents.filter((item) => item.submission_id === row.id).map(document),
   };
 }
@@ -101,9 +111,9 @@ export class SupabaseEInvoiceSubmissionRepository implements EInvoiceSubmissionR
     if (payloadResult.error) throw payloadResult.error;
     const payloadRows = payloadResult.data as Array<{ id: string; business_id: string; e_invoice_document_id: string; document_revision: number; document_version: "1.0"; format: string; unsigned_payload: string; unsigned_payload_hash: string }>;
     if (!payloadRows.length) return [];
-    const documentResult = await this.client.from("e_invoice_documents").select("id,business_id,status,active,submission_eligible,revision,source_invoice_id").eq("business_id", businessId).in("id", payloadRows.map((row) => row.e_invoice_document_id));
+    const documentResult = await this.client.from("e_invoice_documents").select("id,business_id,status,active,submission_eligible,revision,source_invoice_id,scenario").eq("business_id", businessId).in("id", payloadRows.map((row) => row.e_invoice_document_id));
     if (documentResult.error) throw documentResult.error;
-    const documentRows = documentResult.data as Array<{ id: string; business_id: string; status: string; active: boolean; submission_eligible: boolean; revision: number; source_invoice_id: string }>;
+    const documentRows = documentResult.data as Array<{ id: string; business_id: string; status: string; active: boolean; submission_eligible: boolean; revision: number; source_invoice_id: string; scenario: EInvoiceSubmissionCandidate["scenario"] }>;
     const invoiceResult = await this.client.from("invoices").select("id,invoice_number").eq("business_id", businessId).in("id", documentRows.map((row) => row.source_invoice_id));
     if (invoiceResult.error) throw invoiceResult.error;
     const invoiceRows = invoiceResult.data as Array<{ id: string; invoice_number: string }>;
@@ -117,6 +127,7 @@ export class SupabaseEInvoiceSubmissionRepository implements EInvoiceSubmissionR
         payloadSnapshotId: payload.id, businessId: payload.business_id,
         eInvoiceDocumentId: source.id, documentRevision: payload.document_revision,
         documentVersion: payload.document_version,
+        scenario: source.scenario,
         format: payload.format as "json", unsignedPayload: payload.unsigned_payload,
         unsignedPayloadHash: payload.unsigned_payload_hash, invoiceCodeNumber: invoice.invoice_number,
         approved: source.status === "approved", active: source.active,
@@ -130,8 +141,17 @@ export class SupabaseEInvoiceSubmissionRepository implements EInvoiceSubmissionR
     return new SupabaseEInvoiceRepository(this.client).findConnection(businessId, environment);
   }
 
+  async reserveProviderCall(businessId: string, connection: MyInvoisConnectionRecord, endpoint: "submit" | "get_submission" | "get_document_details" | "cancel", limit: number, at: string) {
+    const { data, error } = await this.client.rpc("reserve_e_invoice_provider_call", {
+      p_business_id: businessId, p_credential_set_id: connection.credentialSetId,
+      p_environment: connection.environment, p_endpoint: endpoint, p_limit: limit, p_at: at,
+    });
+    if (error) throw error;
+    return data === true;
+  }
+
   async findSubmissionByIdempotencyKey(businessId: string, idempotencyKey: string) {
-    const { data, error } = await this.client.from("e_invoice_submissions").select().eq("business_id", businessId).eq("idempotency_key", idempotencyKey).maybeSingle();
+    const { data, error } = await this.client.from("e_invoice_submissions").select(submissionSelection).eq("business_id", businessId).eq("idempotency_key", idempotencyKey).maybeSingle();
     if (error) throw error;
     return data ? this.withDocuments(data as SubmissionRow) : null;
   }
@@ -160,22 +180,38 @@ export class SupabaseEInvoiceSubmissionRepository implements EInvoiceSubmissionR
   }
 
   async findSubmission(businessId: string, submissionId: string) {
-    const { data, error } = await this.client.from("e_invoice_submissions").select().eq("business_id", businessId).eq("id", submissionId).maybeSingle();
+    const { data, error } = await this.client.from("e_invoice_submissions").select(submissionSelection).eq("business_id", businessId).eq("id", submissionId).maybeSingle();
     if (error) throw error;
     return data ? this.withDocuments(data as SubmissionRow) : null;
   }
 
   async listSubmissions(businessId: string) {
-    const { data, error } = await this.client.from("e_invoice_submissions").select().eq("business_id", businessId).order("requested_at", { ascending: false });
+    const { data, error } = await this.client.from("e_invoice_submissions").select(submissionSelection).eq("business_id", businessId).order("requested_at", { ascending: false });
     if (error) throw error;
     return this.rowsWithDocuments(data as SubmissionRow[]);
   }
 
-  async listDueSubmissions(limit: number, at: string) {
-    const { data, error } = await this.client.from("e_invoice_submissions").select().in("status", ["submitted", "processing"])
-      .lte("retry_after", at).order("retry_after", { ascending: true }).limit(limit);
+  async claimDueSubmissions(workerId: string, limit: number, at: string) {
+    const { data, error } = await this.client.rpc("claim_due_e_invoice_submissions", {
+      p_worker_id: workerId, p_limit: limit, p_at: at, p_lease_seconds: 60,
+    });
     if (error) throw error;
-    return this.rowsWithDocuments(data as SubmissionRow[]);
+    return this.rowsWithDocuments((data ?? []) as SubmissionRow[]);
+  }
+
+  async recordWorkerFailure(businessId: string, submissionId: string, workerId: string, reason: string, at: string) {
+    const { error } = await this.client.rpc("record_e_invoice_worker_failure", {
+      p_business_id: businessId, p_submission_id: submissionId, p_worker_id: workerId,
+      p_reason: reason, p_at: at,
+    });
+    if (error) throw error;
+  }
+
+  async recordWorkerSuccess(businessId: string, submissionId: string, workerId: string) {
+    const { error } = await this.client.rpc("record_e_invoice_worker_success", {
+      p_business_id: businessId, p_submission_id: submissionId, p_worker_id: workerId,
+    });
+    if (error) throw error;
   }
 
   async reconcileSubmission(input: ReconcileSubmissionInput) {
@@ -187,6 +223,36 @@ export class SupabaseEInvoiceSubmissionRepository implements EInvoiceSubmissionR
     const result = await this.findSubmission(input.businessId, input.submissionId);
     if (!result) throw new Error("The reconciled e-Invoice submission could not be reloaded.");
     return result;
+  }
+
+  async recordCancellation(input: import("@/application/e-invoices").CancelEInvoiceDocumentInput) {
+    const { error } = await this.client.rpc("record_e_invoice_cancellation", {
+      p_business_id: input.businessId, p_submission_id: input.submissionId,
+      p_document_id: input.eInvoiceDocumentId, p_reason: input.reason,
+      p_cancelled_at: input.cancelledAt, p_correlation_id: input.correlationId ?? null,
+      p_raw_response: input.rawResponse ?? null,
+    });
+    if (error) throw error;
+    const result = await this.findSubmission(input.businessId, input.submissionId);
+    if (!result) throw new Error("The cancelled e-Invoice submission could not be reloaded.");
+    return result;
+  }
+
+  async claimCancellation(input: Pick<import("@/application/e-invoices").CancelEInvoiceDocumentInput, "businessId" | "submissionId" | "eInvoiceDocumentId" | "reason" | "cancelledAt">) {
+    const { data, error } = await this.client.rpc("claim_e_invoice_cancellation", {
+      p_business_id: input.businessId, p_submission_id: input.submissionId,
+      p_document_id: input.eInvoiceDocumentId, p_reason: input.reason, p_requested_at: input.cancelledAt,
+    });
+    if (error) throw error;
+    return data === true;
+  }
+
+  async recordCancellationFailure(input: Pick<import("@/application/e-invoices").CancelEInvoiceDocumentInput, "businessId" | "submissionId" | "eInvoiceDocumentId" | "cancelledAt"> & { errorSummary: string }) {
+    const { error } = await this.client.rpc("fail_e_invoice_cancellation", {
+      p_business_id: input.businessId, p_submission_id: input.submissionId,
+      p_document_id: input.eInvoiceDocumentId, p_reason: input.errorSummary, p_failed_at: input.cancelledAt,
+    });
+    if (error) throw error;
   }
 
   private async withDocuments(row: SubmissionRow) {

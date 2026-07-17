@@ -68,7 +68,7 @@ export const documentRules: MyInvoisValidationRule[] = [
     validate: ({ document }) => document.exchangeRate ? [] : [{}],
     fieldPath: "document.exchangeRate",
     message: "Foreign-currency documents require an exchange rate to MYR.",
-    sourceReferenceLabel: "MyInvois Invoice v1.1 Currency Exchange Rate",
+    sourceReferenceLabel: "MyInvois Invoice v1.0 Currency Exchange Rate",
   },
   {
     ruleId: "document.adjustment-reference.required",

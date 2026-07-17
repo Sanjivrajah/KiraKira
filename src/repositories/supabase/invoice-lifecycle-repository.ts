@@ -29,6 +29,7 @@ export class SupabaseInvoiceLifecycleRepository {
         customer_snapshot: { name: invoice.customerName, email: invoice.customerEmail ?? null, tin: invoice.buyerTin ?? null },
         supplier_snapshot: {}, issue_date: invoice.issueDate, due_date: invoice.dueDate, currency: invoice.currency,
         notes: invoice.notes ?? null, payment_terms: invoice.paymentTerms ?? null, rounding_minor: 0,
+        prepaid_minor: Math.round((invoice.prepaymentAmount ?? 0) * 100),
       } as Json,
       p_items: invoice.items.map((item) => this.toItemPayload(item)) as Json,
     });
@@ -40,6 +41,14 @@ export class SupabaseInvoiceLifecycleRepository {
 
   issue(invoiceId: string, prefix = "INV-", fiscalPeriod = "") {
     return this.unwrap(this.client.rpc("issue_invoice", { p_invoice_id: invoiceId, p_prefix: prefix, p_fiscal_period: fiscalPeriod }));
+  }
+
+  updatePrepayment(invoiceId: string, businessId: string, prepaidMinor: number) {
+    return this.unwrap(this.client.rpc("update_invoice_prepayment", {
+      p_business_id: businessId,
+      p_invoice_id: invoiceId,
+      p_prepaid_minor: prepaidMinor,
+    }));
   }
 
   /** Persists the rich canonical fields and full party snapshots before a draft is issued. */

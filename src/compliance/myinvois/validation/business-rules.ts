@@ -9,7 +9,7 @@ export const businessRules: MyInvoisValidationRule[] = [
     validate: ({ supplier }) => supplier?.legalName ? [] : [{}],
     fieldPath: "supplier.legalName",
     message: "Supplier legal name is required.",
-    sourceReferenceLabel: "MyInvois Invoice v1.1 Supplier",
+    sourceReferenceLabel: "MyInvois Invoice v1.0 Supplier",
   },
   {
     ruleId: "supplier.tin.present",
@@ -19,7 +19,7 @@ export const businessRules: MyInvoisValidationRule[] = [
     validate: ({ supplier }) => supplier?.taxIdentifiers.some((identifier) => identifier.scheme === "tin") ? [] : [{}],
     fieldPath: "supplier.taxIdentifiers",
     message: "Supplier TIN is required for MyInvois submission.",
-    sourceReferenceLabel: "MyInvois Invoice v1.1 Supplier TIN",
+    sourceReferenceLabel: "MyInvois Invoice v1.0 Supplier TIN",
   },
   {
     ruleId: "supplier.registration.present",
@@ -29,7 +29,7 @@ export const businessRules: MyInvoisValidationRule[] = [
     validate: ({ supplier }) => supplier?.registrationIdentifiers.length ? [] : [{}],
     fieldPath: "supplier.registrationIdentifiers",
     message: "Supplier registration or identification number is required.",
-    sourceReferenceLabel: "MyInvois Invoice v1.1 Supplier Identification",
+    sourceReferenceLabel: "MyInvois Invoice v1.0 Supplier Identification",
   },
   {
     ruleId: "supplier.contact.present",
@@ -42,7 +42,7 @@ export const businessRules: MyInvoisValidationRule[] = [
     ],
     fieldPath: "supplier",
     message: "Supplier contact and address are required.",
-    sourceReferenceLabel: "MyInvois Invoice v1.1 Supplier Contact",
+    sourceReferenceLabel: "MyInvois Invoice v1.0 Supplier Contact",
   },
   {
     ruleId: "supplier.msic.active",
@@ -65,6 +65,6 @@ export const businessRules: MyInvoisValidationRule[] = [
     validate: ({ business }) => business?.compliance.businessActivityDescription ? [] : [{}],
     fieldPath: "business.compliance.businessActivityDescription",
     message: "Supplier business activity description is required.",
-    sourceReferenceLabel: "MyInvois Invoice v1.1 Supplier Activity",
+    sourceReferenceLabel: "MyInvois Invoice v1.0 Supplier Activity",
   },
 ];

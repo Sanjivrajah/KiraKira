@@ -53,6 +53,7 @@ function toInvoice(row: InvoiceWithItems): Invoice {
       })),
     notes: row.notes,
     paymentTerms: row.payment_terms,
+    prepaymentAmount: toAmount(row.prepaid_minor),
     status: toInvoiceStatus(row.status),
     subtotal: toAmount(row.subtotal_minor),
     tax: toAmount(row.tax_minor),
@@ -103,11 +104,14 @@ export class LegacyInvoiceRepositoryAdapter implements InvoiceRepository {
     const existing = await this.getById({ businessId, invoiceId });
     if (!existing) throw new Error("Invoice not found.");
     const invoice = { ...existing, ...changes, businessId, id: invoiceId };
+    const prepaymentChanged = invoice.prepaymentAmount !== existing.prepaymentAmount;
     if (invoice.status === "void") {
       await this.lifecycle.void(invoiceId, "Voided from the web application");
     } else if (existing.status === "draft") {
       await this.lifecycle.saveDraft(invoice);
       if (invoice.status === "sent") await this.lifecycle.issue(invoiceId);
+    } else if (prepaymentChanged && invoice.status === existing.status) {
+      await this.lifecycle.updatePrepayment(invoiceId, invoice.businessId, Math.round((invoice.prepaymentAmount ?? 0) * 100));
     } else if (invoice.status !== existing.status) {
       throw new Error("Record a payment to update a sent invoice's payment status.");
     }

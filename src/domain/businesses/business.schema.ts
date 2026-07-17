@@ -21,7 +21,6 @@ export const myInvoisIntegrationConfigurationSchema = z
     environment: z.enum(["sandbox", "production"]),
     clientIdSecretRef: secretReferenceSchema,
     clientSecretSecretRef: secretReferenceSchema,
-    certificateSecretRef: secretReferenceSchema.optional(),
   })
   .strict();
 

@@ -2,7 +2,7 @@
 
 ## Goal
 
-Implement deterministic MyInvois UBL 2.1 Invoice v1.1 JSON generation from an approved canonical document and persist the exact immutable payload snapshot. This stage does not authenticate, sign, or submit to MyInvois.
+Implement deterministic unsigned MyInvois UBL 2.1 Invoice v1.0 JSON generation from an approved canonical document and persist the exact immutable payload snapshot. This stage does not authenticate or submit to MyInvois.
 
 ## Format decision
 
@@ -12,12 +12,12 @@ Implement JSON first unless an explicit product requirement selects XML. All doc
 
 Treat these as versioned inputs:
 
-- MyInvois Invoice v1.1 structure.
+- MyInvois Invoice v1.0 structure.
 - UBL 2.1 JSON naming and element ordering requirements.
 - MyInvois code lists and validation rules.
 - Official sample payloads.
 - The Stage 1 field-source matrix.
-- `REFERENCE_INVOICE_V1_1_FIELD_REQUIREMENTS.md`, including SDK expansions and annexure fields.
+- `REFERENCE_INVOICE_V1_0_FIELD_REQUIREMENTS.md`, including SDK expansions and annexure fields.
 
 Record the source URL, retrieval date, supported document type, and version beside fixtures or reference metadata. Do not scrape official pages at runtime.
 
@@ -26,7 +26,7 @@ Record the source URL, retrieval date, supported document type, and version besi
 Add a concrete mapper behind the existing `MyInvoisDocumentMapper` contract, for example:
 
 ```text
-src/compliance/myinvois/mappers/invoice-v1.1-json.ts
+src/compliance/myinvois/mappers/invoice-v1_0.mapper.ts
 ```
 
 The mapper must:
@@ -118,7 +118,7 @@ Where possible, validate fixtures with official schemas/examples and later submi
 
 ## Deliverables
 
-- Invoice v1.1 JSON mapper.
+- Invoice v1.0 JSON mapper with no signature elements.
 - Versioned reference-data boundary.
 - Immutable payload-snapshot migration and repository.
 - Payload generation service.

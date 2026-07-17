@@ -634,11 +634,79 @@ export type Database = {
           },
         ]
       }
+      e_invoice_cancellation_requests: {
+        Row: {
+          business_id: string
+          completed_at: string | null
+          e_invoice_document_id: string
+          error_summary: string | null
+          id: string
+          reason: string
+          requested_at: string
+          requested_by: string
+          status: string
+          submission_id: string
+        }
+        Insert: {
+          business_id: string
+          completed_at?: string | null
+          e_invoice_document_id: string
+          error_summary?: string | null
+          id?: string
+          reason: string
+          requested_at: string
+          requested_by: string
+          status: string
+          submission_id: string
+        }
+        Update: {
+          business_id?: string
+          completed_at?: string | null
+          e_invoice_document_id?: string
+          error_summary?: string | null
+          id?: string
+          reason?: string
+          requested_at?: string
+          requested_by?: string
+          status?: string
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "e_invoice_cancellation_requests_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "e_invoice_cancellation_requests_e_invoice_document_id_fkey"
+            columns: ["e_invoice_document_id"]
+            isOneToOne: false
+            referencedRelation: "e_invoice_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "e_invoice_cancellation_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "e_invoice_cancellation_requests_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "e_invoice_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       e_invoice_documents: {
         Row: {
+          active: boolean
           approved_at: string | null
           approved_by: string | null
-          active: boolean
           business_id: string
           buyer_snapshot: Json
           canonical_document: Json | null
@@ -654,15 +722,15 @@ export type Database = {
           source_invoice_revision: number
           status: string
           submission_eligible: boolean
-          supplemental_fields: Json
           supersedes_document_id: string | null
+          supplemental_fields: Json
           supplier_snapshot: Json
           updated_at: string
         }
         Insert: {
+          active?: boolean
           approved_at?: string | null
           approved_by?: string | null
-          active?: boolean
           business_id: string
           buyer_snapshot: Json
           canonical_document?: Json | null
@@ -678,15 +746,15 @@ export type Database = {
           source_invoice_revision: number
           status: string
           submission_eligible?: boolean
-          supplemental_fields?: Json
           supersedes_document_id?: string | null
+          supplemental_fields?: Json
           supplier_snapshot: Json
           updated_at?: string
         }
         Update: {
+          active?: boolean
           approved_at?: string | null
           approved_by?: string | null
-          active?: boolean
           business_id?: string
           buyer_snapshot?: Json
           canonical_document?: Json | null
@@ -702,8 +770,8 @@ export type Database = {
           source_invoice_revision?: number
           status?: string
           submission_eligible?: boolean
-          supplemental_fields?: Json
           supersedes_document_id?: string | null
+          supplemental_fields?: Json
           supplier_snapshot?: Json
           updated_at?: string
         }
@@ -727,6 +795,73 @@ export type Database = {
             columns: ["source_invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "e_invoice_documents_supersedes_document_id_fkey"
+            columns: ["supersedes_document_id"]
+            isOneToOne: false
+            referencedRelation: "e_invoice_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      e_invoice_operation_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          business_id: string
+          correlation_id: string | null
+          details: Json
+          environment: string
+          id: string
+          occurred_at: string
+          outcome: string
+          reason: string | null
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          business_id: string
+          correlation_id?: string | null
+          details?: Json
+          environment: string
+          id?: string
+          occurred_at?: string
+          outcome: string
+          reason?: string | null
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          business_id?: string
+          correlation_id?: string | null
+          details?: Json
+          environment?: string
+          id?: string
+          occurred_at?: string
+          outcome?: string
+          reason?: string | null
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "e_invoice_operation_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "e_invoice_operation_events_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
         ]
@@ -791,6 +926,30 @@ export type Database = {
           },
         ]
       }
+      e_invoice_rate_limit_buckets: {
+        Row: {
+          credential_set_id: string
+          endpoint: string
+          environment: string
+          request_count: number
+          window_started_at: string
+        }
+        Insert: {
+          credential_set_id: string
+          endpoint: string
+          environment: string
+          request_count: number
+          window_started_at: string
+        }
+        Update: {
+          credential_set_id?: string
+          endpoint?: string
+          environment?: string
+          request_count?: number
+          window_started_at?: string
+        }
+        Relationships: []
+      }
       e_invoice_signed_snapshots: {
         Row: {
           business_id: string
@@ -799,8 +958,8 @@ export type Database = {
           certificate_serial_number: string
           certificate_subject: string
           certificate_thumbprint: string
-          created_at: string
           connection_id: string
+          created_at: string
           environment: string
           id: string
           implementation_version: string
@@ -818,8 +977,8 @@ export type Database = {
           certificate_serial_number: string
           certificate_subject: string
           certificate_thumbprint: string
-          created_at?: string
           connection_id: string
+          created_at?: string
           environment: string
           id?: string
           implementation_version: string
@@ -837,8 +996,8 @@ export type Database = {
           certificate_serial_number?: string
           certificate_subject?: string
           certificate_thumbprint?: string
-          created_at?: string
           connection_id?: string
+          created_at?: string
           environment?: string
           id?: string
           implementation_version?: string
@@ -943,9 +1102,9 @@ export type Database = {
           invoice_code_number: string
           long_id: string | null
           myinvois_uuid: string | null
+          payload_snapshot_id: string
           rejection_error: Json | null
           share_url: string | null
-          payload_snapshot_id: string
           status: string
           submission_id: string
           validation_result: Json | null
@@ -958,9 +1117,9 @@ export type Database = {
           invoice_code_number: string
           long_id?: string | null
           myinvois_uuid?: string | null
+          payload_snapshot_id: string
           rejection_error?: Json | null
           share_url?: string | null
-          payload_snapshot_id: string
           status: string
           submission_id: string
           validation_result?: Json | null
@@ -973,9 +1132,9 @@ export type Database = {
           invoice_code_number?: string
           long_id?: string | null
           myinvois_uuid?: string | null
+          payload_snapshot_id?: string
           rejection_error?: Json | null
           share_url?: string | null
-          payload_snapshot_id?: string
           status?: string
           submission_id?: string
           validation_result?: Json | null
@@ -1009,12 +1168,17 @@ export type Database = {
           business_id: string
           correlation_id: string | null
           created_at: string
+          dead_letter_reason: string | null
+          dead_lettered_at: string | null
           environment: string
           error_code: string | null
           error_message: string | null
           http_status: number | null
           id: string
           idempotency_key: string
+          last_attempt_at: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
           raw_response: Json | null
           request_hash: string
           requested_at: string
@@ -1023,17 +1187,23 @@ export type Database = {
           retry_count: number
           status: string
           submission_uid: string | null
+          worker_failure_count: number
         }
         Insert: {
           business_id: string
           correlation_id?: string | null
           created_at?: string
+          dead_letter_reason?: string | null
+          dead_lettered_at?: string | null
           environment: string
           error_code?: string | null
           error_message?: string | null
           http_status?: number | null
           id?: string
           idempotency_key: string
+          last_attempt_at?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
           raw_response?: Json | null
           request_hash: string
           requested_at: string
@@ -1042,17 +1212,23 @@ export type Database = {
           retry_count?: number
           status: string
           submission_uid?: string | null
+          worker_failure_count?: number
         }
         Update: {
           business_id?: string
           correlation_id?: string | null
           created_at?: string
+          dead_letter_reason?: string | null
+          dead_lettered_at?: string | null
           environment?: string
           error_code?: string | null
           error_message?: string | null
           http_status?: number | null
           id?: string
           idempotency_key?: string
+          last_attempt_at?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
           raw_response?: Json | null
           request_hash?: string
           requested_at?: string
@@ -1061,6 +1237,7 @@ export type Database = {
           retry_count?: number
           status?: string
           submission_uid?: string | null
+          worker_failure_count?: number
         }
         Relationships: [
           {
@@ -1963,10 +2140,18 @@ export type Database = {
           client_secret_secret_ref: string
           created_at: string
           credential_set_id: string
+          document_version: string
           enabled: boolean
           environment: string
           id: string
-          onbehalfof_value: string
+          onbehalfof_value: string | null
+          production_activated_at: string | null
+          production_activated_by: string | null
+          production_activation_reason: string | null
+          production_disabled_at: string | null
+          production_disabled_by: string | null
+          sandbox_verified_at: string | null
+          sandbox_verified_by: string | null
           signing_certificate_chain_secret_ref: string | null
           signing_certificate_secret_ref: string | null
           signing_key_passphrase_secret_ref: string | null
@@ -1979,14 +2164,30 @@ export type Database = {
           verified_by: string | null
         }
         Insert: {
-          auth_mode?: string
+          auth_mode: string
           business_id: string
+          certificate_issuer?: string | null
+          certificate_not_after?: string | null
+          certificate_not_before?: string | null
+          certificate_serial_number?: string | null
+          certificate_subject?: string | null
+          certificate_thumbprint?: string | null
           client_id_secret_ref: string
           client_secret_secret_ref: string
+          created_at?: string
           credential_set_id: string
+          document_version?: string
           enabled?: boolean
           environment: string
           id?: string
+          onbehalfof_value?: string | null
+          production_activated_at?: string | null
+          production_activated_by?: string | null
+          production_activation_reason?: string | null
+          production_disabled_at?: string | null
+          production_disabled_by?: string | null
+          sandbox_verified_at?: string | null
+          sandbox_verified_by?: string | null
           signing_certificate_chain_secret_ref?: string | null
           signing_certificate_secret_ref?: string | null
           signing_key_passphrase_secret_ref?: string | null
@@ -1994,6 +2195,9 @@ export type Database = {
           taxpayer_registration_scheme?: string | null
           taxpayer_registration_value?: string | null
           taxpayer_tin: string
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
           auth_mode?: string
@@ -2006,9 +2210,20 @@ export type Database = {
           certificate_thumbprint?: string | null
           client_id_secret_ref?: string
           client_secret_secret_ref?: string
+          created_at?: string
           credential_set_id?: string
+          document_version?: string
           enabled?: boolean
           environment?: string
+          id?: string
+          onbehalfof_value?: string | null
+          production_activated_at?: string | null
+          production_activated_by?: string | null
+          production_activation_reason?: string | null
+          production_disabled_at?: string | null
+          production_disabled_by?: string | null
+          sandbox_verified_at?: string | null
+          sandbox_verified_by?: string | null
           signing_certificate_chain_secret_ref?: string | null
           signing_certificate_secret_ref?: string | null
           signing_key_passphrase_secret_ref?: string | null
@@ -2016,6 +2231,7 @@ export type Database = {
           taxpayer_registration_scheme?: string | null
           taxpayer_registration_value?: string | null
           taxpayer_tin?: string
+          updated_at?: string
           verified_at?: string | null
           verified_by?: string | null
         }
@@ -2025,6 +2241,27 @@ export type Database = {
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "myinvois_connections_production_activated_by_fkey"
+            columns: ["production_activated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "myinvois_connections_production_disabled_by_fkey"
+            columns: ["production_disabled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "myinvois_connections_sandbox_verified_by_fkey"
+            columns: ["sandbox_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -3145,9 +3382,9 @@ export type Database = {
           p_readiness_result: Json
         }
         Returns: {
+          active: boolean
           approved_at: string | null
           approved_by: string | null
-          active: boolean
           business_id: string
           buyer_snapshot: Json
           canonical_document: Json | null
@@ -3163,8 +3400,8 @@ export type Database = {
           source_invoice_revision: number
           status: string
           submission_eligible: boolean
-          supplemental_fields: Json
           supersedes_document_id: string | null
+          supplemental_fields: Json
           supplier_snapshot: Json
           updated_at: string
         }
@@ -3173,33 +3410,6 @@ export type Database = {
           to: "e_invoice_documents"
           isOneToOne: true
           isSetofReturn: false
-        }
-      }
-      create_e_invoice_revision: {
-        Args: { p_business_id: string; p_document_id: string }
-        Returns: {
-          active: boolean
-          approved_at: string | null
-          approved_by: string | null
-          business_id: string
-          buyer_snapshot: Json
-          canonical_document: Json | null
-          created_at: string
-          document_type: string
-          document_version: string
-          id: string
-          provenance: Json
-          readiness_result: Json
-          revision: number
-          scenario: string
-          source_invoice_id: string
-          source_invoice_revision: number
-          status: string
-          submission_eligible: boolean
-          supplemental_fields: Json
-          supersedes_document_id: string | null
-          supplier_snapshot: Json
-          updated_at: string
         }
       }
       can_access_evidence_object: {
@@ -3224,6 +3434,55 @@ export type Database = {
       can_write_reminder: { Args: { p_reminder_id: string }; Returns: boolean }
       can_write_transaction: {
         Args: { p_transaction_id: string }
+        Returns: boolean
+      }
+      claim_due_e_invoice_submissions: {
+        Args: {
+          p_at: string
+          p_lease_seconds?: number
+          p_limit: number
+          p_worker_id: string
+        }
+        Returns: {
+          business_id: string
+          correlation_id: string | null
+          created_at: string
+          dead_letter_reason: string | null
+          dead_lettered_at: string | null
+          environment: string
+          error_code: string | null
+          error_message: string | null
+          http_status: number | null
+          id: string
+          idempotency_key: string
+          last_attempt_at: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          raw_response: Json | null
+          request_hash: string
+          requested_at: string
+          responded_at: string | null
+          retry_after: string | null
+          retry_count: number
+          status: string
+          submission_uid: string | null
+          worker_failure_count: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "e_invoice_submissions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      claim_e_invoice_cancellation: {
+        Args: {
+          p_business_id: string
+          p_document_id: string
+          p_reason: string
+          p_requested_at: string
+          p_submission_id: string
+        }
         Returns: boolean
       }
       claim_reminder_delivery: {
@@ -3299,7 +3558,61 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      create_e_invoice_pending_submission: {
+        Args: {
+          p_business_id: string
+          p_documents: Json
+          p_environment: string
+          p_idempotency_key: string
+          p_request_hash: string
+          p_requested_at: string
+        }
+        Returns: Json
+      }
+      create_e_invoice_revision: {
+        Args: { p_business_id: string; p_document_id: string }
+        Returns: {
+          active: boolean
+          approved_at: string | null
+          approved_by: string | null
+          business_id: string
+          buyer_snapshot: Json
+          canonical_document: Json | null
+          created_at: string
+          document_type: string
+          document_version: string
+          id: string
+          provenance: Json
+          readiness_result: Json
+          revision: number
+          scenario: string
+          source_invoice_id: string
+          source_invoice_revision: number
+          status: string
+          submission_eligible: boolean
+          supersedes_document_id: string | null
+          supplemental_fields: Json
+          supplier_snapshot: Json
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "e_invoice_documents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       current_timestamp_utc: { Args: never; Returns: string }
+      fail_e_invoice_cancellation: {
+        Args: {
+          p_business_id: string
+          p_document_id: string
+          p_failed_at: string
+          p_reason: string
+          p_submission_id: string
+        }
+        Returns: undefined
+      }
       has_business_role: {
         Args: { p_business_id: string; p_roles: string[] }
         Returns: boolean
@@ -3391,9 +3704,59 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      mark_e_invoice_sandbox_verified: {
+        Args: { p_business_id: string; p_reason: string }
+        Returns: undefined
+      }
       mark_overdue_invoices: {
         Args: { p_business_id?: string }
         Returns: number
+      }
+      reconcile_e_invoice_submission: {
+        Args: {
+          p_business_id: string
+          p_reconciliation: Json
+          p_submission_id: string
+        }
+        Returns: undefined
+      }
+      record_e_invoice_cancellation: {
+        Args: {
+          p_business_id: string
+          p_cancelled_at: string
+          p_correlation_id: string
+          p_document_id: string
+          p_raw_response: Json
+          p_reason: string
+          p_submission_id: string
+        }
+        Returns: undefined
+      }
+      record_e_invoice_submission_response: {
+        Args: {
+          p_business_id: string
+          p_response: Json
+          p_submission_id: string
+        }
+        Returns: undefined
+      }
+      record_e_invoice_worker_failure: {
+        Args: {
+          p_at: string
+          p_business_id: string
+          p_reason: string
+          p_submission_id: string
+          p_worker_id: string
+        }
+        Returns: undefined
+      }
+      record_e_invoice_worker_success: {
+        Args: {
+          p_business_id: string
+          p_submission_id: string
+          p_worker_id: string
+        }
+        Returns: undefined
       }
       record_invoice_payment: {
         Args: {
@@ -3423,6 +3786,17 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      reserve_e_invoice_provider_call: {
+        Args: {
+          p_at: string
+          p_business_id: string
+          p_credential_set_id: string
+          p_endpoint: string
+          p_environment: string
+          p_limit: number
+        }
+        Returns: boolean
       }
       reverse_invoice_payment: {
         Args: { p_payment_id: string; p_reason: string }
@@ -3490,9 +3864,9 @@ export type Database = {
           p_supplemental_fields: Json
         }
         Returns: {
+          active: boolean
           approved_at: string | null
           approved_by: string | null
-          active: boolean
           business_id: string
           buyer_snapshot: Json
           canonical_document: Json | null
@@ -3508,8 +3882,8 @@ export type Database = {
           source_invoice_revision: number
           status: string
           submission_eligible: boolean
-          supplemental_fields: Json
           supersedes_document_id: string | null
+          supplemental_fields: Json
           supplier_snapshot: Json
           updated_at: string
         }
@@ -3648,6 +4022,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_e_invoice_production_activation: {
+        Args: { p_business_id: string; p_enabled: boolean; p_reason: string }
+        Returns: undefined
+      }
       storage_object_bucket_matches_entity: {
         Args: { p_bucket_id: string; p_object_name: string }
         Returns: boolean
@@ -3655,6 +4033,100 @@ export type Database = {
       storage_object_has_business_path: {
         Args: { p_business_id: string; p_object_name: string }
         Returns: boolean
+      }
+      update_business_compliance_profile: {
+        Args: {
+          p_business_activity_description: string
+          p_business_id: string
+          p_msic_code: string
+          p_primary_address: Json
+          p_primary_phone: string
+        }
+        Returns: {
+          business_activity_description: string | null
+          created_at: string
+          created_by: string | null
+          default_currency: string
+          entity_type: string
+          id: string
+          legal_name: string
+          msic_code: string | null
+          owner_user_id: string
+          preferred_language: string
+          timezone: string
+          trading_name: string | null
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "businesses"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_invoice_prepayment: {
+        Args: {
+          p_business_id: string
+          p_invoice_id: string
+          p_prepaid_minor: number
+        }
+        Returns: {
+          amount_paid_minor: number
+          bank_account_identifier: string | null
+          billing_period_end: string | null
+          billing_period_start: string | null
+          business_id: string
+          charge_minor: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          customer_id: string | null
+          customer_snapshot: Json
+          discount_minor: number
+          document_allowances: Json
+          document_charges: Json
+          document_references: Json
+          document_type: string
+          due_date: string | null
+          exchange_rate: number | null
+          id: string
+          invoice_number: string
+          invoice_purpose: string | null
+          issue_date: string
+          issue_time: string | null
+          issued_at: string | null
+          notes: string | null
+          payment_mode_code: string | null
+          payment_reference: string | null
+          payment_terms: string | null
+          prepaid_minor: number
+          prepayment_date: string | null
+          prepayment_reference: string | null
+          prepayment_time: string | null
+          rounding_minor: number
+          shipping_recipient_party_id: string | null
+          status: string
+          subtotal_minor: number
+          supplemental_fields: Json
+          supplier_snapshot: Json
+          tax_currency: string | null
+          tax_minor: number
+          total_minor: number
+          updated_at: string
+          updated_by: string | null
+          version: number
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "invoices"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       upsert_business_member: {
         Args: {

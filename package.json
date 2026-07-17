@@ -15,7 +15,7 @@
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
     "supabase:reset": "supabase db reset",
-    "supabase:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
+    "supabase:types": "supabase gen types typescript --linked > src/lib/supabase/database.types.ts",
     "data:import:telegram": "tsx scripts/import-telegram-json.ts",
     "data:import:myinvois": "node scripts/import-myinvois-reference-data.mjs",
     "demo:agent": "tsx scripts/demo-agent.ts"

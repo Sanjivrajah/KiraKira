@@ -45,6 +45,30 @@ describe("Session 7 invoice builder", () => {
     });
   });
 
+  it("stores a positive prepayment in canonical totals and reduces the amount due", async () => {
+    render(<InvoiceBuilder now="2026-07-15T09:00:00.000Z" />);
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Consulting service" } });
+    fireEvent.change(screen.getByLabelText("Unit price (RM)"), { target: { value: "100" } });
+    fireEvent.click(screen.getByText("5 · Payment"));
+    fireEvent.change(screen.getByLabelText("Prepayment amount (RM)"), { target: { value: "25" } });
+    expect(screen.getByText("Amount due").parentElement).toHaveTextContent("75.00");
+    fireEvent.click(screen.getByRole("button", { name: "Save document" }));
+    await waitFor(() => {
+      const documents = JSON.parse(localStorage.getItem(FRONTEND_STORAGE_KEYS.documents) || "[]") as CommercialDocument[];
+      expect(documents[0]?.monetaryTotals).toMatchObject({ prepaidAmount: { amount: "25" }, payableAmount: { amount: "75.00" } });
+    });
+  });
+
+  it("rejects a prepayment above the invoice total", async () => {
+    render(<InvoiceBuilder now="2026-07-15T09:00:00.000Z" />);
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Consulting service" } });
+    fireEvent.change(screen.getByLabelText("Unit price (RM)"), { target: { value: "100" } });
+    fireEvent.click(screen.getByText("5 · Payment"));
+    fireEvent.change(screen.getByLabelText("Prepayment amount (RM)"), { target: { value: "101" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save document" }));
+    expect(await screen.findByText("Prepayment cannot exceed the invoice total.")).toBeInTheDocument();
+  });
+
   it("keeps tax-exempt advanced values when collapsed", () => {
     render(<InvoiceBuilder now="2026-07-15T09:00:00.000Z" />);
     const disclosure = screen.getByText("Tax, classification and adjustments");

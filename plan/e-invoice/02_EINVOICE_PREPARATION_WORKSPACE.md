@@ -30,7 +30,7 @@ Show why an invoice is ineligible rather than hiding it without explanation.
 
 ## Additional-fields design
 
-Build from the Stage 1 typed registry and `REFERENCE_INVOICE_V1_1_FIELD_REQUIREMENTS.md`. Each field definition must include:
+Build from the Stage 1 typed registry and `REFERENCE_INVOICE_V1_0_FIELD_REQUIREMENTS.md`. Each field definition must include:
 
 - Stable key and canonical destination path.
 - Label and help text.
@@ -97,7 +97,7 @@ Do not treat “combine data from several schemas” as a consolidated e-Invoice
 ## Out of scope
 
 - UBL payload generation.
-- Certificates and digital signing.
+- Certificates, private keys, and digital signing are not active application fields.
 - Authentication with MyInvois.
 - Submission buttons that call external APIs.
 - Automated status polling.

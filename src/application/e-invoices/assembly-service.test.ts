@@ -74,6 +74,14 @@ describe("AssembleEInvoiceDocumentService", () => {
     expect(JSON.stringify(result)).not.toContain("NA");
   });
 
+  it("does not misclassify a MYR invoice when missing source fields prevent document assembly", async () => {
+    const bundle = completeBundle();
+    bundle.business.msicCode = undefined;
+    const result = await new AssembleEInvoiceDocumentService(source(bundle)).assemble(ids.business, ids.invoice, "2026-07-17T10:00:00.000Z");
+    expect(result.canonicalDocument).toBeNull();
+    expect(result.scenario).toBe("b2b_invoice");
+  });
+
   it("persists either the complete document or its diagnostics at the explicit preparation boundary", async () => {
     const bundle = completeBundle();
     const createOrRefresh = vi.fn(async (input) => ({ id: "prepared", ...input }));

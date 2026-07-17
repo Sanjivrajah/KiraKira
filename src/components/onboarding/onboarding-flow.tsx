@@ -80,7 +80,7 @@ export function OnboardingFlow() {
       {step === 4 ? <>
         <p className="eyebrow">MyInvois connection placeholder</p>
         <h1>Review and finish</h1>
-        <p className="auth-description">Connection credentials and certificates are not collected in this frontend session.</p>
+        <p className="auth-description">MyInvois OAuth credentials are not collected in this frontend session.</p>
         <dl className="business-preview">
           <div><dt>Legal name</dt><dd>{draft.legalName}</dd></div>
           <div><dt>Trading name</dt><dd>{draft.tradingName || "Not provided"}</dd></div>

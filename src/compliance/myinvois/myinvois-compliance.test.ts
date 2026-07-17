@@ -113,7 +113,7 @@ function validate(overrides: Partial<MyInvoisValidationContext> = {}) {
     referenceData: catalog,
     asOfDate,
     validatedAt,
-    documentVersion: "1.1",
+    documentVersion: "1.0",
     ...overrides,
   });
 }
@@ -238,7 +238,7 @@ describe("MyInvois immutable snapshots", () => {
       id: "snapshot_001",
       commercialDocumentId: compliantDocument().id,
       documentTypeCode: "01",
-      documentVersion: "1.1",
+      documentVersion: "1.0",
       format: "json",
       unsignedPayload: { Invoice: [{ ID: [{ _: "INV-001" }] }] },
       payloadHash: "a".repeat(64),

@@ -633,6 +633,13 @@ li {
 .settings-notice, .settings-error { margin: 18px 0 0; font-size: var(--text-small); line-height: 1.5; }
 .settings-notice { color: var(--ink-700); }
 .settings-error { color: var(--danger); }
+.settings-business-form { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+.settings-business-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.settings-business-wide { grid-column: 1 / -1; }
+.settings-business-actions { display: flex; justify-content: flex-end; margin-top: 20px; }
+.settings-profile-success { display: flex; align-items: flex-start; gap: 8px; margin-top: 18px; padding: 12px; border: 1px solid #cae7d8; border-radius: 12px; background: #f4fbf7; color: var(--brand-700); font-size: var(--text-small); line-height: 1.5; }
+.settings-profile-success svg { flex: 0 0 auto; margin-top: 2px; }
+.settings-profile-success a { color: inherit; font-weight: 700; }
 
 .telegram-link-action {
   align-items: center;
@@ -672,6 +679,9 @@ li {
   .settings-export-actions { justify-items: stretch; }
   .settings-export-actions p { max-width: none; text-align: left; }
   .telegram-link-code-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .settings-business-form-grid { grid-template-columns: 1fr; }
+  .settings-business-wide { grid-column: auto; }
+  .settings-business-actions, .settings-business-actions .button { width: 100%; }
 }
 
 /* ── Appearance settings ── */

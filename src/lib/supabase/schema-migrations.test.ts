@@ -8,6 +8,10 @@ const migrationSql = readdirSync(migrationsDirectory)
   .map((file) => readFileSync(resolve(migrationsDirectory, file), "utf8"))
   .join("\n");
 const orchestrationMigrationSql = readFileSync(resolve(migrationsDirectory, "20260716170000_agent_orchestration_foundation.sql"), "utf8");
+const msicConstraintMigrationSql = readFileSync(resolve(migrationsDirectory, "20260718070000_fix_business_msic_constraint.sql"), "utf8");
+const payloadHashFunctionMigrationSql = readFileSync(resolve(migrationsDirectory, "20260718090000_fix_e_invoice_payload_hash_function.sql"), "utf8");
+const myInvoisSecretReferenceMigrationSql = readFileSync(resolve(migrationsDirectory, "20260718100000_normalize_myinvois_secret_references.sql"), "utf8");
+const rejectedSubmissionRepairMigrationSql = readFileSync(resolve(migrationsDirectory, "20260718110000_repair_myinvois_rejected_submission_responses.sql"), "utf8");
 
 describe("Supabase schema migrations", () => {
   it("uses ordered timestamped migrations for every Session 2 schema area", () => {
@@ -41,11 +45,45 @@ describe("Supabase schema migrations", () => {
       "20260718000000_e_invoice_intermediary_auth_and_signing.sql",
       "20260718010000_e_invoice_sandbox_submission_and_status.sql",
       "20260718020000_myinvois_taxpayer_auth_mode.sql",
+      "20260718030000_e_invoice_production_operations.sql",
+      "20260718040000_e_invoice_v1_0_only.sql",
+      "20260718050000_e_invoice_v1_0_document_constraint.sql",
+      "20260718060000_business_compliance_profile_update.sql",
+      "20260718070000_fix_business_msic_constraint.sql",
+      "20260718080000_invoice_prepayment_amount.sql",
+      "20260718090000_fix_e_invoice_payload_hash_function.sql",
+      "20260718100000_normalize_myinvois_secret_references.sql",
+      "20260718110000_repair_myinvois_rejected_submission_responses.sql",
     ]);
+  });
+
+  it("keeps historical signing schema inaccessible and constrains active records to v1.0", () => {
+    expect(migrationSql).toContain("new e-invoice records must use unsigned MyInvois Invoice v1.0");
+    expect(migrationSql).toContain("revoke all on public.e_invoice_signed_snapshots from anon, authenticated");
+    expect(migrationSql).toContain("comment on table public.e_invoice_signed_snapshots is");
+    expect(migrationSql).toMatch(/grant select \(\s*id, business_id, environment, auth_mode/);
+    expect(migrationSql).toContain("revoke select, insert, update on public.myinvois_connections from authenticated");
+    expect(migrationSql).toMatch(/grant insert \(\s*business_id, environment, auth_mode, taxpayer_tin/);
+    expect(migrationSql).toContain("document_version <> '1.0'");
+    expect(migrationSql).toContain("alter column document_version set default '1.0'");
+    expect(migrationSql).toContain("check (document_version in ('1.0', '1.1'))");
+  });
+
+  it("gates v1.0 production activation and leases reconciliation work durably", () => {
+    expect(migrationSql).toContain("function public.set_e_invoice_production_activation");
+    expect(migrationSql).toContain("function public.claim_due_e_invoice_submissions");
+    expect(migrationSql).toContain("for update skip locked");
+    expect(migrationSql).toContain("document_version text not null default '1.0'");
+    expect(migrationSql).toContain("worker_dead_lettered");
+    expect(migrationSql).toContain("function public.record_e_invoice_cancellation");
+    expect(migrationSql).toContain("function public.claim_e_invoice_cancellation");
+    expect(migrationSql).toContain("function public.reserve_e_invoice_provider_call");
   });
 
   it("uses secured RPCs for invoice lifecycles, payment allocation, and idempotent reminders", () => {
     expect(migrationSql).toContain("function public.save_invoice_draft");
+    expect(migrationSql).toContain("function public.update_invoice_prepayment");
+    expect(migrationSql).toContain("prepayment cannot change after e-invoice approval");
     expect(migrationSql).toContain("function public.issue_invoice");
     expect(migrationSql).toContain("function public.record_invoice_payment");
     expect(migrationSql).toContain("function public.reverse_invoice_payment");
@@ -66,9 +104,16 @@ describe("Supabase schema migrations", () => {
     expect(migrationSql).toContain("alter table public.audit_events enable row level security");
     expect(migrationSql).toContain("function public.handle_new_auth_user()");
     expect(migrationSql).toContain("function public.create_business(");
+    expect(migrationSql).toContain("function public.update_business_compliance_profile(");
+    expect(migrationSql).toContain("business management permission is required");
     expect(migrationSql).toContain("function public.upsert_business_member(");
     expect(migrationSql).toContain("set search_path = public");
     expect(migrationSql).toContain("cross-business reference is not allowed");
+  });
+
+  it("accepts exactly five numeric digits for an MSIC code without regex escape ambiguity", () => {
+    expect(msicConstraintMigrationSql).toContain("drop constraint if exists businesses_msic_code_check");
+    expect(msicConstraintMigrationSql).toContain("msic_code ~ '^[0-9]{5}$'");
   });
 
   it("keeps money in integer minor units and uses update timestamp triggers", () => {
@@ -105,6 +150,22 @@ describe("Supabase schema migrations", () => {
     expect(migrationSql).toContain("e_invoice_payload_snapshots_insert");
     expect(migrationSql).toContain("revoke update, delete, truncate on public.e_invoice_payload_snapshots from anon, authenticated");
     expect(migrationSql).not.toContain("e_invoice_payload_snapshots_update");
+  });
+
+  it("resolves the payload hash function from Supabase's extensions schema", () => {
+    expect(payloadHashFunctionMigrationSql).toContain("extensions.digest(");
+    expect(payloadHashFunctionMigrationSql).toContain("create or replace function public.assert_e_invoice_payload_snapshot_source()");
+  });
+
+  it("normalizes legacy MyInvois secret names to scoped opaque references", () => {
+    expect(myInvoisSecretReferenceMigrationSql).toContain("'env:' || environment || ':' || client_id_secret_ref");
+    expect(myInvoisSecretReferenceMigrationSql).toContain("'env:' || environment || ':' || client_secret_secret_ref");
+  });
+
+  it("repairs all-rejected HTTP 202 responses recorded by the strict legacy parser", () => {
+    expect(rejectedSubmissionRepairMigrationSql).toContain("submission.raw_response->'rejectedDocuments'");
+    expect(rejectedSubmissionRepairMigrationSql).toContain("raw_response->>'submissionUid'");
+    expect(rejectedSubmissionRepairMigrationSql).toContain("error_code = 'invalid_response'");
   });
 
   it("keeps MyInvois delegation references tenant-scoped and signed bytes immutable", () => {

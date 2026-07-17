@@ -36,6 +36,7 @@ export const invoiceFormSchema = z.object({
   originalDocumentReference: z.string().trim().max(200).default(""),
   paymentModeCode: z.string().min(1, "Choose a payment mode.").default("03"),
   bankAccountIdentifier: z.string().trim().max(200).default(""),
+  prepaymentAmount: optionalMoney,
   items: z.array(invoiceItemSchema).min(1).max(50),
   notes: z.string().trim().max(1000).default(""),
   paymentTerms: z.string().trim().max(1000).default(""),
@@ -43,6 +44,13 @@ export const invoiceFormSchema = z.object({
   if (values.dueDate < values.issueDate) context.addIssue({ code: "custom", path: ["dueDate"], message: "Due date must be on or after the issue date." });
   if (values.documentType !== "invoice" && values.documentType !== "self_billed_invoice" && !values.originalDocumentReference) {
     context.addIssue({ code: "custom", path: ["originalDocumentReference"], message: "Adjustment documents require the original document reference." });
+  }
+  const grossTotal = values.items.reduce((sum, item) => {
+    const line = item.quantity * item.unitPrice - item.discountAmount + item.chargeAmount;
+    return sum + line + line * item.taxRate / 100;
+  }, 0);
+  if (values.prepaymentAmount > grossTotal) {
+    context.addIssue({ code: "custom", path: ["prepaymentAmount"], message: "Prepayment cannot exceed the invoice total." });
   }
 });
 

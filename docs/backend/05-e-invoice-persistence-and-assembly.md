@@ -1,6 +1,6 @@
 # E-Invoice persistence and assembly
 
-Stage 1 introduces a Supabase preparation boundary for Invoice v1.1. It does not generate UBL, sign a document, or contact MyInvois.
+Stage 1 introduces a Supabase preparation boundary for unsigned Invoice v1.0. It does not generate UBL or contact MyInvois.
 
 ## Ownership
 
@@ -8,7 +8,7 @@ Stage 1 introduces a Supabase preparation boundary for Invoice v1.1. It does not
 - `parties` and its identifier and address child tables own live buyers and shipping recipients.
 - `invoices` and `invoice_items` own payment-oriented source records plus the compliance fields captured with a draft.
 - `e_invoice_documents` owns a tenant-scoped preparation revision. It stores the canonical document when assembly succeeds, exact supplier and buyer snapshots, supplemental fields, provenance, and readiness diagnostics.
-- `src/compliance/myinvois/field-registry.ts` and `plan/e-invoice/REFERENCE_INVOICE_V1_1_FIELD_REQUIREMENTS.md` are the field-coverage contract. The registry records known gaps without supplying placeholder values.
+- `src/compliance/myinvois/field-registry.ts` and `plan/e-invoice/REFERENCE_INVOICE_V1_0_FIELD_REQUIREMENTS.md` are the field-coverage contract. The registry records known gaps without supplying placeholder values.
 
 ## Assembly boundary
 
@@ -29,4 +29,4 @@ RLS derives reads from active business membership. Owners, admins, and accountan
 
 ## Stage boundary
 
-Stage 2 can consume `EInvoicePreparationRecord`. It must not begin submission work unless Stage 1 returns either a complete `CommercialDocument` or explicit missing-field diagnostics. UBL mapping, signing, credentials, submission, polling, cancellation, and an `/e-invoices` UI remain out of scope.
+Stage 2 can consume `EInvoicePreparationRecord`. It must not begin submission work unless Stage 1 returns either a complete `CommercialDocument` or explicit missing-field diagnostics. UBL mapping, credentials, submission, polling, cancellation, and an `/e-invoices` UI remain out of scope.

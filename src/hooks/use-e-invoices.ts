@@ -12,9 +12,19 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export interface EInvoiceSubmissionWorkspace {
-  environment: "sandbox";
+  environment: "sandbox" | "production";
   taxpayerIdentity?: string;
-  candidates: Array<{ payloadSnapshotId: string; eInvoiceDocumentId: string; invoiceCodeNumber: string; encodedSizeBytes: number; documentVersion: "1.0" }>;
+  productionReady: boolean;
+  candidates: Array<{
+    payloadSnapshotId: string;
+    eInvoiceDocumentId: string;
+    invoiceCodeNumber: string;
+    encodedSizeBytes: number;
+    documentVersion: "1.0";
+    scenario: string;
+    productionEligible: boolean;
+    ineligibilityReason?: string;
+  }>;
   submissions: EInvoiceSubmissionRecord[];
 }
 
@@ -22,15 +32,15 @@ function submissionPost<T>(body: Record<string, unknown>) {
   return request<T>("/api/e-invoices/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 }
 
-export function useEInvoiceSubmissions(businessId: string, enabled = true) {
+export function useEInvoiceSubmissions(businessId: string, environment: "sandbox" | "production" = "sandbox", enabled = true) {
   return useQuery({
-    queryKey: queryKeys.eInvoices.submissions(businessId),
-    queryFn: () => request<EInvoiceSubmissionWorkspace>(`/api/e-invoices/submissions?businessId=${encodeURIComponent(businessId)}`),
+    queryKey: [...queryKeys.eInvoices.submissions(businessId), environment],
+    queryFn: () => request<EInvoiceSubmissionWorkspace>(`/api/e-invoices/submissions?businessId=${encodeURIComponent(businessId)}&environment=${environment}`),
     enabled: enabled && Boolean(businessId),
   });
 }
 
-function useSubmissionMutation<TInput extends { businessId: string }>(mutationFn: (input: TInput) => Promise<unknown>) {
+function useSubmissionMutation<TInput extends { businessId: string }, TResult>(mutationFn: (input: TInput) => Promise<TResult>) {
   const queryClient = useQueryClient();
   return useMutation({ mutationFn, onSuccess: async (_, input) => {
     await queryClient.invalidateQueries({ queryKey: queryKeys.eInvoices.submissions(input.businessId) });
@@ -38,7 +48,7 @@ function useSubmissionMutation<TInput extends { businessId: string }>(mutationFn
 }
 
 export function useSubmitEInvoices() {
-  return useSubmissionMutation((input: { businessId: string; payloadSnapshotIds: string[] }) =>
+  return useSubmissionMutation((input: { businessId: string; environment: "sandbox" | "production"; payloadSnapshotIds: string[]; confirmation?: string }) =>
     submissionPost<{ result: EInvoiceSubmissionRecord }>({ action: "submit", ...input }));
 }
 
@@ -50,6 +60,11 @@ export function useGenerateEInvoiceSandboxPayload() {
 export function useRefreshEInvoiceSubmission() {
   return useSubmissionMutation((input: { businessId: string; submissionId: string }) =>
     submissionPost<{ result: EInvoiceSubmissionRecord }>({ action: "refresh", ...input }));
+}
+
+export function useCancelEInvoiceDocument() {
+  return useSubmissionMutation((input: { businessId: string; submissionId: string; eInvoiceDocumentId: string; reason: string }) =>
+    submissionPost<{ result: EInvoiceSubmissionRecord }>({ action: "cancel", confirmation: "CANCEL MYINVOIS DOCUMENT", ...input }));
 }
 
 function post<T>(body: Record<string, unknown>) {

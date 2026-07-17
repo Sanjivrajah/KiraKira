@@ -74,7 +74,7 @@ function scenario(bundle: EInvoiceAssemblyBundle, document?: CommercialDocument)
   if (bundle.invoice.documentType.includes("refund_note")) return "refund_note";
   if (bundle.buyer?.kind === "general_public") return "consolidated_transaction";
   if (bundle.buyer?.kind === "foreign_entity") return "foreign_buyer";
-  if (document?.currency !== "MYR") return "foreign_currency";
+  if (document && document.currency !== "MYR") return "foreign_currency";
   if (bundle.invoice.items.some((line) => line.exemptionReason)) return "tax_exempt";
   if ("trade" in bundle.invoice.supplementalFields) return "import_export";
   if (bundle.shippingRecipient) return "shipping_recipient";

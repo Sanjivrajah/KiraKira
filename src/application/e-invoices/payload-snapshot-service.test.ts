@@ -22,7 +22,7 @@ function approvedRecord(overrides: Partial<EInvoicePreparationRecord> = {}): EIn
     sourceInvoiceId: "source_invoice_001",
     sourceInvoiceRevision: 4,
     documentType: "invoice",
-    documentVersion: "1.1",
+    documentVersion: "1.0",
     scenario: "b2b_invoice",
     canonicalDocument: UBL_STANDARD_B2B_INVOICE,
     supplierSnapshot: {
@@ -96,8 +96,8 @@ describe("GenerateEInvoicePayloadSnapshotService", () => {
     expect(first.payloadSizeBytes).toBeLessThanOrEqual(MYINVOIS_MAX_DOCUMENT_BYTES);
     expect(first).toMatchObject({
       documentRevision: 5,
-      documentVersion: "1.1",
-      mapperVersion: "invoice-v1.1.1",
+      documentVersion: "1.0",
+      mapperVersion: "invoice-v1.0.3",
       referenceDataVersion: "myinvois-sdk-2026-07-17",
       format: "json",
     });
@@ -115,16 +115,25 @@ describe("GenerateEInvoicePayloadSnapshotService", () => {
     )).rejects.toMatchObject({ code: "document.not_eligible" });
   });
 
-  it("generates a distinct unsigned v1.0 snapshot for sandbox submission", async () => {
+  it("generates an unsigned v1.0 snapshot for sandbox submission", async () => {
     const repository = new MemoryPayloadRepository();
     const snapshot = await new GenerateEInvoicePayloadSnapshotService(repository).generate(
       UBL_STANDARD_B2B_INVOICE.businessId,
       "e_invoice_document_001",
       "2026-07-17T12:00:00.000Z",
-      "1.0",
     );
-    expect(snapshot).toMatchObject({ documentVersion: "1.0", mapperVersion: "invoice-v1.0.1" });
+    expect(snapshot).toMatchObject({ documentVersion: "1.0", mapperVersion: "invoice-v1.0.3" });
     expect(JSON.parse(snapshot.unsignedPayload).Invoice[0].InvoiceTypeCode[0].listVersionID).toBe("1.0");
+  });
+
+  it("rejects an approved historical v1.1 preparation safely", async () => {
+    const historical = approvedRecord({ documentVersion: "unsupported_historical" });
+    const service = new GenerateEInvoicePayloadSnapshotService(new MemoryPayloadRepository(historical));
+    await expect(service.generate(
+      UBL_STANDARD_B2B_INVOICE.businessId,
+      "e_invoice_document_001",
+      "2026-07-17T12:00:00.000Z",
+    )).rejects.toMatchObject({ code: "document.unsupported_historical_version" });
   });
 
   it("re-runs readiness and reports structured failures", async () => {

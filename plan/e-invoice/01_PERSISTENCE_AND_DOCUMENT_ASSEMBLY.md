@@ -12,7 +12,7 @@ The invoice builder currently creates rich compliance data in memory, but the li
 
 ### 1. Inventory and field-source matrix
 
-Start from `REFERENCE_INVOICE_V1_1_FIELD_REQUIREMENTS.md`; do not rediscover or replace its verified requirement classifications. Convert it into a typed registry or equivalent implementation source of truth covering each supported Invoice v1.1 field:
+Start from `REFERENCE_INVOICE_V1_0_FIELD_REQUIREMENTS.md`; do not rediscover or replace its verified requirement classifications. Convert it into a typed registry or equivalent implementation source of truth covering each supported Invoice v1.0 field:
 
 - Internal canonical path.
 - Official UBL path.

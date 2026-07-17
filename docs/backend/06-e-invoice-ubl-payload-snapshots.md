@@ -1,8 +1,7 @@
 # e-Invoice UBL mapping and payload snapshots
 
 Stage 3 turns one active approved preparation revision into deterministic,
-unsigned MyInvois Invoice UBL JSON. v1.1 remains reproducible, while Stage 5
-requests v1.0 for unsigned sandbox submission. It does not authenticate, sign, submit,
+unsigned MyInvois Invoice v1.0 UBL JSON. It does not authenticate or submit,
 or claim that MyInvois has accepted the document.
 
 ## Ownership boundary
@@ -11,7 +10,7 @@ or claim that MyInvois has accepted the document.
 | --- | --- |
 | Supplier, buyer, invoice lines, totals, and approval state | Frozen `e_invoice_documents` revision |
 | Applicability and code validity | `validateMyInvoisReadiness` plus the pinned reference catalog |
-| Canonical field to UBL element translation | Version-selected `InvoiceV10Mapper` or `InvoiceV11Mapper` |
+| Canonical field to UBL element translation | `InvoiceV10Mapper` |
 | Stable key order and minified UTF-8 bytes | `canonicalSerializeMyInvoisPayload` |
 | SHA-256, 300 KB check, and idempotent generation | `GenerateEInvoicePayloadSnapshotService` |
 | Exact unsigned bytes and generation metadata | `e_invoice_payload_snapshots` |
@@ -35,7 +34,7 @@ return the existing snapshot. Authenticated application roles have no update,
 delete, or truncate permission; corrections require a new approved preparation
 revision and a new payload snapshot.
 
-## Versioned external contract
+## Fixed external contract
 
 The offline catalog version is `myinvois-sdk-2026-07-17`, retrieved on
 2026-07-17. It contains 3,854 normalized codes from all nine official JSON
@@ -47,7 +46,7 @@ pages.
 
 Primary references:
 
-- [MyInvois Invoice v1.1](https://sdk.myinvois.hasil.gov.my/documents/invoice-v1-1/)
+- [MyInvois Invoice v1.0](https://sdk.myinvois.hasil.gov.my/documents/invoice-v1-0/)
 - [MyInvois document types](https://sdk.myinvois.hasil.gov.my/types/)
 - [MyInvois code tables](https://sdk.myinvois.hasil.gov.my/codes/)
 - [MyInvois sample payload index](https://sdk.myinvois.hasil.gov.my/sample/)
@@ -59,5 +58,4 @@ requires a new mapper version so older hashes remain reproducible.
 ## Downstream handoff
 
 Stage 5 consumes the exact v1.0 `unsigned_payload` and `unsigned_payload_hash`
-as immutable inputs. The optional signing boundary may consume v1.1 snapshots
-later, but it must never overwrite an unsigned snapshot.
+as immutable inputs. Historical v1.1 or signed rows cannot enter this path.

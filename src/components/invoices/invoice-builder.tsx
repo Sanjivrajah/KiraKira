@@ -95,6 +95,7 @@ export function InvoiceBuilder({ now }: { now: string }) {
       originalDocumentReference: "",
       paymentModeCode: "03",
       bankAccountIdentifier: "",
+      prepaymentAmount: 0,
       items: [{
         id: "item_initial", description: "", quantity: 1, unitPrice: 0, classificationCode: "022", unitCode: "C62",
         taxTypeCode: "06", taxRate: 0, exemptionReason: "", discountAmount: 0, chargeAmount: 0,
@@ -174,6 +175,7 @@ export function InvoiceBuilder({ now }: { now: string }) {
     originalDocumentReference: watched.originalDocumentReference || "",
     paymentModeCode: watched.paymentModeCode || "03",
     bankAccountIdentifier: watched.bankAccountIdentifier || "",
+    prepaymentAmount: String(watched.prepaymentAmount ?? 0),
     paymentTerms: watched.paymentTerms || "",
     notes: watched.notes || "",
     lines: (watched.items ?? []).map((item, index) => ({
@@ -256,6 +258,7 @@ export function InvoiceBuilder({ now }: { now: string }) {
         originalDocumentReference: values.originalDocumentReference,
         paymentModeCode: values.paymentModeCode,
         bankAccountIdentifier: values.bankAccountIdentifier,
+        prepaymentAmount: String(values.prepaymentAmount),
         paymentTerms: values.paymentTerms,
         notes: values.notes,
         lines: values.items.map((item) => ({
@@ -282,6 +285,7 @@ export function InvoiceBuilder({ now }: { now: string }) {
         status: values.status,
         currency: "MYR",
         amountPaid: 0,
+        prepaymentAmount: values.prepaymentAmount,
         items: values.items.map((item) => ({ ...item, id: item.id || makeItemId() })),
         notes: values.notes,
         paymentTerms: values.paymentTerms,
@@ -370,6 +374,7 @@ export function InvoiceBuilder({ now }: { now: string }) {
         <details className="panel invoice-form-section progressive-section"><summary>5 · Payment</summary><div className="review-form-grid">
           <SelectField error={errors.paymentModeCode?.message} label="Payment mode" options={[{ value: "03", label: "Bank transfer" }, { value: "01", label: "Cash" }]} {...register("paymentModeCode")} />
           <FormField error={errors.bankAccountIdentifier?.message} label="Bank account" {...register("bankAccountIdentifier")} />
+          <FormField error={errors.prepaymentAmount?.message} hint="Enter a deposit or advance payment already received. Leave as 0 when there was no prepayment." label="Prepayment amount (RM)" min="0" step="0.01" type="number" {...register("prepaymentAmount", { valueAsNumber: true })} />
           <TextareaField className="review-wide" error={errors.paymentTerms?.message} label="Payment terms" rows={3} {...register("paymentTerms")} />
         </div></details>
         <details className="panel invoice-form-section progressive-section"><summary>6 · Additional details</summary><TextareaField error={errors.notes?.message} label="Notes" rows={4} {...register("notes")} /></details>
@@ -378,7 +383,7 @@ export function InvoiceBuilder({ now }: { now: string }) {
       </div>
 
       <aside className="invoice-preview-column">
-        <section className="invoice-preview panel" aria-label="Invoice preview"><p className="section-kicker">Live preview</p><h2>{watched.invoiceNumber || "New document"}</h2><p><strong>Buyer:</strong> {selectedBuyer?.legalName || "Choose a buyer"}</p><div className="preview-items">{items.map((item, index) => <div className="preview-item-row" key={fields[index]?.id}><span>{item.description || `Item ${index + 1}`}</span><MoneyDisplay amount={item.quantity * item.unitPrice - item.discountAmount + item.chargeAmount} /></div>)}</div><dl className="invoice-totals"><div><dt>Subtotal</dt><dd><MoneyDisplay amount={totals.subtotal} /></dd></div><div><dt>Tax</dt><dd><MoneyDisplay amount={totals.tax} /></dd></div><div className="invoice-total"><dt>Total</dt><dd><MoneyDisplay amount={totals.total} /></dd></div></dl></section>
+        <section className="invoice-preview panel" aria-label="Invoice preview"><p className="section-kicker">Live preview</p><h2>{watched.invoiceNumber || "New document"}</h2><p><strong>Buyer:</strong> {selectedBuyer?.legalName || "Choose a buyer"}</p><div className="preview-items">{items.map((item, index) => <div className="preview-item-row" key={fields[index]?.id}><span>{item.description || `Item ${index + 1}`}</span><MoneyDisplay amount={item.quantity * item.unitPrice - item.discountAmount + item.chargeAmount} /></div>)}</div><dl className="invoice-totals"><div><dt>Subtotal</dt><dd><MoneyDisplay amount={totals.subtotal} /></dd></div><div><dt>Tax</dt><dd><MoneyDisplay amount={totals.tax} /></dd></div>{Number(watched.prepaymentAmount) > 0 ? <div><dt>Prepayment</dt><dd>−<MoneyDisplay amount={Number(watched.prepaymentAmount)} /></dd></div> : null}<div className="invoice-total"><dt>Amount due</dt><dd><MoneyDisplay amount={Math.max(0, totals.total - (Number(watched.prepaymentAmount) || 0))} /></dd></div></dl></section>
         <section className="readiness-card panel" aria-labelledby="readiness-heading"><p className="section-kicker">7 · Preparation checks</p><h2 id="readiness-heading">e-Invoice preparation</h2>
           <div className="preparation-status-list" aria-label="Preparation status">
             <div><span>Owner approval</span><strong>Pending</strong></div>

@@ -1,6 +1,6 @@
 # Sandbox e-Invoice submission and status synchronisation
 
-Stage 5 sends only immutable, approved, unsigned MyInvois v1.0 JSON snapshots to the sandbox. Digital signatures, production submission, and cancellation are intentionally unavailable.
+Stage 5 proves submission with immutable, approved, unsigned MyInvois v1.0 JSON snapshots in the sandbox. Digital signatures are unavailable. Stage 6 adds separately gated production submission and controlled cancellation without changing the payload contract.
 
 ## Runtime boundaries
 
@@ -15,7 +15,7 @@ HTTP 202 means `Submitted`, never `Valid`. Routine polling uses Get Submission. 
 
 ## Server configuration
 
-An enabled taxpayer-system or intermediary connection with client ID and client-secret references is required. Direct taxpayer credentials omit `onbehalfof`; intermediary credentials derive it from the selected business. Certificate and private-key references are optional and unused by Stage 5. Configure:
+An enabled taxpayer-system or intermediary connection with client ID and client-secret references is required. Direct taxpayer credentials omit `onbehalfof`; intermediary credentials derive it from the selected business. Certificate and private-key references are not active application fields. Configure:
 
 ```text
 MYINVOIS_SANDBOX_API_BASE_URL=https://preprod-api.myinvois.hasil.gov.my
@@ -24,6 +24,11 @@ MYINVOIS_SANDBOX_CLIENT_ID=<sandbox client id>
 MYINVOIS_SANDBOX_CLIENT_SECRET=<active sandbox client secret>
 EINVOICE_STATUS_SYNC_SECRET=<high-entropy worker secret>
 ```
+
+Persist only opaque references for the connection secrets:
+`env:sandbox:MYINVOIS_SANDBOX_CLIENT_ID` and
+`env:sandbox:MYINVOIS_SANDBOX_CLIENT_SECRET`. Bare variable names from older
+connection setup are normalized by the database migration.
 
 Do not prefix these values with `NEXT_PUBLIC_`. Do not log request bodies, unsigned documents, access tokens, or raw secret-provider values.
 
@@ -41,3 +46,13 @@ Do not prefix these values with `NEXT_PUBLIC_`. Do not log request bodies, unsig
 10. Inspect application and platform logs for the run. They must not contain unsigned payloads, base64 documents, tokens, or secret references.
 
 The Stage 6 handoff is not met until one controlled sandbox fixture completes this full lifecycle and its identifiers and events are inspected in the applied database.
+
+## Evidence status — 17 July 2026
+
+- Automated v1.0 mapping, exact-byte hashing/base64, idempotency, partial acceptance, retry, polling, cancellation, production-disable, tenant-boundary, audit, and redaction tests pass.
+- Typecheck, lint, full Vitest, production build, and diff checks pass in the implementation workspace.
+- The linked hosted Supabase project was migrated and verified through `20260718050000_e_invoice_v1_0_document_constraint.sql`; linked database types were regenerated after the schema rollout.
+- Sandbox OAuth variable names are configured locally, but no persisted end-to-end B2B submission was executed during this implementation run because a disposable authenticated test account, controlled invoice, and reviewed represented-taxpayer connection were not established for the run.
+- Docker was not running, so the additional clean/upgraded local migration matrix and pgTAP/RLS execution remain pending; this did not block the reviewed forward migration on the linked hosted project.
+
+This is an explicit incomplete evidence record, not sandbox certification. Do not call `mark_e_invoice_sandbox_verified` or activate production until the manual checklist above has been completed and reviewed.

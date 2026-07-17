@@ -3,29 +3,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   createSupabaseServerClient: vi.fn(),
   testConnection: vi.fn(),
-  inspectCertificate: vi.fn(),
-  signSnapshot: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server-client", () => ({ createSupabaseServerClient: mocks.createSupabaseServerClient }));
 vi.mock("@/repositories", () => ({ SupabaseEInvoiceRepository: class SupabaseEInvoiceRepository {} }));
 vi.mock("@/integrations/myinvois", () => ({
   EnvironmentSecretProvider: class EnvironmentSecretProvider {},
-  MyInvoisIntermediaryOAuthClient: class MyInvoisIntermediaryOAuthClient {},
-  MyInvoisJsonSigningAdapter: class MyInvoisJsonSigningAdapter {},
+  MyInvoisOAuthClient: class MyInvoisOAuthClient {},
 }));
 vi.mock("@/application/e-invoices", () => ({
-  EInvoiceSigningService: class EInvoiceSigningService {
+  EInvoiceConnectionService: class EInvoiceConnectionService {
     testConnection = mocks.testConnection;
-    inspectCertificate = mocks.inspectCertificate;
-    signSnapshot = mocks.signSnapshot;
   },
 }));
 
 import { POST } from "./route";
 
 const businessId = "11111111-1111-4111-8111-111111111111";
-const snapshotId = "22222222-2222-4222-8222-222222222222";
 
 function client(role: string | null) {
   const membership = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), maybeSingle: vi.fn().mockResolvedValue({ data: role ? { role } : null, error: null }) };
@@ -33,12 +27,12 @@ function client(role: string | null) {
 }
 
 function post(body: object) {
-  return POST(new Request("http://localhost/api/e-invoices/signing", {
+  return POST(new Request("http://localhost/api/e-invoices/connections", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
   }));
 }
 
-describe("/api/e-invoices/signing", () => {
+describe("/api/e-invoices/connections", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("requires an elevated active business membership", async () => {
@@ -48,12 +42,12 @@ describe("/api/e-invoices/signing", () => {
     expect(mocks.testConnection).not.toHaveBeenCalled();
   });
 
-  it("signs only the business-scoped snapshot selected by the server request", async () => {
+  it("tests only the server-owned business connection", async () => {
     mocks.createSupabaseServerClient.mockResolvedValue(client("accountant"));
-    mocks.signSnapshot.mockResolvedValue({ id: "signed-1", signedPayloadHash: "a".repeat(64) });
-    const response = await post({ action: "sign_snapshot", businessId, environment: "sandbox", snapshotId });
+    mocks.testConnection.mockResolvedValue({ connected: true, environment: "sandbox" });
+    const response = await post({ action: "test_connection", businessId, environment: "sandbox" });
     expect(response.status).toBe(200);
-    expect(mocks.signSnapshot).toHaveBeenCalledWith(businessId, "sandbox", snapshotId, expect.stringMatching(/^\d{4}-/));
+    expect(mocks.testConnection).toHaveBeenCalledWith(businessId, "sandbox", "user-1", expect.stringMatching(/^\d{4}-/));
   });
 
   it("rejects caller-supplied delegation overrides", async () => {
@@ -62,4 +56,3 @@ describe("/api/e-invoices/signing", () => {
     expect(mocks.createSupabaseServerClient).not.toHaveBeenCalled();
   });
 });
-

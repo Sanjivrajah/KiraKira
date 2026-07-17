@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { useBusiness } from "@/hooks/use-business";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/shared/page-header";
@@ -10,9 +10,10 @@ import { AppearanceSettings } from "./appearance-settings";
 import { RegionalSettings } from "./regional-settings";
 import { AccountSettings } from "./account-settings";
 import { AboutSettings } from "./about-settings";
+import { BusinessProfileSettings } from "./business-profile-settings";
 
 export function SettingsWorkspace() {
-  const business = useBusiness().data;
+  const business = useBusiness();
 
   return (
     <AppShell>
@@ -23,19 +24,7 @@ export function SettingsWorkspace() {
       />
 
       <div className="settings-layout">
-        <section className="settings-card settings-business-card" aria-labelledby="business-details-title">
-          <div className="settings-card-icon" aria-hidden="true"><Building2 size={20} /></div>
-          <div className="settings-card-content">
-            <div className="settings-card-heading">
-              <div>
-                <p className="section-kicker">Business profile</p>
-                <h2 id="business-details-title">{business?.name ?? "Business details"}</h2>
-              </div>
-              <span className="settings-status">Coming soon</span>
-            </div>
-            <p>Your business profile was set up during onboarding. Editing those details will be available in a future update.</p>
-          </div>
-        </section>
+        {business.data ? <BusinessProfileSettings key={`${business.data.id}-${business.data.updatedAt}`} business={business.data} /> : <section className="settings-card" aria-labelledby="business-details-title"><div className="settings-card-content"><h2 id="business-details-title">Business profile</h2><p>{business.isPending ? "Loading business details…" : "No active business profile is available."}</p></div></section>}
 
         <TelegramLink />
 
