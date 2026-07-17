@@ -12,7 +12,15 @@ export const runtime = "nodejs";
 
 const businessIdSchema = z.string().uuid();
 const environmentSchema = z.enum(["sandbox", "production"]);
-const requestSchema = z.object({ action: z.literal("test_connection"), businessId: businessIdSchema, environment: environmentSchema }).strict();
+const requestSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("test_connection"), businessId: businessIdSchema, environment: environmentSchema }).strict(),
+  z.object({
+    action: z.literal("configure_sandbox"), businessId: businessIdSchema,
+    authMode: z.enum(["taxpayer", "intermediary"]),
+    taxpayerTin: z.string().trim().toUpperCase().regex(/^[A-Z]{1,2}[0-9]{8,14}$/),
+    taxpayerRegistrationValue: z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{1,30}$/).optional(),
+  }).strict(),
+]);
 
 const secrets = new EnvironmentSecretProvider();
 const oauth = new MyInvoisOAuthClient(secrets, {
@@ -44,6 +52,32 @@ export async function POST(request: Request) {
   const member = await elevatedMember(client, parsed.data.businessId);
   if (!member) return responseError("An owner, admin, or accountant role is required for MyInvois connection operations.", 403);
   const repository = new SupabaseEInvoiceRepository(client);
+  if (parsed.data.action === "configure_sandbox") {
+    try {
+      const connection = await repository.upsertConnection({
+        businessId: parsed.data.businessId,
+        environment: "sandbox",
+        authMode: parsed.data.authMode,
+        taxpayerTin: parsed.data.taxpayerTin,
+        ...(parsed.data.taxpayerRegistrationValue ? {
+          taxpayerRegistrationScheme: "ROB",
+          taxpayerRegistrationValue: parsed.data.taxpayerRegistrationValue,
+        } : {}),
+        credentialSetId: "sandbox-primary",
+        clientIdSecretRef: "env:sandbox:MYINVOIS_SANDBOX_CLIENT_ID",
+        clientSecretSecretRef: "env:sandbox:MYINVOIS_SANDBOX_CLIENT_SECRET",
+        enabled: true,
+      });
+      return NextResponse.json({ result: {
+        environment: connection.environment,
+        authMode: connection.authMode,
+        taxpayerIdentity: connection.onbehalfofValue,
+        enabled: connection.enabled,
+      } }, { headers: { "Cache-Control": "no-store" } });
+    } catch {
+      return responseError("We could not save the sandbox MyInvois connection. Check the taxpayer details and try again.", 409);
+    }
+  }
   const service = new EInvoiceConnectionService(repository, oauth);
   const now = new Date().toISOString();
   try {

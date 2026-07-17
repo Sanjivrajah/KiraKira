@@ -11,6 +11,7 @@ import { RegionalSettings } from "./regional-settings";
 import { AccountSettings } from "./account-settings";
 import { AboutSettings } from "./about-settings";
 import { BusinessProfileSettings } from "./business-profile-settings";
+import { MyInvoisConnectionSettings } from "./myinvois-connection-settings";
 
 export function SettingsWorkspace() {
   const business = useBusiness();
@@ -25,6 +26,7 @@ export function SettingsWorkspace() {
 
       <div className="settings-layout">
         {business.data ? <BusinessProfileSettings key={`${business.data.id}-${business.data.updatedAt}`} business={business.data} /> : <section className="settings-card" aria-labelledby="business-details-title"><div className="settings-card-content"><h2 id="business-details-title">Business profile</h2><p>{business.isPending ? "Loading business details…" : "No active business profile is available."}</p></div></section>}
+        {business.data ? <MyInvoisConnectionSettings key={business.data.id} business={business.data} /> : null}
 
         <TelegramLink />
 
