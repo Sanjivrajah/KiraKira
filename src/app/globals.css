@@ -2690,6 +2690,13 @@ li {
 .cash-flow-workspace {
   display: grid;
   gap: 16px;
+  min-width: 0;
+}
+
+.cash-flow-summary {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
 }
 
 .cash-flow-context {
@@ -2708,7 +2715,8 @@ li {
 }
 
 .cash-flow-context span,
-.cash-flow-totals span {
+.cash-flow-totals dt {
+  margin: 0;
   color: var(--ink-500);
   font-size: 0.75rem;
   font-weight: 700;
@@ -2733,18 +2741,20 @@ li {
 
 .cash-flow-totals {
   display: grid;
-  border-block: 1px solid var(--line);
+  gap: 12px;
+  margin: 0;
 }
 
 .cash-flow-totals > div {
   display: grid;
   gap: 5px;
-  padding: 19px 2px;
-  border-bottom: 1px solid var(--line);
-}
-
-.cash-flow-totals > div:last-child {
-  border-bottom: 0;
+  min-width: 0;
+  min-height: 144px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 .cash-flow-totals .money-display {
@@ -2752,6 +2762,11 @@ li {
   font-size: clamp(1.45rem, 6vw, 2rem);
   font-weight: 700;
   letter-spacing: -0.045em;
+}
+
+.cash-flow-totals dd {
+  min-width: 0;
+  margin: 0;
 }
 
 .cash-flow-totals > div:nth-child(2) .money-display,
@@ -2930,17 +2945,7 @@ li {
   }
 
   .cash-flow-totals > div {
-    padding: 21px 22px;
-    border-right: 1px solid var(--line);
-    border-bottom: 0;
-  }
-
-  .cash-flow-totals > div:first-child {
-    padding-left: 2px;
-  }
-
-  .cash-flow-totals > div:last-child {
-    border-right: 0;
+    padding: 20px;
   }
 }
 

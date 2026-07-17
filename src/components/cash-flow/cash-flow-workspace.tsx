@@ -84,15 +84,17 @@ export function CashFlowWorkspace({ now }: { now: string }) {
       ) : null}
 
       {summary.isSuccess && approvedTransactions.length > 0 ? <div className="cash-flow-workspace">
-        <div className="cash-flow-context">
-          <div><span>Reporting window</span><strong>{period}</strong></div>
-          <p><ShieldCheck aria-hidden="true" size={17} />Only owner-approved records are included.</p>
-        </div>
+        <section className="cash-flow-summary" aria-label="Cash-flow summary">
+          <div className="cash-flow-context">
+            <div><span>Reporting window</span><strong>{period}</strong></div>
+            <p><ShieldCheck aria-hidden="true" size={17} />Only owner-approved records are included.</p>
+          </div>
 
-        <section className="cash-flow-totals" aria-label="Cash-flow totals">
-          <div><span>Money in</span><MoneyDisplay amount={income} prefix="+" /><small>Approved income</small></div>
-          <div><span>Money out</span><MoneyDisplay amount={expenses} prefix="−" /><small>Approved expenses</small></div>
-          <div className={net < 0 ? "negative" : "positive"}><span>Net movement</span><MoneyDisplay amount={Math.abs(net)} prefix={net < 0 ? "−" : "+"} /><small>{net < 0 ? "More went out than came in" : "More came in than went out"}</small></div>
+          <dl className="cash-flow-totals" aria-label="Cash-flow totals">
+            <div><dt>Money in</dt><dd><MoneyDisplay amount={income} prefix="+" /></dd><small>Approved income</small></div>
+            <div><dt>Money out</dt><dd><MoneyDisplay amount={expenses} prefix="−" /></dd><small>Approved expenses</small></div>
+            <div className={net < 0 ? "negative" : "positive"}><dt>Net movement</dt><dd><MoneyDisplay amount={Math.abs(net)} prefix={net < 0 ? "−" : "+"} /></dd><small>{net < 0 ? "More went out than came in" : "More came in than went out"}</small></div>
+          </dl>
         </section>
 
         <CashOverview data={cashFlow} showDetailsLink={false} />
