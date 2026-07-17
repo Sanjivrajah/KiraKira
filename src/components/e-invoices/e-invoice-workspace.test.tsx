@@ -74,13 +74,29 @@ describe("EInvoiceWorkspace", () => {
     expect(screen.getByRole("button", { name: "Prepare selected" })).toBeEnabled();
   });
 
+  it("separates preparation, submission, and history into distinct stages", () => {
+    render(<EInvoiceWorkspace />);
+    expect(screen.getByRole("heading", { name: "Saved invoice candidates" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Submission history" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: /Submit/i }));
+    expect(screen.getByRole("heading", { name: "Ready to submit" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Saved invoice candidates" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: /History/i }));
+    expect(screen.getByRole("heading", { name: "Submission history" })).toBeInTheDocument();
+  });
+
   it("keeps preparation records available when submission status fails independently", () => {
     submissionError = true;
     render(<EInvoiceWorkspace />);
-    expect(screen.getByRole("alert")).toHaveTextContent("Submission controls are temporarily unavailable");
-    expect(screen.getByRole("button", { name: "Retry submissions" })).toBeEnabled();
+    // The Prepare stage stays fully usable even though submission status is unavailable.
     expect(screen.getByRole("heading", { name: "Saved invoice candidates" })).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: /Exchange rate to MYR/ })).toBeInTheDocument();
+    // Submission failures stay isolated to the Submit stage and still offer a retry.
+    fireEvent.click(screen.getByRole("tab", { name: /Submit/i }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Submission controls are temporarily unavailable");
+    expect(screen.getByRole("button", { name: "Retry submissions" })).toBeEnabled();
   });
 
   it("keeps submission history discoverable after a refresh", () => {
@@ -111,6 +127,7 @@ describe("EInvoiceWorkspace", () => {
       errorMessage: "The prior submission failed before MyInvois acknowledgement.", documents: [],
     } });
     render(<EInvoiceWorkspace />);
+    fireEvent.click(screen.getByRole("tab", { name: /Submit/i }));
     fireEvent.click(screen.getByRole("checkbox", { name: /PAYLOAD-1/ }));
     fireEvent.click(screen.getByRole("button", { name: "Submit to sandbox" }));
 

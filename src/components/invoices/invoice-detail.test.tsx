@@ -47,6 +47,13 @@ describe("InvoiceDetail prepayment", () => {
       .toHaveAttribute("href", `/invoices/${invoice.id}/edit`);
   });
 
+  it("does not duplicate the prepayment field on editable drafts", () => {
+    currentInvoice = { ...invoice, status: "draft" };
+    render(<InvoiceDetail id={invoice.id} />);
+    expect(screen.queryByLabelText("Prepayment amount (RM)")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save prepayment" })).not.toBeInTheDocument();
+  });
+
   it("allows a prepayment to be added to an existing sent source invoice", async () => {
     render(<InvoiceDetail id={invoice.id} />);
     fireEvent.change(screen.getByLabelText("Prepayment amount (RM)"), { target: { value: "25" } });
