@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { VoicePhase } from "./use-voice-agent";
 
 interface VoiceOrbProps {
+  compact?: boolean;
   phase: VoicePhase;
   getInputVolume: () => number;
   getOutputVolume: () => number;
@@ -21,7 +22,7 @@ const LEVEL_GAIN = 3.2;
  * and to the assistant's output while it talks (`speaking`); every other phase
  * rests at level 0 and relies on its own CSS animation.
  */
-export function VoiceOrb({ phase, getInputVolume, getOutputVolume }: VoiceOrbProps) {
+export function VoiceOrb({ compact = false, phase, getInputVolume, getOutputVolume }: VoiceOrbProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
 
@@ -59,7 +60,7 @@ export function VoiceOrb({ phase, getInputVolume, getOutputVolume }: VoiceOrbPro
   }, [phase, reducedMotion, getInputVolume, getOutputVolume]);
 
   return (
-    <div ref={ref} className="voice-orb" data-phase={phase} aria-hidden="true">
+    <div ref={ref} className="voice-orb" data-compact={compact || undefined} data-phase={phase} aria-hidden="true">
       <span className="voice-orb-ring voice-orb-ring-outer" />
       <span className="voice-orb-ring voice-orb-ring-inner" />
       <span className="voice-orb-core">

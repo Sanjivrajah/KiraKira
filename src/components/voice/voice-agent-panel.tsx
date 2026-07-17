@@ -1,11 +1,10 @@
 "use client";
 
 import { ChevronDown, ClipboardCheck, Clock3, History, Mic, MicOff, PhoneOff, ShieldCheck, Sparkles } from "lucide-react";
-import { ConversationProvider } from "@elevenlabs/react";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { useBusiness } from "@/hooks/use-business";
-import { useVoiceAgent } from "./use-voice-agent";
+import { usePersistentVoiceAgent } from "./voice-agent-provider";
 import { VoiceCaptions } from "./voice-captions";
 import { VoiceDraftReview } from "./voice-draft-review";
 import { VoiceOrb } from "./voice-orb";
@@ -34,7 +33,7 @@ function VoiceSessionTimer() {
 }
 
 function VoiceAgentInner() {
-  const agent = useVoiceAgent();
+  const agent = usePersistentVoiceAgent();
   const { data: business } = useBusiness();
   const [historyOpen, setHistoryOpen] = useState(false);
   const connected = agent.status === "connected";
@@ -144,9 +143,7 @@ export function VoiceAgentPanel() {
       ) : !business ? (
         <p className="form-alert" role="alert">Set up your business details first, then come back to use the voice assistant.</p>
       ) : (
-        <ConversationProvider>
-          <VoiceAgentInner />
-        </ConversationProvider>
+        <VoiceAgentInner />
       )}
     </div>
   );

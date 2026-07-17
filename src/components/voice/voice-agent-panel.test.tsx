@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VOICE_PHASE_COPY, type VoicePhase } from "./use-voice-agent";
 
 const mocks = vi.hoisted(() => ({
-  useVoiceAgent: vi.fn(),
+  usePersistentVoiceAgent: vi.fn(),
   history: vi.fn(),
 }));
 
@@ -14,10 +14,7 @@ vi.mock("@elevenlabs/react", () => ({
 vi.mock("@/hooks/use-business", () => ({
   useBusiness: () => ({ data: { id: "business-1", name: "Kedai Murni" }, isLoading: false }),
 }));
-vi.mock("./use-voice-agent", async (importOriginal) => {
-  const original = await importOriginal<typeof import("./use-voice-agent")>();
-  return { ...original, useVoiceAgent: mocks.useVoiceAgent };
-});
+vi.mock("./voice-agent-provider", () => ({ usePersistentVoiceAgent: mocks.usePersistentVoiceAgent }));
 vi.mock("./voice-draft-review", () => ({ VoiceDraftReview: () => <div>Review queue</div> }));
 vi.mock("./voice-conversation-history", () => ({
   VoiceConversationHistory: (props: unknown) => mocks.history(props),
@@ -59,14 +56,14 @@ describe("VoiceAgentPanel", () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     })));
-    mocks.useVoiceAgent.mockReturnValue(agentFor("idle"));
+    mocks.usePersistentVoiceAgent.mockReturnValue(agentFor("idle"));
     mocks.history.mockReturnValue(<div>Loaded conversation history</div>);
   });
 
   afterEach(() => vi.unstubAllGlobals());
 
   it.each<VoicePhase>(["idle", "connecting", "listening", "thinking", "speaking", "muted", "error"])("renders the %s phase", (phase) => {
-    mocks.useVoiceAgent.mockReturnValue(agentFor(phase));
+    mocks.usePersistentVoiceAgent.mockReturnValue(agentFor(phase));
     render(<VoiceAgentPanel />);
 
     expect(screen.getByRole("status")).toHaveTextContent(VOICE_PHASE_COPY[phase].label);
@@ -87,7 +84,7 @@ describe("VoiceAgentPanel", () => {
 
   it("exposes clear active-call controls", () => {
     const agent = agentFor("listening");
-    mocks.useVoiceAgent.mockReturnValue(agent);
+    mocks.usePersistentVoiceAgent.mockReturnValue(agent);
     render(<VoiceAgentPanel />);
 
     fireEvent.click(screen.getByRole("button", { name: "Mute" }));

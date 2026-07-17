@@ -9,6 +9,10 @@ import { queryKeys } from "@/lib/query/query-keys";
 import { services } from "@/services";
 import { createQueryWrapper } from "@/test/render";
 
+// AppProviders now owns the persistent voice session, which reads route context.
+// This suite exercises the query client only, so a minimal App Router is enough.
+vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard", useRouter: () => ({ push: vi.fn() }) }));
+
 const fixture = DEMO_TRANSACTIONS[0];
 const createInput = fixture;
 
