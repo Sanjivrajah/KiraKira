@@ -12,7 +12,7 @@ The invoice builder currently creates rich compliance data in memory, but the li
 
 ### 1. Inventory and field-source matrix
 
-Create a checked-in mapping table covering each supported Invoice v1.1 field:
+Start from `REFERENCE_INVOICE_V1_1_FIELD_REQUIREMENTS.md`; do not rediscover or replace its verified requirement classifications. Convert it into a typed registry or equivalent implementation source of truth covering each supported Invoice v1.1 field:
 
 - Internal canonical path.
 - Official UBL path.
@@ -21,8 +21,9 @@ Create a checked-in mapping table covering each supported Invoice v1.1 field:
 - Source of truth: business, party, invoice, invoice line, calculated, or supplemental.
 - Persistence location.
 - Current availability and gap.
+- Official source version and verification date.
 
-The matrix is the contract for later UI and mapper stages. Do not use an untyped list of 55 labels as the source of truth.
+The typed registry and the verified reference are the contract for later UI and mapper stages. Add a coverage test proving all 55 guideline fields, SDK expansions, and enabled annexure fields are represented. Do not use an untyped list of 55 labels as the source of truth.
 
 ### 2. Supplier identity persistence
 
@@ -139,4 +140,3 @@ Stage 2 may start only when a saved Supabase invoice can be assembled into eithe
 
 - A complete, schema-valid `CommercialDocument`; or
 - A preparation record with precise missing-field diagnostics and no fabricated values.
-
