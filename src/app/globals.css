@@ -1556,6 +1556,10 @@ li {
   letter-spacing: -0.045em;
 }
 
+.metric-value .money-display {
+  font-size: inherit;
+}
+
 .metric-trend {
   margin: 9px 0 0;
   color: var(--ink-500);
