@@ -1,5 +1,9 @@
-import { FeaturePlaceholder } from "@/components/shared/feature-placeholder";
+import { connection } from "next/server";
+import { AuthGate } from "@/components/auth/auth-gate";
+import { CashFlowWorkspace } from "@/components/cash-flow/cash-flow-workspace";
+import { AppShell } from "@/components/layout/app-shell";
 
-export default function CashFlowPage() {
-  return <FeaturePlaceholder title="Cash flow" description="A full cash-flow workspace is planned for a later session." emptyTitle="Cash-flow workspace coming next" emptyDescription="The dashboard chart is a transparent preview derived from local transaction records. Forecasting is not implemented." />;
+export default async function CashFlowPage() {
+  await connection();
+  return <AuthGate gate="dashboard"><AppShell><CashFlowWorkspace now={new Date().toISOString()} /></AppShell></AuthGate>;
 }
