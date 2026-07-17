@@ -60,7 +60,11 @@ export function VoiceOrb({ phase, getInputVolume, getOutputVolume }: VoiceOrbPro
 
   return (
     <div ref={ref} className="voice-orb" data-phase={phase} aria-hidden="true">
-      <AudioLines className="voice-orb-icon" size={40} />
+      <span className="voice-orb-ring voice-orb-ring-outer" />
+      <span className="voice-orb-ring voice-orb-ring-inner" />
+      <span className="voice-orb-core">
+        <AudioLines className="voice-orb-icon" size={44} />
+      </span>
     </div>
   );
 }

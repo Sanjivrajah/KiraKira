@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Loader2, Receipt, Trash2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, FileCheck2, Loader2, Receipt, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { calculateInvoiceTotals } from "@/lib/invoices/calculations";
@@ -104,8 +104,11 @@ export function VoiceDraftReview() {
   if (!transaction && !invoice && !reminder && !lastConfirmation) {
     return (
       <div className="voice-draft-empty" aria-live="polite">
-        <Receipt aria-hidden="true" size={20} />
-        <p>Anything you dictate appears here for you to review. Nothing is saved until you confirm.</p>
+        <span><Receipt aria-hidden="true" size={22} /></span>
+        <div>
+          <strong>Your review queue is ready</strong>
+          <p>Anything you dictate appears here first. Nothing is saved until you check and confirm it.</p>
+        </div>
       </div>
     );
   }
@@ -122,36 +125,49 @@ export function VoiceDraftReview() {
       {transaction ? (
         <section className="voice-draft-card" aria-labelledby="voice-tx-title">
           <header>
-            <span className="voice-draft-tag">Transaction draft</span>
-            <h3 id="voice-tx-title">Review before saving</h3>
+            <div>
+              <span className="voice-draft-tag">Transaction draft</span>
+              <h3 id="voice-tx-title">Ready for your review</h3>
+              <p>Check the prepared record before it becomes part of your books.</p>
+            </div>
+            <FileCheck2 aria-hidden="true" size={24} />
           </header>
-          <div className="voice-draft-grid">
-            <label>Money in or out
-              <select value={transaction.type} onChange={(event) => patchTransaction({ type: event.target.value as "income" | "expense" })}>
-                <option value="income">Money in</option>
-                <option value="expense">Money out</option>
-              </select>
-            </label>
-            <label>Amount (RM)
-              <input inputMode="decimal" min="0.01" step="0.01" type="number" value={transaction.amount ?? ""}
-                onChange={(event) => patchTransaction({ amount: event.target.value === "" ? null : Number(event.target.value) })} />
-            </label>
-            <label>Date
-              <input type="date" value={transaction.date} onChange={(event) => patchTransaction({ date: event.target.value })} />
-            </label>
-            <label>Category
-              <input maxLength={60} type="text" value={transaction.category} onChange={(event) => patchTransaction({ category: event.target.value })} />
-            </label>
-            <label className="voice-draft-wide">Description
-              <input maxLength={160} type="text" value={transaction.description} onChange={(event) => patchTransaction({ description: event.target.value })} />
-            </label>
-            <label>Merchant or customer
-              <input maxLength={100} type="text" value={transaction.counterpartyName} onChange={(event) => patchTransaction({ counterpartyName: event.target.value })} />
-            </label>
-            <label>Payment method
-              <input maxLength={60} type="text" value={transaction.paymentMethod} onChange={(event) => patchTransaction({ paymentMethod: event.target.value })} />
-            </label>
+          <div className="voice-draft-summary">
+            <span className="voice-draft-direction" data-type={transaction.type}>{transaction.type === "income" ? "Money in" : "Money out"}</span>
+            <strong>{transaction.amount === null ? "Amount needed" : <MoneyDisplay amount={transaction.amount} />}</strong>
+            <p>{transaction.description || transaction.category || "Description needed"}</p>
+            <small>{transaction.date}{transaction.counterpartyName ? ` · ${transaction.counterpartyName}` : ""}</small>
           </div>
+          <details className="voice-draft-details">
+            <summary>Edit details <ChevronDown aria-hidden="true" size={17} /></summary>
+            <div className="voice-draft-grid">
+              <label>Money in or out
+                <select value={transaction.type} onChange={(event) => patchTransaction({ type: event.target.value as "income" | "expense" })}>
+                  <option value="income">Money in</option>
+                  <option value="expense">Money out</option>
+                </select>
+              </label>
+              <label>Amount (RM)
+                <input inputMode="decimal" min="0.01" step="0.01" type="number" value={transaction.amount ?? ""}
+                  onChange={(event) => patchTransaction({ amount: event.target.value === "" ? null : Number(event.target.value) })} />
+              </label>
+              <label>Date
+                <input type="date" value={transaction.date} onChange={(event) => patchTransaction({ date: event.target.value })} />
+              </label>
+              <label>Category
+                <input maxLength={60} type="text" value={transaction.category} onChange={(event) => patchTransaction({ category: event.target.value })} />
+              </label>
+              <label className="voice-draft-wide">Description
+                <input maxLength={160} type="text" value={transaction.description} onChange={(event) => patchTransaction({ description: event.target.value })} />
+              </label>
+              <label>Merchant or customer
+                <input maxLength={100} type="text" value={transaction.counterpartyName} onChange={(event) => patchTransaction({ counterpartyName: event.target.value })} />
+              </label>
+              <label>Payment method
+                <input maxLength={60} type="text" value={transaction.paymentMethod} onChange={(event) => patchTransaction({ paymentMethod: event.target.value })} />
+              </label>
+            </div>
+          </details>
           {error ? <p className="form-alert" role="alert">{error}</p> : null}
           <div className="voice-draft-actions">
             <button className="button button-secondary" disabled={savingTransaction} onClick={clearTransaction} type="button">
@@ -168,20 +184,30 @@ export function VoiceDraftReview() {
       {invoice ? (
         <section className="voice-draft-card" aria-labelledby="voice-inv-title">
           <header>
-            <span className="voice-draft-tag">Invoice draft</span>
-            <h3 id="voice-inv-title">{invoice.customerName}</h3>
+            <div>
+              <span className="voice-draft-tag">Invoice draft</span>
+              <h3 id="voice-inv-title">Ready for your review</h3>
+              <p>Check the customer, total, and due date before saving the draft.</p>
+            </div>
+            <FileCheck2 aria-hidden="true" size={24} />
           </header>
-          <ul className="voice-invoice-lines">
-            {invoice.items.map((item, index) => (
-              <li key={`${item.description}-${index}`}>
-                <span>{item.quantity} × {item.description}</span>
-                <MoneyDisplay amount={item.quantity * item.unitPrice * (1 + item.taxRate / 100)} />
-              </li>
-            ))}
-          </ul>
-          {invoiceTotals ? (
-            <p className="voice-invoice-total">Total <strong><MoneyDisplay amount={invoiceTotals.total} /></strong> · due {invoice.dueDate}</p>
-          ) : null}
+          <div className="voice-draft-summary">
+            <span className="voice-draft-direction">Draft invoice</span>
+            <strong>{invoiceTotals ? <MoneyDisplay amount={invoiceTotals.total} /> : "Total pending"}</strong>
+            <p>{invoice.customerName}</p>
+            <small>Due {invoice.dueDate}</small>
+          </div>
+          <details className="voice-draft-details">
+            <summary>View line items <ChevronDown aria-hidden="true" size={17} /></summary>
+            <ul className="voice-invoice-lines">
+              {invoice.items.map((item, index) => (
+                <li key={`${item.description}-${index}`}>
+                  <span>{item.quantity} × {item.description}</span>
+                  <MoneyDisplay amount={item.quantity * item.unitPrice * (1 + item.taxRate / 100)} />
+                </li>
+              ))}
+            </ul>
+          </details>
           {error ? <p className="form-alert" role="alert">{error}</p> : null}
           <div className="voice-draft-actions">
             <button className="button button-secondary" disabled={savingInvoice} onClick={clearInvoice} type="button">

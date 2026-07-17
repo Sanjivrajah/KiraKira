@@ -45,21 +45,22 @@ export type VoicePhase =
   | "muted"
   | "error";
 
-/** Human-readable label for each phase, announced via an aria-live region. */
-export const VOICE_PHASE_LABEL: Record<VoicePhase, string> = {
-  idle: "Not connected",
-  connecting: "Connecting…",
-  listening: "Listening…",
-  thinking: "Thinking…",
-  speaking: "Assistant speaking",
-  muted: "Muted",
-  error: "Something went wrong",
+/** Concise phase copy shared by the visible status and its supporting hint. */
+export const VOICE_PHASE_COPY: Record<VoicePhase, { label: string; hint: string }> = {
+  idle: { label: "Ready when you are", hint: "Start a conversation and speak naturally." },
+  connecting: { label: "Getting everything ready", hint: "Connecting securely to your microphone…" },
+  listening: { label: "I’m listening", hint: "Tell me about a sale, expense, invoice, or your numbers." },
+  thinking: { label: "Working that out", hint: "Checking the details before I answer." },
+  speaking: { label: "NiagaAI is answering", hint: "You can interrupt naturally or mute your microphone." },
+  muted: { label: "Microphone paused", hint: "Unmute when you’re ready to continue." },
+  error: { label: "The conversation paused", hint: "Review the message below, then try again." },
 };
 
 export interface UseVoiceAgentResult {
   status: "disconnected" | "connecting" | "connected" | "error";
   phase: VoicePhase;
   stateLabel: string;
+  stateHint: string;
   connecting: boolean;
   canConnect: boolean;
   isSpeaking: boolean;
@@ -104,6 +105,8 @@ export function useVoiceAgent(): UseVoiceAgentResult {
   const transcriptRef = useRef<TranscriptTurn[]>([]);
   const storageSessionRef = useRef<Promise<string | null> | null>(null);
   const storageQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const connectInFlightRef = useRef(false);
+  const endInFlightRef = useRef(false);
   useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
   useEffect(() => { businessNameRef.current = businessName; }, [businessName]);
   useEffect(() => { businessIdRef.current = business?.id ?? null; }, [business?.id]);
@@ -183,10 +186,12 @@ export function useVoiceAgent(): UseVoiceAgentResult {
   const canConnect = Boolean(businessId) && conversation.status === "disconnected";
 
   const connect = useCallback(async () => {
+    if (connectInFlightRef.current) return;
     if (!businessId) {
       setError("Set up your business before using the voice assistant.");
       return;
     }
+    connectInFlightRef.current = true;
     setError(null);
     setConnecting(true);
     setTranscript([]);
@@ -256,13 +261,20 @@ export function useVoiceAgent(): UseVoiceAgentResult {
     } catch {
       setError("Couldn't reach the microphone or the voice assistant. Check permissions and try again.");
     } finally {
+      connectInFlightRef.current = false;
       setConnecting(false);
     }
   }, [businessId, createdBy, conversation, mode, queryClient, router, session]);
 
   const disconnect = useCallback(() => {
+    if (endInFlightRef.current) return;
+    endInFlightRef.current = true;
     conversation.endSession();
   }, [conversation]);
+
+  useEffect(() => {
+    if (conversation.status === "disconnected") endInFlightRef.current = false;
+  }, [conversation.status]);
 
   const toggleMute = useCallback(() => {
     conversation.setMuted(!conversation.isMuted);
@@ -311,7 +323,8 @@ export function useVoiceAgent(): UseVoiceAgentResult {
   return {
     status,
     phase,
-    stateLabel: VOICE_PHASE_LABEL[phase],
+    stateLabel: VOICE_PHASE_COPY[phase].label,
+    stateHint: VOICE_PHASE_COPY[phase].hint,
     connecting,
     canConnect,
     isSpeaking,

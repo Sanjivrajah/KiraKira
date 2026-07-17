@@ -1,7 +1,8 @@
 "use client";
 
-import { Mic, MicOff, PhoneOff } from "lucide-react";
+import { ChevronDown, ClipboardCheck, Clock3, History, Mic, MicOff, PhoneOff, ShieldCheck, Sparkles } from "lucide-react";
 import { ConversationProvider } from "@elevenlabs/react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { useBusiness } from "@/hooks/use-business";
 import { useVoiceAgent } from "./use-voice-agent";
@@ -11,68 +12,119 @@ import { VoiceOrb } from "./voice-orb";
 import { VoiceConversationHistory } from "./voice-conversation-history";
 
 const CAPABILITIES = [
-  "Log a sale or an expense — “I spent RM45 on petrol today, cash.”",
-  "Ask about your money — “How much profit did I make this month?”",
-  "See who owes you and draft a reminder.",
-  "Draft an e-invoice, or just say “open my invoices.”",
+  "I spent RM45 on petrol today, cash.",
+  "How much profit did I make this month?",
+  "Who still owes me money?",
+  "Draft an invoice for Siti.",
 ];
+
+function formatDuration(seconds: number) {
+  return `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
+}
+
+function VoiceSessionTimer() {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setSeconds((value) => value + 1), 1_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return <span className="voice-session-time"><Clock3 aria-hidden="true" size={14} />{formatDuration(seconds)}</span>;
+}
 
 function VoiceAgentInner() {
   const agent = useVoiceAgent();
   const { data: business } = useBusiness();
+  const [historyOpen, setHistoryOpen] = useState(false);
   const connected = agent.status === "connected";
+  const active = connected || agent.connecting || agent.status === "connecting";
   const savesTranscripts = agent.transcriptStorage !== "disabled";
 
   return (
     <div className="voice-agent">
-      <section className="voice-stage" aria-label="Voice assistant">
-        <VoiceOrb phase={agent.phase} getInputVolume={agent.getInputVolume} getOutputVolume={agent.getOutputVolume} />
-        <p className="voice-state" data-phase={agent.phase} role="status" aria-live="polite">{agent.stateLabel}</p>
-
-        <div className="voice-controls">
-          {connected ? (
-            <>
-              <button className="button button-secondary" onClick={agent.toggleMute} type="button" aria-pressed={agent.isMuted}>
-                {agent.isMuted ? <MicOff aria-hidden="true" size={18} /> : <Mic aria-hidden="true" size={18} />}
-                {agent.isMuted ? "Unmute" : "Mute"}
-              </button>
-              <button className="button button-danger" onClick={agent.disconnect} type="button">
-                <PhoneOff aria-hidden="true" size={18} />End conversation
-              </button>
-            </>
-          ) : (
-            <button className="button button-primary" disabled={!agent.canConnect || agent.connecting} onClick={agent.connect} type="button">
-              <Mic aria-hidden="true" size={18} />Start talking
-            </button>
-          )}
+      <section className="voice-stage" data-phase={agent.phase} aria-label="Voice assistant">
+        <div className="voice-stage-topline">
+          <span className="voice-live-badge" data-active={active || undefined}>
+            <span aria-hidden="true" />{connected ? "Live conversation" : active ? "Connecting" : "Voice workspace"}
+          </span>
+          {connected ? <VoiceSessionTimer /> : <span className="voice-secure-label"><ShieldCheck aria-hidden="true" size={15} />Audio is not stored</span>}
         </div>
 
-        {agent.error ? <p className="form-alert" role="alert">{agent.error}</p> : null}
-        <VoiceCaptions transcript={agent.transcript} />
-        <p className="voice-privacy-note">
-          {savesTranscripts
-            ? "Your private text transcript is marked for deletion after 90 days; NiagaAI does not store the call audio. Financial records are saved only after you confirm."
-            : "This demo does not save the transcript. Financial records are staged for review and saved only after you confirm."}
-        </p>
-        {agent.transcriptStorage === "saving" ? <p className="voice-storage-state" role="status">Saving transcript…</p> : null}
-        {agent.transcriptStorage === "error" ? <p className="form-alert" role="alert">The conversation can continue, but its transcript is not being saved.</p> : null}
+        <div className="voice-stage-body">
+          <div className="voice-presence">
+            <VoiceOrb phase={agent.phase} getInputVolume={agent.getInputVolume} getOutputVolume={agent.getOutputVolume} />
+            <div className="voice-phase-copy">
+              <p className="voice-state" data-phase={agent.phase} role="status" aria-live="polite">{agent.stateLabel}</p>
+              <p className="voice-state-hint">{agent.stateHint}</p>
+            </div>
+
+            <div className="voice-controls" aria-label="Conversation controls">
+              {connected ? (
+                <>
+                  <button className="voice-control-button voice-control-mute" onClick={agent.toggleMute} type="button" aria-pressed={agent.isMuted}>
+                    <span className="voice-control-icon">{agent.isMuted ? <MicOff aria-hidden="true" size={21} /> : <Mic aria-hidden="true" size={21} />}</span>
+                    {agent.isMuted ? "Unmute" : "Mute"}
+                  </button>
+                  <button className="voice-control-button voice-control-end" onClick={agent.disconnect} type="button">
+                    <span className="voice-control-icon"><PhoneOff aria-hidden="true" size={21} /></span>
+                    End call
+                  </button>
+                </>
+              ) : (
+                <button className="voice-start-button" disabled={!agent.canConnect || agent.connecting} onClick={() => void agent.connect()} type="button">
+                  <span><Mic aria-hidden="true" size={22} /></span>{agent.connecting ? "Connecting…" : "Start talking"}
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="voice-dialogue">
+            {agent.phase === "idle" && agent.transcript.length === 0 ? (
+              <section className="voice-prompts" aria-labelledby="voice-prompts-title">
+                <p className="voice-section-label" id="voice-prompts-title"><Sparkles aria-hidden="true" size={15} />Try saying</p>
+                <div className="voice-prompt-list">
+                  {CAPABILITIES.map((capability) => <span className="voice-prompt-chip" key={capability}>“{capability}”</span>)}
+                </div>
+              </section>
+            ) : null}
+            <VoiceCaptions transcript={agent.transcript} />
+          </div>
+        </div>
+
+        <div className="voice-stage-footer">
+          <p className="voice-privacy-note">
+            <ShieldCheck aria-hidden="true" size={16} />
+            <span>{savesTranscripts
+              ? "Private text transcripts are marked for deletion after 90 days. Audio is not stored, and financial records are saved only after you confirm."
+              : "This demo does not save the transcript. Financial records are staged for review and saved only after you confirm."}</span>
+          </p>
+          {agent.transcriptStorage === "saving" ? <p className="voice-storage-state" role="status">Saving transcript…</p> : null}
+        </div>
+        {agent.error ? <p className="form-alert voice-stage-alert" role="alert">{agent.error}</p> : null}
+        {agent.transcriptStorage === "error" ? <p className="form-alert voice-stage-alert" role="alert">The conversation can continue, but its transcript is not being saved.</p> : null}
       </section>
 
-      <div className="voice-side">
+      <section className="voice-review-section" aria-labelledby="voice-review-title">
+        <header className="voice-review-heading">
+          <div>
+            <p>Owner confirmation</p>
+            <h2 id="voice-review-title"><ClipboardCheck aria-hidden="true" size={20} />Review queue</h2>
+          </div>
+          <span>Nothing saves automatically</span>
+        </header>
         <VoiceDraftReview />
-        <section className="voice-capabilities" aria-label="What you can ask">
-          <h2>Try saying</h2>
-          <ul>
-            {CAPABILITIES.map((capability) => <li key={capability}>{capability}</li>)}
-          </ul>
+      </section>
+
+      {business && savesTranscripts ? (
+        <section className="voice-history-shell">
+          <button className="voice-history-toggle" aria-expanded={historyOpen} onClick={() => setHistoryOpen((open) => !open)} type="button">
+            <span><History aria-hidden="true" size={19} /><span><strong>Conversation history</strong><small>Review private text transcripts from previous calls</small></span></span>
+            <ChevronDown aria-hidden="true" className={historyOpen ? "is-open" : ""} size={20} />
+          </button>
+          {historyOpen ? <VoiceConversationHistory businessId={business.id} refreshKey={agent.historyRefreshKey} /> : null}
         </section>
-        {business && savesTranscripts ? (
-          <VoiceConversationHistory
-            businessId={business.id}
-            refreshKey={agent.historyRefreshKey}
-          />
-        ) : null}
-      </div>
+      ) : null}
     </div>
   );
 }
