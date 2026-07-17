@@ -20,6 +20,7 @@
     "demo:agent": "tsx scripts/demo-agent.ts"
   },
   "dependencies": {
+    "@elevenlabs/react": "^1.10.0",
     "@hookform/resolvers": "^5.4.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "2.80.0",

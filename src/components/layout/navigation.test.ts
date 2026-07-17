@@ -6,6 +6,7 @@ describe("primary navigation", () => {
     expect(primaryNavigation.map(({ label, href }) => ({ label, href }))).toEqual([
       { label: "Dashboard", href: "/dashboard" },
       { label: "Records", href: "/transactions" },
+      { label: "Voice assistant", href: "/voice" },
       { label: "e-Invoice preparation", href: "/invoices" },
       { label: "Business details", href: "/settings" },
     ]);

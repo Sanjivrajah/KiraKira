@@ -1,4 +1,5 @@
 import {
+  AudioLines,
   Building2,
   FileText,
   Gauge,
@@ -17,6 +18,7 @@ export interface NavigationItem {
 export const primaryNavigation: NavigationItem[] = [
   { label: "Dashboard", shortLabel: "Home", href: "/dashboard", icon: Gauge },
   { label: "Records", href: "/transactions", icon: ReceiptText },
+  { label: "Voice assistant", shortLabel: "Voice", href: "/voice", icon: AudioLines, availability: "preview" },
   { label: "e-Invoice preparation", shortLabel: "e-Invoice", href: "/invoices", icon: FileText },
   { label: "Business details", shortLabel: "Business", href: "/settings", icon: Building2, availability: "preview" },
 ];
