@@ -35,7 +35,7 @@ const sourceCopy = {
 export function DemoSourceInput({ source, onContinue, onImported, onBack }: {
   source: "csv" | "bank_statement" | "whatsapp";
   onContinue: () => void;
-  onImported: (result: TransactionFileImportResult) => void;
+  onImported: (result: TransactionFileImportResult) => void | Promise<void>;
   onBack: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
@@ -58,7 +58,7 @@ export function DemoSourceInput({ source, onContinue, onImported, onBack }: {
       if (isCsv) {
         const result = parseTransactionCsv(await file.text(), source);
         if (result.drafts.length === 0) throw new Error(result.failures[0] || "No complete transactions were found in this CSV.");
-        onImported({
+        await onImported({
           drafts: result.drafts,
           failures: result.failures,
           warnings: result.truncated ? ["Only the first 100 rows were imported."] : [],
@@ -85,7 +85,7 @@ export function DemoSourceInput({ source, onContinue, onImported, onBack }: {
         if (response.status === 503) throw new Error("Statement extraction is not configured right now.");
         throw new Error(body.error || `Could not read this statement (${response.status}).`);
       }
-      onImported({ drafts: body.drafts, failures: [], warnings: body.warnings || [], method: "openai_pdf" });
+      await onImported({ drafts: body.drafts, failures: [], warnings: body.warnings || [], method: "openai_pdf" });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "We could not import this file.");
     } finally {

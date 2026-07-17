@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, CheckCircle2, FileText, ShieldCheck } from "lucide-react";
+import { useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { FormField } from "@/components/forms/form-field";
 import { SelectField } from "@/components/forms/select-field";
@@ -76,10 +77,13 @@ export function TransactionReviewForm({ draft, onBack, onConfirm, onReject, save
   reviewHints?: TransactionReviewHints;
   onReject?: () => void;
 }) {
-  const { control, register, handleSubmit, formState: { errors, isSubmitting } } = useForm<TransactionFormValues, unknown, ValidTransactionFormValues>({
+  const { control, register, reset, handleSubmit, formState: { errors, isSubmitting } } = useForm<TransactionFormValues, unknown, ValidTransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
     defaultValues: { ...draft, eInvoiceTreatment: draft.eInvoiceTreatment ?? "undetermined" },
   });
+  useEffect(() => {
+    reset({ ...draft, eInvoiceTreatment: draft.eInvoiceTreatment ?? "undetermined" });
+  }, [draft, reset]);
   const type = useWatch({ control, name: "type" });
   const issueFields = new Set<ReviewField>(Object.keys(reviewHints ?? {}) as ReviewField[]);
   for (const [field, confidence] of Object.entries(draft.fieldConfidence ?? {})) {
