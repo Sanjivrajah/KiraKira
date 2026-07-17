@@ -1,7 +1,7 @@
 "use client";
 
 import { Moon, Sun, Monitor, Rows3, Rows4 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTheme, type ThemePreference } from "./theme-provider";
 
 const DENSITY_STORAGE_KEY = "niagaai_density";
@@ -13,6 +13,10 @@ function readStoredDensity(): Density {
     return stored === "compact" ? "compact" : "comfortable";
   } catch { return "comfortable"; }
 }
+
+function subscribeToHydration() { return () => undefined; }
+function getHydratedSnapshot() { return true; }
+function getServerHydrationSnapshot() { return false; }
 
 const themeOptions: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
   { value: "light", label: "Light", icon: Sun },
@@ -27,9 +31,11 @@ const densityOptions: { value: Density; label: string; icon: typeof Rows3 }[] = 
 
 export function AppearanceSettings() {
   const { theme, setTheme } = useTheme();
+  const hasHydrated = useSyncExternalStore(subscribeToHydration, getHydratedSnapshot, getServerHydrationSnapshot);
 
-  // Lazy initialiser reads localStorage once on mount.
-  const [density, setDensity] = useState<Density>(readStoredDensity);
+  // Keep the first client render deterministic, then read this device setting.
+  const [requestedDensity, setDensity] = useState<Density>("comfortable");
+  const density = hasHydrated ? readStoredDensity() : requestedDensity;
 
   // Synchronise data-density attribute on <html> — an external-system effect.
   useEffect(() => {

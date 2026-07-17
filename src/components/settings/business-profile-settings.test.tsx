@@ -26,9 +26,20 @@ const business: Business = {
 beforeEach(() => mutateAsync.mockReset().mockResolvedValue(business));
 
 describe("BusinessProfileSettings", () => {
+  it("keeps supplier details read-only until the owner chooses to edit", () => {
+    render(<BusinessProfileSettings business={business} />);
+
+    expect(screen.getByText("Supplier legal name")).toBeInTheDocument();
+    expect(screen.queryByLabelText("MSIC code (required)")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Edit business details" }));
+    expect(screen.getByLabelText("MSIC code (required)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
+  });
+
   it("shows actionable validation instead of submitting incomplete supplier data", () => {
     render(<BusinessProfileSettings business={business} />);
-    fireEvent.click(screen.getByRole("button", { name: "Save business details" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit business details" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(screen.getByText("Enter the 5-digit MSIC code.")).toBeInTheDocument();
     expect(screen.getByText("Enter the registered address.")).toBeInTheDocument();
     expect(mutateAsync).not.toHaveBeenCalled();
@@ -36,13 +47,14 @@ describe("BusinessProfileSettings", () => {
 
   it("saves the reusable compliance fields and explains how to refresh preparation", async () => {
     render(<BusinessProfileSettings business={business} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit business details" }));
     fireEvent.change(screen.getByLabelText("MSIC code (required)"), { target: { value: "56101" } });
     fireEvent.change(screen.getByLabelText("Business activity description (required)"), { target: { value: "Food and beverage services" } });
     fireEvent.change(screen.getByLabelText("Business phone (required)"), { target: { value: "+60123456789" } });
     fireEvent.change(screen.getByLabelText("Registered address line 1 (required)"), { target: { value: "1 Jalan Niaga" } });
     fireEvent.change(screen.getByLabelText("City (required)"), { target: { value: "Kuala Lumpur" } });
     fireEvent.change(screen.getByLabelText("State (required)"), { target: { value: "14" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save business details" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({
       businessId: "business-1",

@@ -272,6 +272,8 @@ button:disabled {
 .app-layout {
   min-height: 100vh;
   min-height: 100dvh;
+  width: 100%;
+  isolation: isolate;
 }
 
 .sidebar {
@@ -291,8 +293,8 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   min-height: 68px;
-  padding: env(safe-area-inset-top) max(20px, env(safe-area-inset-right)) 0
-    max(20px, env(safe-area-inset-left));
+  padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0
+    max(16px, env(safe-area-inset-left));
   border-bottom: 1px solid rgba(227, 231, 228, 0.85);
   background: rgba(244, 246, 243, 0.9);
   backdrop-filter: blur(14px);
@@ -423,7 +425,7 @@ button:disabled {
   min-width: 0;
   width: min(100%, 1260px);
   margin: 0 auto;
-  padding: 30px 18px 48px;
+  padding: clamp(22px, 5vw, 30px) clamp(14px, 4vw, 18px) 48px;
 }
 
 .page-header {
@@ -1461,8 +1463,35 @@ li {
 }
 .settings-business-actions {
   display: flex;
+  gap: 10px;
   justify-content: flex-end;
   margin-top: 20px;
+}
+.settings-business-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin: 20px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.settings-business-summary > div {
+  min-width: 0;
+}
+.settings-business-summary-wide {
+  grid-column: 1 / -1;
+}
+.settings-business-summary dt {
+  color: var(--ink-500);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.settings-business-summary dd {
+  margin: 5px 0 0;
+  color: var(--ink-950);
+  font-size: var(--text-small);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 .settings-profile-success {
   display: flex;
@@ -1619,7 +1648,13 @@ li {
   .settings-business-form-grid {
     grid-template-columns: 1fr;
   }
+  .settings-business-summary {
+    grid-template-columns: 1fr;
+  }
   .settings-business-wide {
+    grid-column: auto;
+  }
+  .settings-business-summary-wide {
     grid-column: auto;
   }
   .settings-business-actions,
@@ -2533,6 +2568,23 @@ li {
   color: inherit;
   min-height: 2.75rem;
   padding: 0 0.65rem;
+}
+
+@media (max-width: 540px) {
+  .active-business-selector {
+    padding-inline: clamp(14px, 4vw, 18px);
+  }
+
+  .active-business-selector label {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .active-business-selector select {
+    width: 100%;
+  }
 }
 
 .onboarding-actions.split {
@@ -3652,7 +3704,11 @@ li {
   transform: translateY(-13px);
 }
 
-.mobile-add span {
+.mobile-add-label-short {
+  display: none;
+}
+
+.mobile-add > span:first-child {
   display: grid;
   width: 50px;
   height: 50px;
@@ -5140,8 +5196,20 @@ li {
   font-weight: 700;
 }
 
+@media (max-width: 420px) {
+  .transaction-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .review-tabs {
+    flex-direction: column;
+  }
+}
+
 .transaction-results-heading {
   display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
   align-items: center;
   justify-content: space-between;
   margin: 22px 2px 10px;
@@ -7157,6 +7225,14 @@ li {
 }
 
 @media (max-width: 420px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-card {
+    min-height: 0;
+  }
+
   .mobile-nav {
     right: 6px;
     left: 6px;
@@ -7168,6 +7244,12 @@ li {
   .mobile-add {
     line-height: 1.1;
     text-align: center;
+  }
+  .mobile-add-label-full {
+    display: none;
+  }
+  .mobile-add-label-short {
+    display: inline;
   }
   .workflow-assurance {
     grid-template-columns: 1fr;
@@ -8212,6 +8294,29 @@ li {
 .voice-agent-end-button { color: var(--danger); }
 .voice-agent-popover-error { margin: 12px 0 0; color: var(--danger); font-size: 0.8125rem; line-height: 1.45; }
 
+/* On mobile the voice page remains in the dock. Keep the quick assistant
+   available as a compact, centred control above it instead of covering the
+   bottom-right content area. */
+@media (max-width: 1023px) {
+  .voice-agent-launcher {
+    right: auto;
+    bottom: calc(94px + env(safe-area-inset-bottom));
+    left: 50%;
+    justify-items: center;
+    transform: translateX(-50%);
+  }
+
+  .voice-agent-fab {
+    min-height: 54px;
+    padding: 5px;
+    border-radius: 50%;
+  }
+
+  .voice-agent-fab-label {
+    display: none;
+  }
+}
+
 .voice-phase-copy {
   display: grid;
   gap: 6px;
@@ -8710,7 +8815,6 @@ li {
 }
 
 @media (min-width: 760px) {
-  .voice-agent-launcher { right: 28px; bottom: 28px; }
   .voice-stage {
     padding: 22px 24px;
   }
@@ -8754,6 +8858,15 @@ li {
   }
   .voice-draft-summary small {
     grid-column: 1;
+  }
+}
+
+@media (min-width: 1024px) {
+  .voice-agent-launcher {
+    right: 28px;
+    bottom: 28px;
+    left: auto;
+    transform: none;
   }
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { Globe } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useState, useSyncExternalStore } from "react";
 
 const CURRENCY_DISPLAY_KEY = "niagaai_currency_display";
 const DATE_FORMAT_KEY = "niagaai_date_format";
@@ -23,13 +23,20 @@ function readStoredDateFormat(): DateFormat {
   } catch { return "DD/MM/YYYY"; }
 }
 
+function subscribeToHydration() { return () => undefined; }
+function getHydratedSnapshot() { return true; }
+function getServerHydrationSnapshot() { return false; }
+
 export function RegionalSettings() {
   const currencySelectId = useId();
   const dateSelectId = useId();
+  const hasHydrated = useSyncExternalStore(subscribeToHydration, getHydratedSnapshot, getServerHydrationSnapshot);
 
-  // Lazy initialisers read localStorage once on mount — no effect needed.
-  const [currencyDisplay, setCurrencyDisplay] = useState<CurrencyDisplay>(readStoredCurrencyDisplay);
-  const [dateFormat, setDateFormat] = useState<DateFormat>(readStoredDateFormat);
+  // Keep these defaults aligned with the server before restoring device settings.
+  const [requestedCurrencyDisplay, setCurrencyDisplay] = useState<CurrencyDisplay>("RM");
+  const [requestedDateFormat, setDateFormat] = useState<DateFormat>("DD/MM/YYYY");
+  const currencyDisplay = hasHydrated ? readStoredCurrencyDisplay() : requestedCurrencyDisplay;
+  const dateFormat = hasHydrated ? readStoredDateFormat() : requestedDateFormat;
 
   function handleCurrencyChange(value: CurrencyDisplay) {
     setCurrencyDisplay(value);

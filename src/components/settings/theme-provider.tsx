@@ -45,12 +45,18 @@ function subscribeSystemTheme(onStoreChange: () => void) {
 
 function getSystemIsDarkSnapshot() { return cachedSystemIsDark; }
 function getServerSnapshot() { return false; }
+function subscribeToHydration() { return () => undefined; }
+function getHydratedSnapshot() { return true; }
+function getServerHydrationSnapshot() { return false; }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemIsDark = useSyncExternalStore(subscribeSystemTheme, getSystemIsDarkSnapshot, getServerSnapshot);
+  const hasHydrated = useSyncExternalStore(subscribeToHydration, getHydratedSnapshot, getServerHydrationSnapshot);
 
-  // Lazy initialiser reads localStorage once on mount — no effect needed.
-  const [theme, setThemeState] = useState<ThemePreference>(readStoredTheme);
+  // The first client render must match the server. Only read localStorage after
+  // React has attached to the server HTML.
+  const [requestedTheme, setThemeState] = useState<ThemePreference>("light");
+  const theme = hasHydrated ? readStoredTheme() : requestedTheme;
 
   const setTheme = useCallback((next: ThemePreference) => {
     setThemeState(next);
