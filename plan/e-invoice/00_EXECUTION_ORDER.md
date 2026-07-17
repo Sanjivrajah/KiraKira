@@ -26,6 +26,12 @@ An authorised business user can:
 - MyInvois submission and document-state types exist, but the live repository, authentication, signing, submission, polling, and status-history implementations do not.
 - Payment lifecycle state and MyInvois compliance state must remain separate.
 
+## Mandatory field reference
+
+Before any stage changes schemas, readiness rules, forms, or payload mapping, read `REFERENCE_INVOICE_V1_1_FIELD_REQUIREMENTS.md`. It records the verified 55-field guideline checklist, SDK implementation expansions, annexure fields, requirement categories, likely Niaga source, and scenario-overlay rules.
+
+The reference must be reverified against current official guidance before production rules are implemented because MyInvois documentation and code lists can change.
+
 ## Stage order
 
 | Stage | Plan | Outcome |
@@ -40,6 +46,7 @@ An authorised business user can:
 ## Shared implementation rules
 
 - Treat official MyInvois documentation and versioned fixtures as the external contract.
+- Keep implementation coverage traceable to `REFERENCE_INVOICE_V1_1_FIELD_REQUIREMENTS.md` and its verified official sources.
 - Do not create a flat form that makes every user fill all 55 fields. Model applicability, cardinality, derivation, and scope.
 - Keep reusable supplier data in business settings, reusable buyer data in party/customer records, and one-off values on the e-Invoice document.
 - Never reconstruct submitted documents from mutable source records. Freeze the exact approved document and payload.
@@ -68,4 +75,3 @@ If a repo-wide command fails for an unrelated baseline or restricted-network rea
 ## Completion rule
 
 The roadmap is complete only when a sandbox invoice can travel from a persisted source invoice through preparation, approval, deterministic mapping, signing, submission, and final status reconciliation without browser-held secrets or manual database editing.
-
