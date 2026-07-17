@@ -19,6 +19,7 @@ vi.mock("@/hooks/use-e-invoices", () => ({
   useApproveEInvoice: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useCreateEInvoiceRevision: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useEInvoiceSubmissions: () => ({ data: submissionError ? undefined : submissionData, isPending: false, isError: submissionError, refetch: vi.fn() }),
+  useEInvoiceSubmissionHistory: () => ({ data: submissionError ? undefined : { pages: [submissionData] }, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn() }),
   useSubmitEInvoices: () => ({ isPending: false, mutateAsync: submitMutation }),
   useGenerateEInvoiceSandboxPayload: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useRefreshEInvoiceSubmission: () => ({ isPending: false, mutateAsync: vi.fn() }),
@@ -29,7 +30,7 @@ beforeEach(() => {
   mode = "supabase";
   submissionError = false;
   submitMutation = vi.fn();
-  submissionData = { environment: "sandbox", taxpayerIdentity: "C1234567890", productionReady: false, candidates: [], submissions: [] };
+  submissionData = { environment: "sandbox", taxpayerIdentity: "C1234567890", productionReady: false, candidates: [], submissions: [], attention: [], summary: { needsAttention: 0, readyToSubmit: 0, inProgress: 0 } };
   data = {
     candidates: [{ id: "invoice-1", invoiceNumber: "INV-100", documentType: "invoice", issueDate: "2026-07-17", currency: "USD", paymentStatus: "sent", revision: 1, eligible: true, ineligibilityReasons: [], preparationId: "prep-1", preparationStatus: "needs_information" }],
     preparations: [{
@@ -69,7 +70,7 @@ describe("EInvoiceWorkspace", () => {
   it("supports keyboard-native candidate selection and reports the selected count", () => {
     render(<EInvoiceWorkspace />);
     fireEvent.click(screen.getByRole("checkbox"));
-    expect(screen.getByText("Selected").nextElementSibling).toHaveTextContent("1");
+    expect(screen.getByText(/1 selected for preparation/)).toBeVisible();
     expect(screen.getByRole("button", { name: "Prepare selected" })).toBeEnabled();
   });
 
@@ -90,9 +91,11 @@ describe("EInvoiceWorkspace", () => {
         rejectionError: { message: "Validation Error", details: [{ message: "TimeExpected", propertyPath: "#/Invoice[0].IssueTime[0]" }] } as never,
       }],
     }];
+    submissionData.attention = submissionData.submissions;
+    submissionData.summary.needsAttention = 1;
     render(<EInvoiceWorkspace />);
-    fireEvent.click(screen.getByRole("tab", { name: "Submission history 1" }));
-    expect(screen.getByRole("heading", { name: "Rejected before MyInvois acknowledgement" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Needs attention" })).toBeVisible();
+    fireEvent.click(screen.getByText("View details", { exact: false }));
     expect(screen.getByText(/IssueTime\[0\].*TimeExpected/)).toBeVisible();
   });
 

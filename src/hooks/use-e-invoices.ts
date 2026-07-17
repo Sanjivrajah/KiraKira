@@ -1,7 +1,7 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { EInvoicePreparationRecord, EInvoiceSubmissionRecord, EInvoiceWorkspace, PreparationSupplementalFields } from "@/application/e-invoices";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { EInvoicePreparationRecord, EInvoiceSubmissionHistoryFilter, EInvoiceSubmissionRecord, EInvoiceWorkspace, PreparationSupplementalFields } from "@/application/e-invoices";
 import { queryKeys } from "@/lib/query/query-keys";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
@@ -26,16 +26,35 @@ export interface EInvoiceSubmissionWorkspace {
     ineligibilityReason?: string;
   }>;
   submissions: EInvoiceSubmissionRecord[];
+  nextCursor?: string;
+  attention: EInvoiceSubmissionRecord[];
+  summary: { needsAttention: number; readyToSubmit: number; inProgress: number };
 }
 
 function submissionPost<T>(body: Record<string, unknown>) {
   return request<T>("/api/e-invoices/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 }
 
-export function useEInvoiceSubmissions(businessId: string, environment: "sandbox" | "production" = "sandbox", enabled = true) {
+function submissionWorkspaceUrl(businessId: string, environment: "sandbox" | "production", filter: EInvoiceSubmissionHistoryFilter, cursor?: string) {
+  const search = new URLSearchParams({ businessId, environment, filter, limit: "25" });
+  if (cursor) search.set("cursor", cursor);
+  return `/api/e-invoices/submissions?${search.toString()}`;
+}
+
+export function useEInvoiceSubmissions(businessId: string, environment: "sandbox" | "production" = "sandbox", filter: EInvoiceSubmissionHistoryFilter = "all", enabled = true) {
   return useQuery({
-    queryKey: [...queryKeys.eInvoices.submissions(businessId), environment],
-    queryFn: () => request<EInvoiceSubmissionWorkspace>(`/api/e-invoices/submissions?businessId=${encodeURIComponent(businessId)}&environment=${environment}`),
+    queryKey: [...queryKeys.eInvoices.submissions(businessId), environment, filter, "first"],
+    queryFn: () => request<EInvoiceSubmissionWorkspace>(submissionWorkspaceUrl(businessId, environment, filter)),
+    enabled: enabled && Boolean(businessId),
+  });
+}
+
+export function useEInvoiceSubmissionHistory(businessId: string, environment: "sandbox" | "production", filter: EInvoiceSubmissionHistoryFilter, enabled = true) {
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.eInvoices.submissions(businessId), environment, filter, "history"],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => request<EInvoiceSubmissionWorkspace>(submissionWorkspaceUrl(businessId, environment, filter, pageParam)),
+    getNextPageParam: (page) => page.nextCursor,
     enabled: enabled && Boolean(businessId),
   });
 }

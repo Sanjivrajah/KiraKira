@@ -1,8 +1,11 @@
+import { Buffer } from "node:buffer";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   CreatePendingSubmissionInput,
   EInvoiceSubmissionCandidate,
   EInvoiceSubmissionDocumentRecord,
+  EInvoiceSubmissionHistoryFilter,
+  EInvoiceSubmissionHistoryPage,
   EInvoiceSubmissionRecord,
   EInvoiceSubmissionRepository,
   MyInvoisConnectionRecord,
@@ -49,6 +52,21 @@ interface SubmissionDocumentRow {
 }
 
 const submissionSelection = "id,business_id,environment,idempotency_key,request_hash,submission_uid,status,requested_at,responded_at,http_status,correlation_id,retry_count,retry_after,error_code,error_message,lease_owner,lease_expires_at,dead_lettered_at,dead_letter_reason";
+
+function encodeCursor(row: Pick<SubmissionRow, "id" | "requested_at">): string {
+  return Buffer.from(JSON.stringify({ id: row.id, requestedAt: row.requested_at }), "utf8").toString("base64url");
+}
+
+function decodeCursor(cursor: string): { id: string; requestedAt: string } | null {
+  try {
+    const value = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as { id?: unknown; requestedAt?: unknown };
+    return typeof value.id === "string" && typeof value.requestedAt === "string" && !Number.isNaN(new Date(value.requestedAt).valueOf())
+      ? { id: value.id, requestedAt: value.requestedAt }
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 function document(row: SubmissionDocumentRow): EInvoiceSubmissionDocumentRecord {
   return {
@@ -102,6 +120,18 @@ export class SupabaseEInvoiceSubmissionRepository implements EInvoiceSubmissionR
       .eq("business_id", businessId).eq("document_version", "1.0").order("generated_at", { ascending: false }).limit(100);
     if (error) throw error;
     return this.loadSubmissionCandidates(businessId, (data as Array<{ id: string }>).map((row) => row.id));
+  }
+
+  async listAttemptedPayloadSnapshotIds(businessId: string, environment: MyInvoisEnvironment) {
+    const { data: submissions, error: submissionError } = await this.client.from("e_invoice_submissions")
+      .select("id").eq("business_id", businessId).eq("environment", environment);
+    if (submissionError) throw submissionError;
+    const ids = (submissions ?? []).map((item) => (item as { id: string }).id);
+    if (!ids.length) return [];
+    const { data, error } = await this.client.from("e_invoice_submission_documents")
+      .select("payload_snapshot_id").in("submission_id", ids);
+    if (error) throw error;
+    return [...new Set((data ?? []).map((item) => (item as { payload_snapshot_id: string }).payload_snapshot_id))];
   }
 
   async loadSubmissionCandidates(businessId: string, payloadSnapshotIds: string[]): Promise<EInvoiceSubmissionCandidate[]> {
@@ -189,6 +219,48 @@ export class SupabaseEInvoiceSubmissionRepository implements EInvoiceSubmissionR
     const { data, error } = await this.client.from("e_invoice_submissions").select(submissionSelection).eq("business_id", businessId).order("requested_at", { ascending: false });
     if (error) throw error;
     return this.rowsWithDocuments(data as SubmissionRow[]);
+  }
+
+  async listSubmissionHistory(input: { businessId: string; environment: MyInvoisEnvironment; filter: EInvoiceSubmissionHistoryFilter; cursor?: string; limit: number }): Promise<EInvoiceSubmissionHistoryPage> {
+    const statuses = input.filter === "attention"
+      ? ["failed", "dead_letter"]
+      : input.filter === "in_progress"
+        ? ["pending", "submitted", "processing"]
+        : input.filter === "completed"
+          ? ["completed"]
+          : undefined;
+    const cursor = input.cursor ? decodeCursor(input.cursor) : undefined;
+    let query = this.client.from("e_invoice_submissions").select(submissionSelection)
+      .eq("business_id", input.businessId).eq("environment", input.environment)
+      .order("requested_at", { ascending: false }).order("id", { ascending: false }).limit(input.limit + 1);
+    if (statuses) query = query.in("status", statuses);
+    if (cursor) query = query.or(`requested_at.lt.${cursor.requestedAt},and(requested_at.eq.${cursor.requestedAt},id.lt.${cursor.id})`);
+    const { data, error } = await query;
+    if (error) throw error;
+    const rows = (data ?? []) as SubmissionRow[];
+    const hasMore = rows.length > input.limit;
+    const pageRows = rows.slice(0, input.limit);
+    const last = pageRows.at(-1);
+    return {
+      submissions: await this.rowsWithDocuments(pageRows),
+      nextCursor: hasMore && last ? encodeCursor(last) : undefined,
+    };
+  }
+
+  async listSubmissionAttention(businessId: string, environment: MyInvoisEnvironment) {
+    const { data: documentData, error: documentError } = await this.client.from("e_invoice_submission_documents")
+      .select().in("status", ["failed", "invalid"]).limit(100);
+    if (documentError) throw documentError;
+    const documents = (documentData ?? []) as SubmissionDocumentRow[];
+    if (!documents.length) return [];
+    const ids = [...new Set(documents.map((item) => item.submission_id))];
+    const { data, error } = await this.client.from("e_invoice_submissions").select(submissionSelection)
+      .eq("business_id", businessId).eq("environment", environment).in("id", ids)
+      .order("requested_at", { ascending: false });
+    if (error) throw error;
+    const documentBySubmission = new Map<string, SubmissionDocumentRow[]>();
+    for (const item of documents) documentBySubmission.set(item.submission_id, [...(documentBySubmission.get(item.submission_id) ?? []), item]);
+    return ((data ?? []) as SubmissionRow[]).map((row) => submission(row, documentBySubmission.get(row.id) ?? []));
   }
 
   async claimDueSubmissions(workerId: string, limit: number, at: string) {

@@ -14,6 +14,8 @@ export const runtime = "nodejs";
 
 const businessIdSchema = z.string().uuid();
 const environmentSchema = z.enum(["sandbox", "production"]);
+const historyFilterSchema = z.enum(["all", "attention", "in_progress", "completed"]);
+const historyLimitSchema = z.coerce.number().int().min(1).max(100).default(25);
 const requestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("generate_v1_0"), businessId: businessIdSchema, documentId: z.string().uuid() }).strict(),
   z.object({ action: z.literal("preview"), businessId: businessIdSchema, environment: environmentSchema, payloadSnapshotIds: z.array(z.string().uuid()).min(1).max(100) }).strict(),
@@ -96,26 +98,29 @@ function recentlyAuthenticated(lastSignInAt?: string) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const parsed = z.object({ businessId: businessIdSchema, environment: environmentSchema.default("sandbox") }).safeParse({
+  const parsed = z.object({ businessId: businessIdSchema, environment: environmentSchema.default("sandbox"), filter: historyFilterSchema.default("all"), cursor: z.string().min(1).max(500).optional(), limit: historyLimitSchema }).safeParse({
     businessId: url.searchParams.get("businessId"), environment: url.searchParams.get("environment") ?? "sandbox",
+    filter: url.searchParams.get("filter") ?? "all", cursor: url.searchParams.get("cursor") ?? undefined,
+    limit: url.searchParams.get("limit") ?? 25,
   });
   if (!parsed.success) return responseError("Choose a valid business and environment.", 400);
   const client = await createSupabaseServerClient();
   if (!await member(client, parsed.data.businessId)) return responseError("You do not have access to this business.", 403);
   try {
     const repository = new SupabaseEInvoiceSubmissionRepository(client);
-    const [candidates, submissions, connection] = await Promise.all([
+    const [candidates, attemptedPayloadIds, history, attention, connection] = await Promise.all([
       repository.listSubmissionCandidates(parsed.data.businessId, parsed.data.environment),
-      repository.listSubmissions(parsed.data.businessId),
+      repository.listAttemptedPayloadSnapshotIds(parsed.data.businessId, parsed.data.environment),
+      repository.listSubmissionHistory({ businessId: parsed.data.businessId, environment: parsed.data.environment, filter: parsed.data.filter, cursor: parsed.data.cursor, limit: parsed.data.limit }),
+      repository.listSubmissionAttention(parsed.data.businessId, parsed.data.environment),
       repository.findConnection(parsed.data.businessId, parsed.data.environment),
     ]);
-    const environmentSubmissions = submissions.filter((submission) => submission.environment === parsed.data.environment);
-    const attemptedPayloadIds = new Set(environmentSubmissions.flatMap((submission) => submission.documents.map((document) => document.payloadSnapshotId)));
+    const inProgressCount = history.submissions.filter((submission) => ["pending", "submitted", "processing"].includes(submission.status)).length;
     return NextResponse.json({
       environment: parsed.data.environment,
       taxpayerIdentity: connection?.onbehalfofValue,
       productionReady: parsed.data.environment === "production" && Boolean(connection?.enabled && connection.verifiedAt && connection.productionActivatedAt && !connection.productionDisabledAt),
-      candidates: candidates.filter((item) => item.approved && item.active && item.submissionEligible && !attemptedPayloadIds.has(item.payloadSnapshotId)).map((item) => ({
+      candidates: candidates.filter((item) => item.approved && item.active && item.submissionEligible && !attemptedPayloadIds.includes(item.payloadSnapshotId)).map((item) => ({
         payloadSnapshotId: item.payloadSnapshotId,
         eInvoiceDocumentId: item.eInvoiceDocumentId,
         invoiceCodeNumber: item.invoiceCodeNumber,
@@ -127,7 +132,10 @@ export async function GET(request: Request) {
           ? undefined
           : "Production submission is currently limited to verified standard Malaysian B2B invoices.",
       })),
-      submissions: environmentSubmissions,
+      submissions: history.submissions,
+      nextCursor: history.nextCursor,
+      attention,
+      summary: { needsAttention: attention.reduce((total, submission) => total + submission.documents.length, 0), readyToSubmit: candidates.filter((item) => item.approved && item.active && item.submissionEligible && !attemptedPayloadIds.includes(item.payloadSnapshotId)).length, inProgress: inProgressCount },
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("[e-invoices.submissions.load_failed]", {

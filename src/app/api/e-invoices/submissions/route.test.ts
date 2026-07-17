@@ -4,7 +4,9 @@ const mocks = vi.hoisted(() => ({
   createSupabaseServerClient: vi.fn(),
   generate: vi.fn(),
   listSubmissionCandidates: vi.fn(),
-  listSubmissions: vi.fn(),
+  listAttemptedPayloadSnapshotIds: vi.fn(),
+  listSubmissionHistory: vi.fn(),
+  listSubmissionAttention: vi.fn(),
   findConnection: vi.fn(),
 }));
 
@@ -15,7 +17,9 @@ vi.mock("@/repositories", () => ({
   SupabaseEInvoiceRepository: class SupabaseEInvoiceRepository {},
   SupabaseEInvoiceSubmissionRepository: class SupabaseEInvoiceSubmissionRepository {
     listSubmissionCandidates = mocks.listSubmissionCandidates;
-    listSubmissions = mocks.listSubmissions;
+    listAttemptedPayloadSnapshotIds = mocks.listAttemptedPayloadSnapshotIds;
+    listSubmissionHistory = mocks.listSubmissionHistory;
+    listSubmissionAttention = mocks.listSubmissionAttention;
     findConnection = mocks.findConnection;
   },
 }));
@@ -71,7 +75,9 @@ describe("/api/e-invoices/submissions", () => {
     vi.clearAllMocks();
     mocks.createSupabaseServerClient.mockResolvedValue(client());
     mocks.listSubmissionCandidates.mockResolvedValue([]);
-    mocks.listSubmissions.mockResolvedValue([]);
+    mocks.listAttemptedPayloadSnapshotIds.mockResolvedValue([]);
+    mocks.listSubmissionHistory.mockResolvedValue({ submissions: [] });
+    mocks.listSubmissionAttention.mockResolvedValue([]);
     mocks.findConnection.mockResolvedValue(null);
   });
 
@@ -80,11 +86,14 @@ describe("/api/e-invoices/submissions", () => {
       { payloadSnapshotId: "33333333-3333-4333-8333-333333333333", eInvoiceDocumentId: documentId, invoiceCodeNumber: "INV-1", unsignedPayload: "{}", documentVersion: "1.0", scenario: "b2b_invoice", approved: true, active: true, submissionEligible: true },
       { payloadSnapshotId: "44444444-4444-4444-8444-444444444444", eInvoiceDocumentId: "55555555-5555-4555-8555-555555555555", invoiceCodeNumber: "INV-2", unsignedPayload: "{}", documentVersion: "1.0", scenario: "b2b_invoice", approved: true, active: true, submissionEligible: true },
     ]);
-    mocks.listSubmissions.mockResolvedValue([{
+    const failedSubmission = {
       id: "66666666-6666-4666-8666-666666666666", businessId, environment: "sandbox", idempotencyKey: "a".repeat(64), requestHash: "b".repeat(64),
       status: "failed", requestedAt: "2026-07-17T11:23:00.000Z", retryCount: 0,
       documents: [{ submissionId: "66666666-6666-4666-8666-666666666666", eInvoiceDocumentId: documentId, payloadSnapshotId: "33333333-3333-4333-8333-333333333333", invoiceCodeNumber: "INV-1", status: "failed" }],
-    }]);
+    };
+    mocks.listAttemptedPayloadSnapshotIds.mockResolvedValue(["33333333-3333-4333-8333-333333333333"]);
+    mocks.listSubmissionHistory.mockResolvedValue({ submissions: [failedSubmission] });
+    mocks.listSubmissionAttention.mockResolvedValue([failedSubmission]);
 
     const response = await GET(new Request(`http://localhost/api/e-invoices/submissions?businessId=${businessId}&environment=sandbox`));
     const body = await response.json() as { candidates: Array<{ invoiceCodeNumber: string }>; submissions: unknown[] };

@@ -40,6 +40,7 @@ class MemoryRepository implements EInvoiceSubmissionRepository {
 
   constructor(candidates: EInvoiceSubmissionCandidate[]) { this.candidates = candidates; }
   async listSubmissionCandidates() { return this.candidates; }
+  async listAttemptedPayloadSnapshotIds() { return this.submissions.flatMap((item) => item.documents.map((document) => document.payloadSnapshotId)); }
   async loadSubmissionCandidates(selectedBusinessId: string, ids: string[]) { return this.candidates.filter((item) => item.businessId === selectedBusinessId && ids.includes(item.payloadSnapshotId)); }
   async findConnection(selectedBusinessId: string) { return selectedBusinessId === businessId ? connection : null; }
   async reserveProviderCall() { return true; }
@@ -65,6 +66,11 @@ class MemoryRepository implements EInvoiceSubmissionRepository {
   }
   async findSubmission(selectedBusinessId: string, submissionId: string) { return this.submissions.find((item) => item.businessId === selectedBusinessId && item.id === submissionId) ?? null; }
   async listSubmissions(selectedBusinessId: string) { return this.submissions.filter((item) => item.businessId === selectedBusinessId); }
+  async listSubmissionHistory(input: { businessId: string; environment: "sandbox" | "production"; filter: "all" | "attention" | "in_progress" | "completed"; limit: number }) {
+    const statuses = input.filter === "attention" ? ["failed", "dead_letter"] : input.filter === "in_progress" ? ["pending", "submitted", "processing"] : input.filter === "completed" ? ["completed"] : undefined;
+    return { submissions: this.submissions.filter((item) => item.businessId === input.businessId && item.environment === input.environment && (!statuses || statuses.includes(item.status))).slice(0, input.limit) };
+  }
+  async listSubmissionAttention(selectedBusinessId: string, environment: "sandbox" | "production") { return this.submissions.filter((item) => item.businessId === selectedBusinessId && item.environment === environment && item.documents.some((document) => ["failed", "invalid"].includes(document.status))); }
   async claimDueSubmissions() { return this.submissions.filter((item) => ["submitted", "processing"].includes(item.status)); }
   async recordWorkerFailure() {}
   async recordWorkerSuccess() {}

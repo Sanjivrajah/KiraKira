@@ -369,6 +369,13 @@ export interface EInvoiceSubmissionRecord {
   documents: EInvoiceSubmissionDocumentRecord[];
 }
 
+export type EInvoiceSubmissionHistoryFilter = "all" | "attention" | "in_progress" | "completed";
+
+export interface EInvoiceSubmissionHistoryPage {
+  submissions: EInvoiceSubmissionRecord[];
+  nextCursor?: string;
+}
+
 export interface CreatePendingSubmissionInput {
   businessId: string;
   environment: MyInvoisEnvironment;
@@ -422,6 +429,7 @@ export interface CancelEInvoiceDocumentInput {
 
 export interface EInvoiceSubmissionRepository {
   listSubmissionCandidates(businessId: string, environment: MyInvoisEnvironment): Promise<EInvoiceSubmissionCandidate[]>;
+  listAttemptedPayloadSnapshotIds(businessId: string, environment: MyInvoisEnvironment): Promise<string[]>;
   loadSubmissionCandidates(businessId: string, payloadSnapshotIds: string[]): Promise<EInvoiceSubmissionCandidate[]>;
   findConnection(businessId: string, environment: MyInvoisEnvironment): Promise<MyInvoisConnectionRecord | null>;
   reserveProviderCall(businessId: string, connection: MyInvoisConnectionRecord, endpoint: "submit" | "get_submission" | "get_document_details" | "cancel", limit: number, at: string): Promise<boolean>;
@@ -430,6 +438,8 @@ export interface EInvoiceSubmissionRepository {
   recordSubmissionResponse(input: RecordSubmissionResponseInput): Promise<EInvoiceSubmissionRecord>;
   findSubmission(businessId: string, submissionId: string): Promise<EInvoiceSubmissionRecord | null>;
   listSubmissions(businessId: string): Promise<EInvoiceSubmissionRecord[]>;
+  listSubmissionHistory(input: { businessId: string; environment: MyInvoisEnvironment; filter: EInvoiceSubmissionHistoryFilter; cursor?: string; limit: number }): Promise<EInvoiceSubmissionHistoryPage>;
+  listSubmissionAttention(businessId: string, environment: MyInvoisEnvironment): Promise<EInvoiceSubmissionRecord[]>;
   claimDueSubmissions(workerId: string, limit: number, at: string): Promise<EInvoiceSubmissionRecord[]>;
   recordWorkerFailure(businessId: string, submissionId: string, workerId: string, reason: string, at: string): Promise<void>;
   recordWorkerSuccess(businessId: string, submissionId: string, workerId: string): Promise<void>;
