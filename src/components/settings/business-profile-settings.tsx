@@ -7,6 +7,7 @@ import { FormField } from "@/components/forms/form-field";
 import { SelectField } from "@/components/forms/select-field";
 import { MALAYSIA_ADDRESS_STATE_OPTIONS, normalizeMalaysiaStateCode } from "@/compliance/myinvois/reference-data/malaysia-states";
 import { useUpdateBusinessCompliance } from "@/hooks/use-business";
+import { maskSensitiveIdentifier } from "@/lib/privacy/mask-sensitive-identifier";
 import type { Business } from "@/types";
 
 interface BusinessProfileSettingsProps {
@@ -146,8 +147,8 @@ export function BusinessProfileSettings({ business }: BusinessProfileSettingsPro
           {saved ? <div className="settings-profile-success" role="status"><CheckCircle2 aria-hidden="true" size={18} /><span>Business details saved. <Link href="/e-invoices">Return to e-Invoice preparation</Link> and prepare the invoice again to refresh its checks.</span></div> : null}
           <dl className="settings-business-summary">
             <div className="settings-business-summary-wide"><dt>Supplier legal name</dt><dd>{displayValue(values.legalName)}</dd></div>
-            <div><dt>Supplier TIN</dt><dd>{displayValue(values.tin)}</dd></div>
-            <div><dt>Registration</dt><dd>{displayValue(values.registrationScheme).toUpperCase()} · {displayValue(values.registrationNumber)}</dd></div>
+            <div><dt>Supplier TIN</dt><dd>{maskSensitiveIdentifier(values.tin)}</dd></div>
+            <div><dt>Registration</dt><dd>{displayValue(values.registrationScheme).toUpperCase()} · {values.registrationScheme === "nric" ? maskSensitiveIdentifier(values.registrationNumber) : displayValue(values.registrationNumber)}</dd></div>
             <div><dt>Business email</dt><dd>{displayValue(values.email)}</dd></div>
             <div><dt>MSIC code</dt><dd>{displayValue(values.msicCode)}</dd></div>
             <div className="settings-business-summary-wide"><dt>Business activity</dt><dd>{displayValue(values.businessActivityDescription)}</dd></div>

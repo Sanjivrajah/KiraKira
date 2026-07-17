@@ -360,7 +360,22 @@ export class SupabaseEInvoiceRepository implements EInvoiceSourceRepository, EIn
       enabled: input.enabled,
       document_version: "1.0",
     };
-    const { data, error } = await this.client.from("myinvois_connections").upsert(payload, { onConflict: "business_id,environment" }).select(connectionSelection).single();
+    const mutablePayload: Database["public"]["Tables"]["myinvois_connections"]["Update"] = {
+      auth_mode: payload.auth_mode,
+      taxpayer_tin: payload.taxpayer_tin,
+      taxpayer_registration_scheme: payload.taxpayer_registration_scheme,
+      taxpayer_registration_value: payload.taxpayer_registration_value,
+      credential_set_id: payload.credential_set_id,
+      client_id_secret_ref: payload.client_id_secret_ref,
+      client_secret_secret_ref: payload.client_secret_secret_ref,
+      enabled: payload.enabled,
+      document_version: payload.document_version,
+    };
+    const existing = await this.findConnection(input.businessId, input.environment);
+    const query = existing
+      ? this.client.from("myinvois_connections").update(mutablePayload).eq("id", existing.id).eq("business_id", input.businessId).eq("environment", input.environment)
+      : this.client.from("myinvois_connections").insert(payload);
+    const { data, error } = await query.select(connectionSelection).single();
     if (error) throw error;
     return mapConnection(data);
   }

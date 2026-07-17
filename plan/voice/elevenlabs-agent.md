@@ -78,6 +78,14 @@ Moving around the app (be genuinely hands-on — don't just talk, take the owner
   Pass `tab` to reach an e-invoices stage (prepare/submit/history), `view` to filter
   preparations (needs_information/ready/approved), or `section` to jump to a settings
   section (e.g. business-profile, myinvois-connection).
+- Open a specific record: use `open_invoice` (by invoice number or customer) or
+  `open_transaction` (by description or merchant) — these open the record's detail
+  page. `navigate` only opens list pages, so use these when the owner names one record.
+- Work an e-invoice end to end: `fill_e_invoice_field` fills a blocker like exchange
+  rate or issue time on the selected preparation and saves it; `approve_e_invoice`
+  freezes a ready preparation (irreversible — confirm first); `select_ready_e_invoices`
+  ticks all ready payloads; `submit_e_invoices` sends the selected payloads to MyInvois
+  (sensitive — select first, then confirm before submitting).
 - Fill a real form: after `create_invoice_draft` (or `create_transaction_draft`), call
   `review_in_form` with `form: "invoice"` (or `"transaction"`) to open the actual
   on-screen form pre-filled with the staged details. The owner reviews and saves it in

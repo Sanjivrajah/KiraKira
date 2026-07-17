@@ -292,7 +292,7 @@ export function useVoiceAgent(): UseVoiceAgentResult {
         },
         navigate: (href) => router.push(href),
         getContext: () => ({ pathname: pathnameRef.current, businessName: businessNameRef.current }),
-        dispatchUiCommand: (type) => useVoiceUiBus.getState().dispatch(type),
+        dispatchUiCommand: (command) => useVoiceUiBus.getState().dispatch(command),
       });
 
       conversation.startSession({

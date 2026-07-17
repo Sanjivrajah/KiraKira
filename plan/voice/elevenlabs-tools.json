@@ -1223,5 +1223,134 @@
     "assignments": [],
     "response_mocks": [],
     "parameters": []
+  },
+  {
+    "type": "client",
+    "name": "open_invoice",
+    "description": "Open a specific saved invoice's detail page. Match by invoice number (e.g. INV-100) or the customer's name. If several match, read the options back and ask which one.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "dynamic_variables": {
+      "dynamic_variable_placeholders": {}
+    },
+    "interruption_mode": "allow",
+    "pre_tool_speech": "auto",
+    "tool_call_sound": null,
+    "tool_call_sound_behavior": "auto",
+    "execution_mode": "immediate",
+    "assignments": [],
+    "response_mocks": [],
+    "parameters": [
+      {
+        "id": "query",
+        "type": "string",
+        "value_type": "llm_prompt",
+        "description": "The invoice number or customer name to open.",
+        "required": true,
+        "dynamic_variable": "",
+        "constant_value": ""
+      }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "open_transaction",
+    "description": "Open a specific saved transaction (income/expense) detail page. Match by description or merchant/customer name. If several match, read the options back and ask which one.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "dynamic_variables": {
+      "dynamic_variable_placeholders": {}
+    },
+    "interruption_mode": "allow",
+    "pre_tool_speech": "auto",
+    "tool_call_sound": null,
+    "tool_call_sound_behavior": "auto",
+    "execution_mode": "immediate",
+    "assignments": [],
+    "response_mocks": [],
+    "parameters": [
+      {
+        "id": "query",
+        "type": "string",
+        "value_type": "llm_prompt",
+        "description": "A description or merchant name identifying the record.",
+        "required": true,
+        "dynamic_variable": "",
+        "constant_value": ""
+      }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "fill_e_invoice_field",
+    "description": "On the e-invoices Prepare stage, fill one document field on the currently selected preparation and save it (re-running the checks). Use for blockers like exchange rate or issue time. Read the on-screen result back.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "dynamic_variables": {
+      "dynamic_variable_placeholders": {}
+    },
+    "interruption_mode": "allow",
+    "pre_tool_speech": "auto",
+    "tool_call_sound": null,
+    "tool_call_sound_behavior": "auto",
+    "execution_mode": "immediate",
+    "assignments": [],
+    "response_mocks": [],
+    "parameters": [
+      {
+        "id": "field",
+        "type": "string",
+        "value_type": "llm_prompt",
+        "description": "The field name, e.g. \"exchange rate\" or \"issue time\".",
+        "required": true,
+        "dynamic_variable": "",
+        "constant_value": ""
+      },
+      {
+        "id": "value",
+        "type": "string",
+        "value_type": "llm_prompt",
+        "description": "The value to enter, e.g. \"4.7\" or \"09:30\".",
+        "required": true,
+        "dynamic_variable": "",
+        "constant_value": ""
+      }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "approve_e_invoice",
+    "description": "Approve and freeze the e-invoice preparation that is ready for approval. Approving is irreversible for that revision, so only call after the owner clearly confirms.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "dynamic_variables": {
+      "dynamic_variable_placeholders": {}
+    },
+    "interruption_mode": "allow",
+    "pre_tool_speech": "auto",
+    "tool_call_sound": null,
+    "tool_call_sound_behavior": "auto",
+    "execution_mode": "immediate",
+    "assignments": [],
+    "response_mocks": [],
+    "parameters": []
+  },
+  {
+    "type": "client",
+    "name": "submit_e_invoices",
+    "description": "Submit the e-invoice payloads currently selected on the Submit tab to MyInvois. Sensitive \u2014 only call after selecting ready payloads (select_ready_e_invoices) and getting the owner's clear confirmation.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "dynamic_variables": {
+      "dynamic_variable_placeholders": {}
+    },
+    "interruption_mode": "allow",
+    "pre_tool_speech": "auto",
+    "tool_call_sound": null,
+    "tool_call_sound_behavior": "auto",
+    "execution_mode": "immediate",
+    "assignments": [],
+    "response_mocks": [],
+    "parameters": []
   }
 ]

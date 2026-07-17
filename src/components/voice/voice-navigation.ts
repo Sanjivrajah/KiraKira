@@ -62,7 +62,29 @@ const SETTINGS_SECTION_ALIASES: Record<string, string> = {
 
 /** Lowercases and collapses punctuation/whitespace for lenient matching. */
 function normalize(value: string): string {
-  return value.toLowerCase().trim().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+  return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** Naive singular form so "invoice"/"invoices" and "record"/"records" match. */
+function singular(word: string): string {
+  return word.endsWith("s") && word.length > 3 ? word.slice(0, -1) : word;
+}
+
+/**
+ * Scores how well a candidate term (a route key or alias) matches spoken input.
+ * Higher wins: exact > singular/plural > full multi-word phrase > shared words.
+ * Returns 0 when nothing lines up.
+ */
+function termScore(term: string, wanted: string, wantedWords: string[]): number {
+  if (!term) return 0;
+  if (term === wanted) return 100;
+  if (singular(term) === singular(wanted)) return 90;
+  if (term.includes(" ") && ` ${wanted} `.includes(` ${term} `)) return 80;
+  const termWords = term.split(" ");
+  const overlap = termWords.filter((tw) => wantedWords.some((ww) => singular(ww) === singular(tw))).length;
+  if (overlap === termWords.length) return 60 + overlap;
+  if (overlap > 0) return 40 + overlap;
+  return 0;
 }
 
 function lookupAlias(map: Record<string, string>, raw: string | undefined): string | undefined {
@@ -96,11 +118,21 @@ export function resolveDestination(
 ): ResolvedDestination | null {
   const wanted = normalize(destination);
   if (!wanted) return null;
+  const wantedWords = wanted.split(" ");
 
-  const route = VOICE_ROUTES.find(
-    (candidate) => normalize(candidate.key) === wanted || candidate.aliases.some((alias) => normalize(alias) === wanted),
-  );
-  if (!route) return null;
+  // Score every route by its best-matching term and keep the highest; ties fall
+  // to the earlier (more specific) route via the stable VOICE_ROUTES order.
+  let route: VoiceRoute | null = null;
+  let best = 0;
+  for (const candidate of VOICE_ROUTES) {
+    const terms = [candidate.key, ...candidate.aliases].map(normalize);
+    const score = Math.max(...terms.map((term) => termScore(term, wanted, wantedWords)));
+    if (score > best) {
+      best = score;
+      route = candidate;
+    }
+  }
+  if (!route || best < 41) return null;
 
   const params = new URLSearchParams();
   const labelParts: string[] = [route.key];

@@ -18,6 +18,7 @@ declare
   v_activity_date date;
   v_payment_date date;
   v_invoice_number integer := 0;
+  v_draft_number integer := 0;
   v_sale_number integer := 0;
   v_subtotal bigint;
   v_paid_amount bigint;
@@ -27,6 +28,8 @@ declare
   v_product record;
   v_description text;
   v_amount bigint;
+  v_customer_tin text;
+  v_customer_registration text;
 begin
   if v_owner_email = '__OWNER_EMAIL__' then
     raise exception 'Replace __OWNER_EMAIL__ with the email of the intended demo account before running this script.';
@@ -75,6 +78,29 @@ begin
   select v_business_id, 'registered', '18, Jalan Sri Permaisuri 3', 'Kuala Lumpur', '14', '56000', 'MY', true
   where not exists (select 1 from public.business_addresses where business_id = v_business_id and is_primary);
 
+  update public.business_tax_identifiers
+  set value = 'C209999990', issuing_country_code = 'MY', description = 'Synthetic demo TIN — not valid for MyInvois submission', is_primary = true
+  where business_id = v_business_id and scheme = 'tin';
+  if not found then
+    insert into public.business_tax_identifiers (business_id, scheme, value, issuing_country_code, description, is_primary)
+    values (v_business_id, 'tin', 'C209999990', 'MY', 'Synthetic demo TIN — not valid for MyInvois submission', true);
+  end if;
+  update public.business_registration_identifiers
+  set value = '202601009999', issuing_country_code = 'MY', description = 'Synthetic demo BRN — not valid for MyInvois submission', is_primary = true
+  where business_id = v_business_id and is_primary;
+  if not found then
+    insert into public.business_registration_identifiers (business_id, scheme, value, issuing_country_code, description, is_primary)
+    values (v_business_id, 'brn', '202601009999', 'MY', 'Synthetic demo BRN — not valid for MyInvois submission', true);
+  end if;
+  update public.business_contacts set value = 'hello@orchidmoonkitchen.demo', is_primary = true
+  where business_id = v_business_id and contact_type = 'email';
+  if not found then insert into public.business_contacts (business_id, contact_type, value, label, is_primary)
+    values (v_business_id, 'email', 'hello@orchidmoonkitchen.demo', 'Primary email', true); end if;
+  update public.business_contacts set value = '+60 3-6201 8842', is_primary = true
+  where business_id = v_business_id and contact_type = 'phone';
+  if not found then insert into public.business_contacts (business_id, contact_type, value, label, is_primary)
+    values (v_business_id, 'phone', '+60 3-6201 8842', 'Primary phone', true); end if;
+
   insert into public.parties (business_id, kind, legal_name, trading_name, roles, email, phone, default_currency, default_payment_terms_days, created_by, updated_by)
   select v_business_id, source.kind, source.legal_name, source.trading_name, source.roles, source.email, source.phone, 'MYR', source.terms, v_owner_id, v_owner_id
   from (values
@@ -97,6 +123,53 @@ begin
     ('business', 'Sophie Lim Wei Qi', 'Sophie Lim', array['supplier','payee']::text[], 'sophie.lim@example', '+60 12-686 7310', 0)
   ) as source(kind, legal_name, trading_name, roles, email, phone, terms)
   where not exists (select 1 from public.parties p where p.business_id = v_business_id and p.legal_name = source.legal_name);
+
+  -- Every counterparty receives an internally consistent synthetic identity and
+  -- billing address. They are deliberately unusable for actual MyInvois calls.
+  with numbered_parties as (
+    select id, row_number() over (order by legal_name) as sequence
+    from public.parties where business_id = v_business_id
+  )
+  insert into public.party_tax_identifiers (party_id, scheme, value, issuing_country_code, description)
+  select id, 'tin', 'C20' || lpad(sequence::text, 8, '0'), 'MY', 'Synthetic demo TIN — not valid for MyInvois submission'
+  from numbered_parties
+  on conflict (party_id, scheme, value) do update set issuing_country_code = excluded.issuing_country_code, description = excluded.description;
+  with numbered_parties as (
+    select id, row_number() over (order by legal_name) as sequence
+    from public.parties where business_id = v_business_id
+  )
+  insert into public.party_registration_identifiers (party_id, scheme, value, issuing_country_code, description)
+  select id, 'brn', '202601' || lpad(sequence::text, 6, '0'), 'MY', 'Synthetic demo BRN — not valid for MyInvois submission'
+  from numbered_parties
+  on conflict (party_id, scheme, value) do update set issuing_country_code = excluded.issuing_country_code, description = excluded.description;
+  with numbered_parties as (
+    select id, row_number() over (order by legal_name) as sequence
+    from public.parties where business_id = v_business_id
+  ), details as (
+    select id,
+      case sequence
+        when 1 then '12-3, Jalan SS 2/67' when 2 then '21, Jalan Tun Razak' when 3 then 'Level 8, Menara Aria, Jalan Ampang'
+        when 4 then '27, Jalan Medan Setia 2' when 5 then '35, Jalan Kiara 3' when 6 then 'Level 4, The Square, Jalan 17/56'
+        when 7 then '18, Jalan 19/70A' when 8 then '10, Jalan Solaris 3' when 9 then 'Lot 18, Jalan 1/149'
+        when 10 then '62, Jalan Pudu Ulu' when 11 then '9, Jalan Kuchai Lama' when 12 then '2, Jalan Radin Bagus 3'
+        when 13 then 'Unit 6, Jalan 13/2' when 14 then '31, Jalan Taman Ikan Emas' when 15 then '17, Jalan 1/116B'
+        when 16 then 'A-3-12, Jalan Damanlela' else '28, Jalan Bangsar Utama 9' end as line1,
+      case when sequence in (3, 4, 5, 10, 12, 16) then 'Kuala Lumpur' else 'Petaling Jaya' end as city,
+      case when sequence in (3, 4, 5, 10, 12, 16) then '14' else '10' end as state_code,
+      lpad((50000 + sequence * 100)::text, 5, '0') as postal_code
+    from numbered_parties
+  )
+  update public.party_addresses address
+  set line1 = details.line1, city = details.city, state_code = details.state_code, postal_code = details.postal_code, country_code = 'MY', is_primary = true
+  from details where address.party_id = details.id and address.address_type = 'billing';
+  with numbered_parties as (
+    select id, row_number() over (order by legal_name) as sequence
+    from public.parties where business_id = v_business_id
+  )
+  insert into public.party_addresses (party_id, address_type, line1, city, state_code, postal_code, country_code, is_primary)
+  select id, 'billing', 'Suite ' || sequence || ', Demo Commerce Centre', 'Kuala Lumpur', '14', lpad((50000 + sequence * 10)::text, 5, '0'), 'MY', true
+  from numbered_parties numbered
+  where not exists (select 1 from public.party_addresses address where address.party_id = numbered.id and address.address_type = 'billing');
 
   insert into public.products_services (business_id, name, description, sku, classification_code, unit_code, default_unit_price_minor, currency, tax_type_code, tax_rate)
   select v_business_id, source.name, source.description, source.sku, '022', 'C62', source.price, 'MYR', '01', 0
@@ -121,6 +194,10 @@ begin
     select * into v_product from public.products_services
       where business_id = v_business_id
       order by sku offset ((v_invoice_number - 1) % 7) limit 1;
+    select value into v_customer_tin from public.party_tax_identifiers
+      where party_id = v_customer.id and scheme = 'tin' order by value limit 1;
+    select value into v_customer_registration from public.party_registration_identifiers
+      where party_id = v_customer.id order by value limit 1;
     v_subtotal := (12 + (v_invoice_number % 4) * 6) * v_product.default_unit_price_minor;
     v_status := case
       when v_invoice_number % 13 = 0 then 'sent'
@@ -137,8 +214,8 @@ begin
     ) values (
       v_business_id, format('OMK-DEMO-%s', lpad(v_invoice_number::text, 4, '0')),
       v_customer.id,
-      jsonb_build_object('legal_name', v_customer.legal_name, 'email', v_customer.email, 'phone', v_customer.phone),
-      jsonb_build_object('legal_name', 'Orchid Moon Kitchen Enterprise', 'trading_name', 'Orchid Moon Kitchen', 'currency', 'MYR'),
+      jsonb_build_object('name', v_customer.legal_name, 'legal_name', v_customer.legal_name, 'trading_name', v_customer.trading_name, 'email', v_customer.email, 'phone', v_customer.phone, 'tin', v_customer_tin, 'registration_number', v_customer_registration, 'registration_scheme', 'brn', 'country_code', 'MY'),
+      jsonb_build_object('name', 'Orchid Moon Kitchen Enterprise', 'legal_name', 'Orchid Moon Kitchen Enterprise', 'trading_name', 'Orchid Moon Kitchen', 'email', 'hello@orchidmoonkitchen.demo', 'phone', '+60 3-6201 8842', 'tin', 'C209999990', 'registration_number', '202601009999', 'registration_scheme', 'brn', 'currency', 'MYR', 'country_code', 'MY'),
       v_issue_date, v_issue_date + 14, 'MYR', v_status, v_subtotal, 0, 0, 0,
       v_subtotal, v_paid_amount, 'Payment due within 14 days.',
       case when v_invoice_number % 5 = 0 then 'Please quote the invoice number with your transfer.' else 'Thank you for your order.' end,
@@ -171,6 +248,44 @@ begin
       values (v_invoice_id, v_transaction_id, v_paid_amount, 'MYR', v_payment_date::timestamptz + interval '11 hours', case when v_invoice_number % 3 = 0 then 'duitnow' else 'bank_transfer' end, format('OMK-PAY-%s', lpad(v_invoice_number::text, 4, '0')))
       on conflict (invoice_id, external_reference) do nothing;
     end if;
+  end loop;
+
+  -- Six current unissued quotes/order confirmations. They intentionally have
+  -- no payment records and remain editable as drafts in the invoice workspace.
+  for v_draft_number in 1..6 loop
+    select * into v_customer from public.parties
+      where business_id = v_business_id and 'customer' = any(roles)
+      order by legal_name offset ((v_draft_number + 2) % 8) limit 1;
+    select * into v_product from public.products_services
+      where business_id = v_business_id
+      order by sku offset ((v_draft_number + 3) % 7) limit 1;
+    select value into v_customer_tin from public.party_tax_identifiers
+      where party_id = v_customer.id and scheme = 'tin' order by value limit 1;
+    select value into v_customer_registration from public.party_registration_identifiers
+      where party_id = v_customer.id order by value limit 1;
+    v_subtotal := (8 + v_draft_number * 4) * v_product.default_unit_price_minor;
+
+    insert into public.invoices (
+      business_id, invoice_number, customer_id, customer_snapshot, supplier_snapshot,
+      issue_date, due_date, currency, status, subtotal_minor, discount_minor,
+      tax_minor, rounding_minor, total_minor, amount_paid_minor, payment_terms,
+      notes, created_by, updated_by
+    ) values (
+      v_business_id, format('DRAFT-OMK-%s', lpad(v_draft_number::text, 4, '0')),
+      v_customer.id,
+      jsonb_build_object('name', v_customer.legal_name, 'legal_name', v_customer.legal_name, 'trading_name', v_customer.trading_name, 'email', v_customer.email, 'phone', v_customer.phone, 'tin', v_customer_tin, 'registration_number', v_customer_registration, 'registration_scheme', 'brn', 'country_code', 'MY'),
+      jsonb_build_object('name', 'Orchid Moon Kitchen Enterprise', 'legal_name', 'Orchid Moon Kitchen Enterprise', 'trading_name', 'Orchid Moon Kitchen', 'email', 'hello@orchidmoonkitchen.demo', 'phone', '+60 3-6201 8842', 'tin', 'C209999990', 'registration_number', '202601009999', 'registration_scheme', 'brn', 'currency', 'MYR', 'country_code', 'MY'),
+      date '2026-06-19' + v_draft_number, date '2026-07-03' + v_draft_number, 'MYR', 'draft', v_subtotal, 0, 0, 0,
+      v_subtotal, 0, 'Payment due within 14 days after invoice issue.',
+      case when v_draft_number % 2 = 0 then 'Awaiting final guest count before issue.' else 'Draft prepared for customer review.' end,
+      v_owner_id, v_owner_id
+    ) on conflict (business_id, invoice_number) do nothing;
+
+    select id into v_invoice_id from public.invoices
+      where business_id = v_business_id and invoice_number = format('DRAFT-OMK-%s', lpad(v_draft_number::text, 4, '0'));
+    insert into public.invoice_items (invoice_id, line_number, product_service_id, description, quantity, unit_code, unit_price_minor, tax_type_code, tax_rate, tax_minor, subtotal_minor, total_minor, classification_code)
+    values (v_invoice_id, 1, v_product.id, v_product.name, (8 + v_draft_number * 4), 'C62', v_product.default_unit_price_minor, '01', 0, 0, v_subtotal, v_subtotal, '022')
+    on conflict (invoice_id, line_number) do nothing;
   end loop;
 
   -- Daily operating costs, cash sales, and regular overhead. These variations

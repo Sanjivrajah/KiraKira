@@ -122,17 +122,6 @@ export function EInvoiceWorkspace() {
   const submissionCandidates = submissionWorkspace.data?.candidates ?? [];
   const selectedEncodedSize = submissionCandidates.filter((candidate) => selectedPayloads.includes(candidate.payloadSnapshotId)).reduce((sum, candidate) => sum + candidate.encodedSizeBytes, 0);
 
-  // Voice: open the submit stage and tick every payload eligible for the
-  // current environment, so the owner only has to confirm the send.
-  useVoiceUiCommand("einvoice.selectAllReady", () => {
-    applyLocation({ stage: "submit" });
-    setSelectedPayloads(
-      submissionCandidates
-        .filter((candidate) => environment !== "production" || candidate.productionEligible)
-        .map((candidate) => candidate.payloadSnapshotId),
-    );
-  });
-
   const changeHistoryFilter = (next: EInvoiceSubmissionHistoryFilter) => {
     setHistoryFilter(next);
   };
@@ -177,6 +166,51 @@ export function EInvoiceWorkspace() {
       setError(caught instanceof Error ? caught.message : "The submission could not be completed.");
     }
   };
+
+  // ── Voice agent in-page actions ──────────────────────────────────────────
+  // Each handler returns `false` while its data is still loading so the command
+  // stays queued and retries once the workspace has hydrated (see voice-ui-bus).
+  useVoiceUiCommand("einvoice.selectAllReady", () => {
+    if (submissionWorkspace.isPending) return false;
+    applyLocation({ stage: "submit" });
+    setSelectedPayloads(
+      submissionCandidates
+        .filter((candidate) => environment !== "production" || candidate.productionEligible)
+        .map((candidate) => candidate.payloadSnapshotId),
+    );
+  }, [submissionWorkspace.isPending, submissionCandidates, environment, applyLocation]);
+
+  useVoiceUiCommand("einvoice.fillField", (command) => {
+    if (workspace.isPending) return false;
+    const wanted = command.label.toLowerCase();
+    const field = PREPARATION_FIELD_REGISTRY.find(
+      (candidate) => candidate.label.toLowerCase().includes(wanted) || candidate.key.toLowerCase() === wanted,
+    );
+    if (!field || !selectedPreparation || selectedPreparation.status === "approved") return;
+    applyLocation({ stage: "prepare" });
+    const nextFields = { ...fieldsFrom(selectedPreparation), ...draftFields, [field.key]: command.value };
+    setDraftFields(nextFields);
+    void run(
+      () => saveFields.mutateAsync({ businessId, documentId: selectedPreparation.id, expectedRevision: selectedPreparation.revision, fields: nextFields }),
+      "Preparation fields saved and checks refreshed.",
+    );
+  }, [workspace.isPending, selectedPreparation, draftFields, businessId]);
+
+  useVoiceUiCommand("einvoice.approve", () => {
+    if (workspace.isPending) return false;
+    if (!selectedPreparation || selectedPreparation.status !== "ready") return;
+    void run(
+      () => approve.mutateAsync({ businessId, documentId: selectedPreparation.id, expectedRevision: selectedPreparation.revision }),
+      "Preparation approved and frozen.",
+    );
+  }, [workspace.isPending, selectedPreparation, businessId]);
+
+  useVoiceUiCommand("einvoice.submit", () => {
+    if (submissionWorkspace.isPending) return false;
+    if (!selectedPayloads.length) return;
+    applyLocation({ stage: "submit" });
+    void submitSelected();
+  }, [submissionWorkspace.isPending, selectedPayloads]);
 
   if (mode === "demo") return <><PageHeader eyebrow="Compliance preparation" title="e-Invoices" description="Complete and approve e-Invoice preparation records separately from invoice payment tracking." /><section className="panel einvoice-demo"><LockKeyhole aria-hidden="true" /><div><h2>Supabase workspace required</h2><p>This browser-only demo does not simulate e-Invoice approvals or submissions. Sign in to a configured Supabase workspace to prepare persisted invoices.</p></div></section></>;
   if (business.isPending || workspace.isPending) return <LoadingState label="Loading e-Invoice preparation workspace" />;

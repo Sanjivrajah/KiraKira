@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { CheckCircle2, Pencil, PlugZap } from "lucide-react";
 import { FormField } from "@/components/forms/form-field";
 import { SelectField } from "@/components/forms/select-field";
+import { maskSensitiveIdentifier } from "@/lib/privacy/mask-sensitive-identifier";
 import type { Business } from "@/types";
 
 type ConnectionResult = { taxpayerIdentity: string; authMode: "taxpayer" | "intermediary" };
@@ -73,10 +74,10 @@ export function MyInvoisConnectionSettings({ business }: { business: Business })
           <button className="button button-primary" disabled={saving} type="submit">{saving ? "Saving…" : "Save changes"}</button>
         </div>
       </form> : <>
-        {result ? <div className="settings-profile-success" role="status"><CheckCircle2 aria-hidden="true" size={18} /><span>Sandbox connection saved for <strong>{result.taxpayerIdentity}</strong>. Go to e-Invoice preparation to test it before submitting.</span></div> : null}
+        {result ? <div className="settings-profile-success" role="status"><CheckCircle2 aria-hidden="true" size={18} /><span>Sandbox connection saved. Go to e-Invoice preparation to test it before submitting.</span></div> : null}
         <dl className="settings-business-summary">
           <div><dt>Connection type</dt><dd>{authMode === "taxpayer" ? "This business is the taxpayer" : "We represent this taxpayer"}</dd></div>
-          <div><dt>Taxpayer TIN</dt><dd>{tin.trim() || "Not provided"}</dd></div>
+          <div><dt>Taxpayer TIN</dt><dd>{maskSensitiveIdentifier(tin)}</dd></div>
           <div className="settings-business-summary-wide"><dt>ROB registration number</dt><dd>{rob.trim() || "Not provided"}</dd></div>
         </dl>
         <div className="settings-business-actions"><button className="button button-primary" type="button" onClick={startEditing}><Pencil aria-hidden="true" size={16} />Edit connection</button></div>

@@ -5,43 +5,54 @@ import { create } from "zustand";
 
 /**
  * A tiny, typed command bus for agentic actions a URL can't express (adding a
- * line to the open invoice, bulk-selecting ready e-invoices). Voice tools
- * `dispatch` a command; the relevant page subscribes with `useVoiceUiCommand`,
- * runs it, and consumes it. The command union is deliberately small and closed
- * — there is no generic "run any action" escape hatch.
+ * line to the open invoice, filling/approving/submitting e-invoices). Voice
+ * tools `dispatch` a command; the relevant page subscribes with
+ * `useVoiceUiCommand`, runs it, and consumes it. The command union is
+ * deliberately small and closed — there is no generic "run any action" hatch.
+ *
+ * A subscriber may return `false` to decline a command (e.g. its data hasn't
+ * loaded yet); the command then stays queued and is retried when the
+ * subscriber's dependencies change. This makes navigate-then-act flows reliable
+ * even though the target page mounts and fetches after the command is queued.
  */
 export type VoiceUiCommand =
-  | { id: number; type: "invoice.addLineItem" }
-  | { id: number; type: "einvoice.selectAllReady" };
+  | { type: "invoice.addLineItem" }
+  | { type: "einvoice.selectAllReady" }
+  | { type: "einvoice.fillField"; label: string; value: string }
+  | { type: "einvoice.approve" }
+  | { type: "einvoice.submit" };
 
 export type VoiceUiCommandType = VoiceUiCommand["type"];
+export type QueuedCommand = VoiceUiCommand & { id: number };
 
 interface VoiceUiBusState {
-  queue: VoiceUiCommand[];
+  queue: QueuedCommand[];
   nextId: number;
-  dispatch: (type: VoiceUiCommandType) => void;
+  dispatch: (command: VoiceUiCommand) => void;
   consume: (id: number) => void;
 }
 
 export const useVoiceUiBus = create<VoiceUiBusState>((set) => ({
   queue: [],
   nextId: 1,
-  dispatch: (type) =>
+  dispatch: (command) =>
     set((state) => ({
-      queue: [...state.queue, { id: state.nextId, type } as VoiceUiCommand],
+      queue: [...state.queue, { ...command, id: state.nextId } as QueuedCommand],
       nextId: state.nextId + 1,
     })),
   consume: (id) => set((state) => ({ queue: state.queue.filter((command) => command.id !== id) })),
 }));
 
 /**
- * Runs `handler` once for each queued command of `type`, then consumes it.
- * The handler always sees the latest render's closure (via a ref), so it can
- * read current page state at execution time.
+ * Runs `handler` for the next queued command of `type`, then consumes it —
+ * unless the handler returns `false`, which leaves it queued for a later retry.
+ * Pass `deps` so the effect re-evaluates (and can finally satisfy a declined
+ * command) when the page's own state changes.
  */
-export function useVoiceUiCommand(
-  type: VoiceUiCommandType,
-  handler: (command: VoiceUiCommand) => void,
+export function useVoiceUiCommand<T extends VoiceUiCommandType>(
+  type: T,
+  handler: (command: Extract<QueuedCommand, { type: T }>) => void | boolean,
+  deps: unknown[] = [],
 ): void {
   const queue = useVoiceUiBus((state) => state.queue);
   const consume = useVoiceUiBus((state) => state.consume);
@@ -50,9 +61,12 @@ export function useVoiceUiCommand(
     handlerRef.current = handler;
   });
   useEffect(() => {
-    const match = queue.find((command) => command.type === type);
+    const match = queue.find((command) => command.type === type) as
+      | Extract<QueuedCommand, { type: T }>
+      | undefined;
     if (!match) return;
-    handlerRef.current(match);
-    consume(match.id);
-  }, [queue, type, consume]);
+    const handled = handlerRef.current(match);
+    if (handled !== false) consume(match.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queue, type, consume, ...deps]);
 }

@@ -16,7 +16,7 @@ import {
 } from "./voice-finance";
 import { matchCustomers } from "./voice-customers";
 import { describePath, resolveDestination } from "./voice-navigation";
-import type { VoiceUiCommandType } from "./voice-ui-bus";
+import type { VoiceUiCommand } from "./voice-ui-bus";
 import type {
   VoiceConfirmation,
   VoiceCustomerDraft,
@@ -75,7 +75,7 @@ export interface VoiceClientToolDeps {
   navigate(href: string): void;
   getContext(): { pathname: string; businessName: string };
   /** Dispatches a typed in-page command to whichever page is currently mounted. */
-  dispatchUiCommand?(type: VoiceUiCommandType): void;
+  dispatchUiCommand?(command: VoiceUiCommand): void;
   now?: () => Date;
   /** Optional deps power the "manage saved records" tools; wired in `use-voice-agent`. */
   updateTransaction?(transaction: Transaction): Promise<Transaction>;
@@ -227,6 +227,15 @@ const targetTransactionSchema = z.object({
 
 const reviewInFormSchema = z.object({
   form: z.enum(["invoice", "transaction"]),
+});
+
+const openRecordSchema = z.object({
+  query: z.string().trim().min(1).max(120),
+});
+
+const fillEInvoiceFieldSchema = z.object({
+  field: z.string().trim().min(1).max(60),
+  value: z.string().trim().min(1).max(120),
 });
 
 const navigateSchema = z.object({
@@ -887,19 +896,73 @@ export function createVoiceClientTools(deps: VoiceClientToolDeps): Record<string
       return "I've opened the transaction form with those details filled in. Review it and save when you're ready.";
     },
 
+    open_invoice: async (parameters) => {
+      const parsed = openRecordSchema.safeParse(parameters);
+      if (!parsed.success) return "Which invoice? Tell me the number or the customer's name.";
+      const invoices = await deps.listInvoices();
+      const q = parsed.data.query.toLowerCase();
+      const numberExact = invoices.find((invoice) => invoice.invoiceNumber.toLowerCase() === q);
+      if (numberExact) {
+        deps.navigate(`/invoices/${numberExact.id}`);
+        return `Opening invoice ${numberExact.invoiceNumber} for ${numberExact.customerName}.`;
+      }
+      const matches = invoices.filter(
+        (invoice) => invoice.invoiceNumber.toLowerCase().includes(q) || invoice.customerName.toLowerCase().includes(q),
+      );
+      if (matches.length === 0) return `I couldn't find an invoice matching "${parsed.data.query}".`;
+      if (matches.length > 1) {
+        return `I found a few: ${matches.slice(0, 3).map((invoice) => `${invoice.invoiceNumber} for ${invoice.customerName}`).join("; ")}. Which one?`;
+      }
+      deps.navigate(`/invoices/${matches[0].id}`);
+      return `Opening invoice ${matches[0].invoiceNumber} for ${matches[0].customerName}.`;
+    },
+
+    open_transaction: async (parameters) => {
+      const parsed = openRecordSchema.safeParse(parameters);
+      if (!parsed.success) return "Which record? Describe it or give the merchant name.";
+      const transactions = await deps.listTransactions();
+      const target = resolveTransaction(transactions, { query: parsed.data.query });
+      if (target.kind === "none") return `I couldn't find a record matching "${parsed.data.query}".`;
+      if (target.kind === "many") {
+        return `I found a few: ${target.matches.slice(0, 3).map(transactionLabel).join("; ")}. Which one?`;
+      }
+      deps.navigate(`/transactions/${target.match.id}`);
+      return `Opening ${transactionLabel(target.match)}.`;
+    },
+
     add_line_to_open_invoice: () => {
       const { pathname } = deps.getContext();
       if (!pathname.startsWith("/invoices/new") && !pathname.endsWith("/edit")) {
         return "Open an invoice form first, then I can add a line. Say \"start a new invoice\".";
       }
-      deps.dispatchUiCommand?.("invoice.addLineItem");
+      deps.dispatchUiCommand?.({ type: "invoice.addLineItem" });
       return "I've added a blank line to the invoice. Tell me the description, quantity, and price.";
     },
 
     select_ready_e_invoices: () => {
       deps.navigate("/e-invoices?stage=submit");
-      deps.dispatchUiCommand?.("einvoice.selectAllReady");
+      deps.dispatchUiCommand?.({ type: "einvoice.selectAllReady" });
       return "I've opened the submit tab and selected the invoices that are ready to send. Review them, then say submit.";
+    },
+
+    fill_e_invoice_field: (parameters) => {
+      const parsed = fillEInvoiceFieldSchema.safeParse(parameters);
+      if (!parsed.success) return "Which field, and what value? For example, exchange rate 4.7.";
+      deps.navigate("/e-invoices?stage=prepare");
+      deps.dispatchUiCommand?.({ type: "einvoice.fillField", label: parsed.data.field, value: parsed.data.value });
+      return `I'll set ${parsed.data.field} to ${parsed.data.value} on the open preparation and save it. Check the on-screen result.`;
+    },
+
+    approve_e_invoice: () => {
+      deps.navigate("/e-invoices?stage=prepare&view=ready");
+      deps.dispatchUiCommand?.({ type: "einvoice.approve" });
+      return "I'm approving the ready preparation. Approving freezes it — watch the screen for confirmation.";
+    },
+
+    submit_e_invoices: () => {
+      deps.navigate("/e-invoices?stage=submit");
+      deps.dispatchUiCommand?.({ type: "einvoice.submit" });
+      return "I'm submitting the selected payloads to MyInvois. Watch the screen for the acknowledgement.";
     },
 
     get_current_context: () => {

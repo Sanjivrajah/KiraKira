@@ -28,13 +28,20 @@ describe("MyInvoisConnectionSettings", () => {
     expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
   });
 
-  it("restores the prefilled taxpayer details when editing is cancelled", () => {
+  it("masks the taxpayer TIN until the owner chooses to edit", () => {
+    render(<MyInvoisConnectionSettings business={business} />);
+
+    expect(screen.getByText("****")).toBeInTheDocument();
+    expect(screen.queryByText("C12345678900")).not.toBeInTheDocument();
+  });
+
+  it("restores the masked taxpayer details when editing is cancelled", () => {
     render(<MyInvoisConnectionSettings business={business} />);
     fireEvent.click(screen.getByRole("button", { name: "Edit connection" }));
     fireEvent.change(screen.getByLabelText("Taxpayer TIN"), { target: { value: "C00000000000" } });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(screen.getByText("C12345678900")).toBeInTheDocument();
+    expect(screen.getByText("Taxpayer TIN").nextElementSibling).toHaveTextContent("****");
     expect(screen.queryByLabelText("Taxpayer TIN")).not.toBeInTheDocument();
   });
 });

@@ -36,6 +36,15 @@ describe("BusinessProfileSettings", () => {
     expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
   });
 
+  it("masks TIN and NRIC values in the read-only summary", () => {
+    render(<BusinessProfileSettings business={{ ...business, registrationScheme: "nric", registrationNumber: "900101101234" }} />);
+
+    expect(screen.getByText("Supplier TIN").nextElementSibling).toHaveTextContent("****");
+    expect(screen.getByText("Registration").nextElementSibling).toHaveTextContent("NRIC · ****");
+    expect(screen.queryByText("C12345678900")).not.toBeInTheDocument();
+    expect(screen.queryByText("900101101234")).not.toBeInTheDocument();
+  });
+
   it("shows actionable validation instead of submitting incomplete supplier data", () => {
     render(<BusinessProfileSettings business={business} />);
     fireEvent.click(screen.getByRole("button", { name: "Edit business details" }));

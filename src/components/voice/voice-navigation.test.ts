@@ -50,6 +50,20 @@ describe("resolveDestination", () => {
     expect(resolveDestination("dashboard", { tab: "submit", section: "business" })?.href).toBe("/dashboard");
   });
 
+  it("tolerates singular/plural and extra words", () => {
+    expect(resolveDestination("invoice")?.href).toBe("/invoices");
+    expect(resolveDestination("record")?.href).toBe("/transactions");
+    expect(resolveDestination("setting")?.href).toBe("/settings");
+    expect(resolveDestination("open the invoices page")?.href).toBe("/invoices");
+    expect(resolveDestination("reminder")?.href).toBe("/reminders");
+  });
+
+  it("keeps distinct invoice routes from colliding", () => {
+    expect(resolveDestination("invoices")?.href).toBe("/invoices");
+    expect(resolveDestination("new invoice")?.href).toBe("/invoices/new");
+    expect(resolveDestination("e invoice")?.href).toBe("/e-invoices");
+  });
+
   it("returns null for unknown destinations", () => {
     expect(resolveDestination("teleport")).toBeNull();
     expect(resolveDestination("")).toBeNull();
