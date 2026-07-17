@@ -292,8 +292,30 @@ export function useVoiceAgent(): UseVoiceAgentResult {
         },
         navigate: (href) => router.push(href),
         getContext: () => ({ pathname: pathnameRef.current, businessName: businessNameRef.current }),
-        dispatchUiCommand: (command) => useVoiceUiBus.getState().dispatch(command),
+        dispatchUiCommand: (command) => {
+          console.info("[voice-tool] dispatchUiCommand", command.type);
+          useVoiceUiBus.getState().dispatch(command);
+        },
       });
+
+      // Diagnostic wrapper: logs each tool call and its spoken result (not raw
+      // params, to avoid logging amounts/PII) so runtime failures are visible in
+      // the browser console. Safe to remove once the agent flows are confirmed.
+      const loggedTools: typeof clientTools = Object.fromEntries(
+        Object.entries(clientTools).map(([name, fn]) => [
+          name,
+          async (params: Record<string, unknown>) => {
+            try {
+              const result = await fn(params);
+              console.info(`[voice-tool] ${name} →`, result);
+              return result;
+            } catch (error) {
+              console.error(`[voice-tool] ${name} threw`, error);
+              throw error;
+            }
+          },
+        ]),
+      );
 
       conversation.startSession({
         conversationToken: token,
@@ -304,7 +326,7 @@ export function useVoiceAgent(): UseVoiceAgentResult {
           today: kualaLumpurToday(),
           currency: "MYR",
         },
-        clientTools,
+        clientTools: loggedTools,
       });
     } catch {
       setError("Couldn't reach the microphone or the voice assistant. Check permissions and try again.");

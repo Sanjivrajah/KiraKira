@@ -66,6 +66,7 @@ export function useVoiceUiCommand<T extends VoiceUiCommandType>(
       | undefined;
     if (!match) return;
     const handled = handlerRef.current(match);
+    console.info(`[voice-ui-bus] ${type} handled=${handled !== false}`);
     if (handled !== false) consume(match.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queue, type, consume, ...deps]);
