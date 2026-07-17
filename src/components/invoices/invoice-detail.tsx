@@ -113,7 +113,7 @@ export function InvoiceDetail({ id }: { id: string }) {
           <div className="saved-invoice-items"><div className="saved-item-row saved-item-heading"><span>Description</span><span>Qty</span><span>Unit price</span><span>Tax</span><span>Amount</span></div>{invoice.items.map((item) => <div className="saved-item-row" key={item.id}><span><strong>{item.description}</strong><small>{item.quantity} × {formatMoney(item.unitPrice)} · {item.taxRate}% tax</small></span><span>{item.quantity}</span><MoneyDisplay amount={item.unitPrice} /><span>{item.taxRate}%</span><MoneyDisplay amount={item.quantity * item.unitPrice} /></div>)}</div>
 
           <div className="saved-invoice-footer"><div>{invoice.notes ? <section><h3>Notes</h3><p>{invoice.notes}</p></section> : null}{invoice.paymentTerms ? <section><h3>Payment terms</h3><p>{invoice.paymentTerms}</p></section> : null}</div><dl><div><dt>Subtotal</dt><dd><MoneyDisplay amount={invoice.subtotal} /></dd></div><div><dt>Tax</dt><dd><MoneyDisplay amount={invoice.tax} /></dd></div>{(invoice.prepaymentAmount ?? 0) > 0 ? <div><dt>Prepayment</dt><dd>−<MoneyDisplay amount={invoice.prepaymentAmount ?? 0} /></dd></div> : null}<div className="invoice-total"><dt>Amount due</dt><dd><MoneyDisplay amount={Math.max(0, invoice.total - (invoice.prepaymentAmount ?? 0))} /></dd></div></dl></div>
-          <p className="invoice-local-disclosure">Browser-local invoice preview only. This invoice has not been submitted to MyInvois.</p>
+          <p className="invoice-local-disclosure">This invoice is stored in your browser only and has not been submitted to MyInvois.</p>
         </article>
 
         <aside className="invoice-detail-sidebar">

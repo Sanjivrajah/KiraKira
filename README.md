@@ -10,7 +10,7 @@ It also includes the frontend roadmap’s transaction and invoicing journeys:
 
 ```text
 Choose a source → Capture or import evidence → Review each proposed transaction → Save locally
-Create invoice → Check totals and readiness → Save locally → Preview reminder
+Create invoice → Check totals and readiness → Save locally → Review reminder
 ```
 
 ## Current Scope
@@ -30,13 +30,13 @@ Phase 0 through Phase 2 of `plan_frontend_first.md` are complete.
 - ElevenLabs Scribe v2 voice transcription followed by OpenAI transaction structuring
 - Deterministic, browser-local CSV and bank-CSV parsing for up to 100 rows
 - OpenAI PDF bank-statement extraction with strict file validation
-- WhatsApp capture preview that remains clearly labelled as a demo
+- Telegram capture flow that remains clearly labelled as a demo
 - Editable transaction review with provenance-specific extraction disclosures
 - Resilient browser-local transaction storage and completion actions
 - Searchable invoice tracking with draft, sent, paid, and derived overdue states
 - Multi-line invoice builder with automatic subtotal, tax, and total calculations
 - Transparent frontend-only e-invoice readiness checks
-- Upcoming and overdue reminder previews with locally persisted reminder history
+- Upcoming and overdue payment reminders with locally persisted reminder history
 
 Database persistence, MyInvois submission, and production financial storage remain out of scope. Receipt images and PDF bank statements use the configured OpenAI API. Voice notes use ElevenLabs for transcription and OpenAI for structured transaction extraction. CSV imports are parsed locally without an AI call.
 
@@ -210,13 +210,13 @@ npm run build
 | `/login` | Mock sign-in |
 | `/signup` | Local demo account creation |
 | `/onboarding` | Hydration-gated business setup and review |
-| `/dashboard` | Hydration-gated Phase 1 application preview |
+| `/dashboard` | Hydration-gated Phase 1 application workspace |
 | `/transactions` | Filter, sort, review, edit, and delete local transactions |
 | `/transactions/new` | Receipt extraction, voice transcription, local CSV parsing, bank-statement import, review, and local save |
 | `/invoices` | Filterable local invoice tracking and status updates |
-| `/invoices/new` | Invoice builder, live preview, calculations, and readiness check |
+| `/invoices/new` | Invoice builder, live calculations, and readiness check |
 | `/invoices/[id]` | Reopen a saved invoice, update status, or delete it |
-| `/reminders` | Upcoming and overdue payment reminder previews |
+| `/reminders` | Upcoming and overdue payment reminders |
 
 ## Project Structure
 
@@ -229,8 +229,8 @@ src/
 │   ├── onboarding/      # Details, review, progress, and success
 │   ├── dashboard/
 │   ├── transactions/    # Capture sources, processing, review, and success
-│   ├── invoices/        # Invoice builder, live preview, and tracking
-│   ├── reminders/       # Local reminder cards and message preview
+│   ├── invoices/        # Invoice builder and tracking
+│   ├── reminders/       # Local reminder cards and messages
 │   ├── layout/
 │   └── shared/
 ├── lib/                 # Validation, CSV imports, OpenAI extraction, calculations, and local storage

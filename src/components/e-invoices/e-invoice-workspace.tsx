@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, ChevronDown, CircleAlert, ClipboardList, FileCheck2, History, Info, LockKeyhole, RefreshCw, Send } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { EInvoicePreparationStatus, EInvoicePreparationView, EInvoiceSubmissionHistoryFilter, EInvoiceSubmissionRecord, MyInvoisStructuredError, PreparationSupplementalFields } from "@/application/e-invoices";
+import { EINVOICE_STAGES, EINVOICE_VIEWS } from "@/components/voice/voice-navigation";
+import { useVoiceUiCommand } from "@/components/voice/voice-ui-bus";
 import { PREPARATION_FIELD_REGISTRY } from "@/application/e-invoices";
 import { useAuth } from "@/components/auth/auth-provider";
 import { PageHeader } from "@/components/shared/page-header";
@@ -26,6 +29,14 @@ const preparationViews: Array<{ key: EInvoicePreparationStatus; label: string }>
   { key: "approved", label: "Approved" },
 ];
 const emptyFields: PreparationSupplementalFields = {};
+const DISCARD_PREPARATION_PROMPT = "Discard the unsaved changes to this preparation revision?";
+
+function paramStage(value: string | null): Stage {
+  return (EINVOICE_STAGES as readonly string[]).includes(value ?? "") ? (value as Stage) : "prepare";
+}
+function paramView(value: string | null): EInvoicePreparationStatus {
+  return (EINVOICE_VIEWS as readonly string[]).includes(value ?? "") ? (value as EInvoicePreparationStatus) : "needs_information";
+}
 
 function fieldsFrom(record: EInvoicePreparationView): PreparationSupplementalFields {
   return Object.fromEntries(PREPARATION_FIELD_REGISTRY.flatMap((field) => {
@@ -65,8 +76,36 @@ export function EInvoiceWorkspace() {
   const generateSandboxPayload = useGenerateEInvoiceSandboxPayload();
   const refreshSubmission = useRefreshEInvoiceSubmission();
   const cancelDocument = useCancelEInvoiceDocument();
-  const [stage, setStage] = useState<Stage>("prepare");
-  const [view, setView] = useState<EInvoicePreparationStatus>("needs_information");
+  // Stage and preparation view are reflected in the URL (?stage=&view=) so they
+  // are shareable, bookmarkable, and reachable by the voice agent's `navigate`
+  // tool. Local state drives rendering; inbound URL changes (e.g. from voice)
+  // sync into it, and interactions push back out to the URL.
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const urlStage = paramStage(searchParams.get("stage"));
+  const urlView = paramView(searchParams.get("view"));
+  const [stage, setStageState] = useState<Stage>(urlStage);
+  const [view, setViewState] = useState<EInvoicePreparationStatus>(urlView);
+  // Adopt inbound URL changes (e.g. the voice agent's `navigate`) during render
+  // rather than in an effect — this is the React-sanctioned way to reset state
+  // from a changing source and avoids an extra commit.
+  const [syncedLocation, setSyncedLocation] = useState({ stage: urlStage, view: urlView });
+  if (syncedLocation.stage !== urlStage || syncedLocation.view !== urlView) {
+    setSyncedLocation({ stage: urlStage, view: urlView });
+    setStageState(urlStage);
+    setViewState(urlView);
+  }
+  const applyLocation = useCallback((next: { stage?: Stage; view?: EInvoicePreparationStatus }) => {
+    if (next.stage !== undefined) setStageState(next.stage);
+    if (next.view !== undefined) setViewState(next.view);
+    const params = new URLSearchParams(searchParams.toString());
+    if (next.stage !== undefined) params.set("stage", next.stage);
+    if (next.view !== undefined) params.set("view", next.view);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams]);
+  const setStage = useCallback((next: Stage) => applyLocation({ stage: next }), [applyLocation]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [selectedPayloads, setSelectedPayloads] = useState<string[]>([]);
   const [selectedPreparationId, setSelectedPreparationId] = useState("");
@@ -83,20 +122,31 @@ export function EInvoiceWorkspace() {
   const submissionCandidates = submissionWorkspace.data?.candidates ?? [];
   const selectedEncodedSize = submissionCandidates.filter((candidate) => selectedPayloads.includes(candidate.payloadSnapshotId)).reduce((sum, candidate) => sum + candidate.encodedSizeBytes, 0);
 
+  // Voice: open the submit stage and tick every payload eligible for the
+  // current environment, so the owner only has to confirm the send.
+  useVoiceUiCommand("einvoice.selectAllReady", () => {
+    applyLocation({ stage: "submit" });
+    setSelectedPayloads(
+      submissionCandidates
+        .filter((candidate) => environment !== "production" || candidate.productionEligible)
+        .map((candidate) => candidate.payloadSnapshotId),
+    );
+  });
+
   const changeHistoryFilter = (next: EInvoiceSubmissionHistoryFilter) => {
     setHistoryFilter(next);
   };
 
   const choosePreparation = (record: EInvoicePreparationView) => {
-    if (dirty && !window.confirm("Discard the unsaved changes to this preparation revision?")) return;
+    if (dirty && !window.confirm(DISCARD_PREPARATION_PROMPT)) return;
     setSelectedPreparationId(record.id);
     setDraftFields(fieldsFrom(record));
     setDirty(false);
     setError("");
   };
   const changeView = (next: EInvoicePreparationStatus) => {
-    if (dirty && !window.confirm("Discard the unsaved changes to this preparation revision?")) return;
-    setView(next);
+    if (dirty && !window.confirm(DISCARD_PREPARATION_PROMPT)) return;
+    applyLocation({ view: next });
     setSelectedPreparationId("");
     setDraftFields(emptyFields);
     setDirty(false);
@@ -144,13 +194,18 @@ export function EInvoiceWorkspace() {
   const openPreparation = (documentId: string) => {
     const record = preparations.find((item) => item.id === documentId);
     if (!record) { setError("This submission is retained in history, but its preparation revision is no longer active."); return; }
-    setStage("prepare");
-    setView(record.status);
+    applyLocation({ stage: "prepare", view: record.status });
     setSelectedPreparationId(record.id);
     setDraftFields(fieldsFrom(record));
     setError("");
   };
-  const goToBlockers = () => { setStage("prepare"); changeView("needs_information"); };
+  const goToBlockers = () => {
+    if (dirty && !window.confirm(DISCARD_PREPARATION_PROMPT)) return;
+    applyLocation({ stage: "prepare", view: "needs_information" });
+    setSelectedPreparationId("");
+    setDraftFields(emptyFields);
+    setDirty(false);
+  };
 
   return <>
     <PageHeader eyebrow="Compliance preparation" title="e-Invoices" description="Prepare and approve immutable revisions, then submit unsigned MyInvois v1.0 payloads in the explicitly selected environment and reconcile their official status." />

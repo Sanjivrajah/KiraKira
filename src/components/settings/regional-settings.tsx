@@ -75,7 +75,7 @@ export function RegionalSettings() {
             <option value="MYR">MYR (ISO code)</option>
           </select>
           <span className="settings-select-preview" aria-live="polite">
-            Preview: {currencyDisplay} 1,250.00
+            Example: {currencyDisplay} 1,250.00
           </span>
         </div>
       </div>

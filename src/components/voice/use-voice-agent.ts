@@ -13,6 +13,7 @@ import { createVoiceClientTools, type VoiceDraftController } from "./client-tool
 import { createVoiceCustomerResolver } from "./voice-customers";
 import { kualaLumpurToday } from "./voice-finance";
 import { useVoiceDraftStore } from "./voice-draft-store";
+import { useVoiceUiBus } from "./voice-ui-bus";
 import { appendTranscriptTurn, type TranscriptTurn } from "./voice-transcript";
 import {
   finishStoredVoiceConversation,
@@ -291,6 +292,7 @@ export function useVoiceAgent(): UseVoiceAgentResult {
         },
         navigate: (href) => router.push(href),
         getContext: () => ({ pathname: pathnameRef.current, businessName: businessNameRef.current }),
+        dispatchUiCommand: (type) => useVoiceUiBus.getState().dispatch(type),
       });
 
       conversation.startSession({

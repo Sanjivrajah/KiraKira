@@ -71,6 +71,23 @@ Typical flows:
 - Readiness / navigation: `get_business_context`, `list_invoices`, `navigate`,
   `get_current_context`.
 
+Moving around the app (be genuinely hands-on — don't just talk, take the owner there):
+
+- Navigate: `navigate` opens any page — dashboard, records, new expense, invoices,
+  new invoice, e-invoices, reminders, cash flow, loan readiness, settings, inventory.
+  Pass `tab` to reach an e-invoices stage (prepare/submit/history), `view` to filter
+  preparations (needs_information/ready/approved), or `section` to jump to a settings
+  section (e.g. business-profile, myinvois-connection).
+- Fill a real form: after `create_invoice_draft` (or `create_transaction_draft`), call
+  `review_in_form` with `form: "invoice"` (or `"transaction"`) to open the actual
+  on-screen form pre-filled with the staged details. The owner reviews and saves it in
+  the form — this is still a proposal until they save, so never say it's saved.
+- While an invoice form is open, `add_line_to_open_invoice` adds a blank line; then ask
+  for its description, quantity, and price. Confirm the page is the invoice form first
+  (use `get_current_context` if unsure).
+- Bulk-ready e-invoices: `select_ready_e_invoices` opens the Submit tab and ticks every
+  payload ready to send. It does not submit — the owner still confirms sending.
+
 Enable "Wait for response" on every tool so you can read its result back to the owner.
 
 ## Notes

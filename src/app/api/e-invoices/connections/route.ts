@@ -36,6 +36,43 @@ function responseError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status, headers: { "Cache-Control": "no-store" } });
 }
 
+function safeErrorCode(error: unknown): string {
+  if (error && typeof error === "object" && "code" in error && typeof error.code === "string") return error.code;
+  return error instanceof Error ? error.name : "unknown";
+}
+
+function connectionPersistenceErrorResponse(error: unknown): { message: string; status: number } {
+  const code = safeErrorCode(error);
+  if (code === "42501") {
+    return {
+      message: "Database permissions blocked this MyInvois connection. Confirm that your account is an owner, admin, or accountant for this business and try again.",
+      status: 403,
+    };
+  }
+  if (code === "42P01") {
+    return {
+      message: "The MyInvois connection table is missing. Apply the latest Supabase migrations and try again.",
+      status: 503,
+    };
+  }
+  if (code === "42703" || code === "PGRST204") {
+    return {
+      message: "The MyInvois connection table is missing a required field. Refresh the Supabase schema cache and try again.",
+      status: 503,
+    };
+  }
+  if (code === "23514" || code === "22P02") {
+    return {
+      message: "The taxpayer identity was rejected by the database. Use the MyInvois TIN and, if supplied, an uppercase ROB registration value without spaces.",
+      status: 409,
+    };
+  }
+  return {
+    message: `We could not save the sandbox MyInvois connection (reference: ${code}). Check the server log using this reference and try again.`,
+    status: 409,
+  };
+}
+
 async function elevatedMember(client: Client, businessId: string) {
   const { data: auth, error: authError } = await client.auth.getUser();
   if (authError || !auth.user) return null;
@@ -74,8 +111,11 @@ export async function POST(request: Request) {
         taxpayerIdentity: connection.onbehalfofValue,
         enabled: connection.enabled,
       } }, { headers: { "Cache-Control": "no-store" } });
-    } catch {
-      return responseError("We could not save the sandbox MyInvois connection. Check the taxpayer details and try again.", 409);
+    } catch (error) {
+      const code = safeErrorCode(error);
+      console.error("[myinvois.connection.save_failed]", { businessId: parsed.data.businessId, code });
+      const response = connectionPersistenceErrorResponse(error);
+      return responseError(response.message, response.status);
     }
   }
   const service = new EInvoiceConnectionService(repository, oauth);

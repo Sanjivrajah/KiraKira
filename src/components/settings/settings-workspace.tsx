@@ -1,6 +1,8 @@
 "use client";
 
 import { Info } from "lucide-react";
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useBusiness } from "@/hooks/use-business";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/shared/page-header";
@@ -13,8 +15,38 @@ import { AboutSettings } from "./about-settings";
 import { BusinessProfileSettings } from "./business-profile-settings";
 import { MyInvoisConnectionSettings } from "./myinvois-connection-settings";
 
+// Canonical section keys (produced by the voice `navigate` tool via
+// voice-navigation.ts) mapped to the heading element ids already rendered by
+// each settings card, so `?section=` can scroll the owner to the right place.
+const SECTION_ANCHORS: Record<string, string> = {
+  "business-profile": "business-details-title",
+  "myinvois-connection": "myinvois-connection-title",
+  telegram: "telegram-link-title",
+  appearance: "appearance-title",
+  regional: "regional-title",
+  "data-tools": "data-tools-title",
+  account: "account-title",
+  about: "about-title",
+};
+
 export function SettingsWorkspace() {
   const business = useBusiness();
+  const searchParams = useSearchParams();
+  const section = searchParams.get("section");
+
+  useEffect(() => {
+    if (!section) return;
+    const anchorId = SECTION_ANCHORS[section];
+    if (!anchorId) return;
+    // Wait a frame so the target exists after data-dependent sections render.
+    const raf = requestAnimationFrame(() => {
+      const target = document.getElementById(anchorId);
+      if (!target) return;
+      const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      target.scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [section, business.data]);
 
   return (
     <AppShell>

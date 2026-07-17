@@ -98,7 +98,7 @@ export function DemoSourceInput({ source, onContinue, onImported, onBack }: {
       <section className="capture-input-card" aria-labelledby="whatsapp-input-title">
         <p className="section-kicker">Telegram order · Step 1 of 3</p>
         <h2 id="whatsapp-input-title">Paste an order message</h2>
-        <p className="capture-help">Paste an order from Telegram to preview the record Niaga would prepare. This web demo does not connect to your Telegram account.</p>
+        <p className="capture-help">Paste an order from Telegram to prepare the record Niaga would create. This web demo does not connect to your Telegram account.</p>
         <div className="message-preview-icon"><MessageCircle aria-hidden="true" size={24} /></div>
         <TextareaField label="Order message" onChange={(event) => setMessage(event.target.value)} rows={6} value={message} />
         <div className="capture-actions">

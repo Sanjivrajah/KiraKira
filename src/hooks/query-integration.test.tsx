@@ -32,6 +32,15 @@ describe("TanStack Query integration", () => {
     expect(clients[0]).toBe(clients.at(-1));
   });
 
+  it("does not keep workspace records fresh indefinitely", () => {
+    const client = createQueryClient();
+    const { staleTime, refetchOnReconnect, refetchOnWindowFocus } = client.getDefaultOptions().queries ?? {};
+
+    expect(staleTime).toBe(0);
+    expect(refetchOnReconnect).toBe(true);
+    expect(refetchOnWindowFocus).toBe(true);
+  });
+
   it("loads a successful collection and preserves an empty collection", async () => {
     const client = createQueryClient();
     const successful = renderHook(() => useTransactions("business_demo"), { wrapper: createQueryWrapper(client) });

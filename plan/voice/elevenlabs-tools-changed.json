@@ -1,0 +1,121 @@
+[
+  {
+    "type": "client",
+    "name": "navigate",
+    "description": "Open a page in the app for the owner, optionally deep-linking to a tab or section. destination is one of: dashboard, records, new expense, invoices, new invoice, e-invoices, reminders, cash flow, loan readiness, settings, inventory, voice.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "dynamic_variables": {
+      "dynamic_variable_placeholders": {}
+    },
+    "interruption_mode": "allow",
+    "pre_tool_speech": "auto",
+    "tool_call_sound": null,
+    "tool_call_sound_behavior": "auto",
+    "execution_mode": "immediate",
+    "assignments": [],
+    "response_mocks": [],
+    "parameters": [
+      {
+        "id": "destination",
+        "type": "string",
+        "value_type": "llm_prompt",
+        "description": "Where to go, e.g. \"dashboard\", \"invoices\", \"e-invoices\", \"cash flow\", \"settings\".",
+        "required": true,
+        "dynamic_variable": "",
+        "constant_value": ""
+      },
+      {
+        "id": "tab",
+        "type": "string",
+        "value_type": "llm_prompt",
+        "description": "Optional e-invoices stage: prepare, submit, or history.",
+        "required": false,
+        "dynamic_variable": "",
+        "constant_value": ""
+      },
+      {
+        "id": "view",
+        "type": "string",
+        "value_type": "llm_prompt",
+        "description": "Optional e-invoices preparation filter: needs_information, ready, or approved.",
+        "required": false,
+        "dynamic_variable": "",
+        "constant_value": ""
+      },
+      {
+        "id": "section",
+        "type": "string",
+        "value_type": "llm_prompt",
+        "description": "Optional settings section to scroll to, e.g. business-profile, myinvois-connection.",
+        "required": false,
+        "dynamic_variable": "",
+        "constant_value": ""
+      }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "review_in_form",
+    "description": "Open the real invoice or transaction form pre-filled with the staged draft so the owner can review and save it on screen. Call after create_invoice_draft / create_transaction_draft when the owner wants to see or finish it in the form.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "dynamic_variables": {
+      "dynamic_variable_placeholders": {}
+    },
+    "interruption_mode": "allow",
+    "pre_tool_speech": "auto",
+    "tool_call_sound": null,
+    "tool_call_sound_behavior": "auto",
+    "execution_mode": "immediate",
+    "assignments": [],
+    "response_mocks": [],
+    "parameters": [
+      {
+        "id": "form",
+        "type": "string",
+        "value_type": "llm_prompt",
+        "description": "Which form to open: \"invoice\" or \"transaction\".",
+        "required": true,
+        "dynamic_variable": "",
+        "constant_value": ""
+      }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "add_line_to_open_invoice",
+    "description": "Add a blank line item to the invoice form the owner currently has open on screen (not the staged draft). Only use when the invoice form is open; then ask for the description, quantity, and price.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "dynamic_variables": {
+      "dynamic_variable_placeholders": {}
+    },
+    "interruption_mode": "allow",
+    "pre_tool_speech": "auto",
+    "tool_call_sound": null,
+    "tool_call_sound_behavior": "auto",
+    "execution_mode": "immediate",
+    "assignments": [],
+    "response_mocks": [],
+    "parameters": []
+  },
+  {
+    "type": "client",
+    "name": "select_ready_e_invoices",
+    "description": "Open the e-invoices Submit tab and tick every payload that is ready to submit, so the owner only has to confirm sending. Does not submit anything.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "dynamic_variables": {
+      "dynamic_variable_placeholders": {}
+    },
+    "interruption_mode": "allow",
+    "pre_tool_speech": "auto",
+    "tool_call_sound": null,
+    "tool_call_sound_behavior": "auto",
+    "execution_mode": "immediate",
+    "assignments": [],
+    "response_mocks": [],
+    "parameters": []
+  }
+]

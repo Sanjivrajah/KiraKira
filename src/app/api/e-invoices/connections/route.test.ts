@@ -3,10 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   createSupabaseServerClient: vi.fn(),
   testConnection: vi.fn(),
+  upsertConnection: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server-client", () => ({ createSupabaseServerClient: mocks.createSupabaseServerClient }));
-vi.mock("@/repositories", () => ({ SupabaseEInvoiceRepository: class SupabaseEInvoiceRepository {} }));
+vi.mock("@/repositories", () => ({ SupabaseEInvoiceRepository: class SupabaseEInvoiceRepository { upsertConnection = mocks.upsertConnection; } }));
 vi.mock("@/integrations/myinvois", () => ({
   EnvironmentSecretProvider: class EnvironmentSecretProvider {},
   MyInvoisOAuthClient: class MyInvoisOAuthClient {},
@@ -54,5 +55,17 @@ describe("/api/e-invoices/connections", () => {
     const response = await post({ action: "test_connection", businessId, environment: "sandbox", onbehalfof: "C99999999990" });
     expect(response.status).toBe(400);
     expect(mocks.createSupabaseServerClient).not.toHaveBeenCalled();
+  });
+
+  it("explains a taxpayer identity constraint failure without exposing database details", async () => {
+    mocks.createSupabaseServerClient.mockResolvedValue(client("accountant"));
+    mocks.upsertConnection.mockRejectedValue({ code: "23514", message: "sensitive database detail" });
+
+    const response = await post({ action: "configure_sandbox", businessId, authMode: "taxpayer", taxpayerTin: "C25845632020" });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "The taxpayer identity was rejected by the database. Use the MyInvois TIN and, if supplied, an uppercase ROB registration value without spaces.",
+    });
   });
 });

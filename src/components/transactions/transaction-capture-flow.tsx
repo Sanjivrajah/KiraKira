@@ -89,10 +89,12 @@ function makeReceiptDraft(extraction: ReceiptExtraction): TransactionDraft {
   };
 }
 
-export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTransactionId }: {
+export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTransactionId, voicePrefill }: {
   initialMethod?: TransactionSourceType;
   demoScenario?: "ambiguous-receipt";
   reviewTransactionId?: string;
+  /** Voice-staged draft: opens straight into review with the fields filled in. */
+  voicePrefill?: TransactionDraft;
 }) {
   const createTransaction = useCreateTransaction();
   const updateTransaction = useUpdateTransaction();
@@ -100,11 +102,13 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
   const businessId = useBusiness().data?.id ?? (mode === "demo" ? DEMO_BUSINESS.id : "");
   const reviewedTransaction = useTransaction(businessId, reviewTransactionId);
   const userId = session?.user.id ?? (mode === "demo" ? DEMO_USER.id : "");
-  const [source, setSource] = useState<TransactionSourceType | null>(initialMethod ?? null);
-  const [stage, setStage] = useState<Stage>(demoScenario || reviewTransactionId ? "review" : initialMethod === "manual" ? "review" : initialMethod ? "input" : "select");
-  const [draft, setDraft] = useState<TransactionDraft>(() => demoScenario
-    ? makeReceiptDraft(DEMO_REVIEW_RECEIPT_EXTRACTION)
-    : makeDraft(initialMethod ?? "manual"));
+  const [source, setSource] = useState<TransactionSourceType | null>(initialMethod ?? voicePrefill?.source ?? null);
+  const [stage, setStage] = useState<Stage>(demoScenario || reviewTransactionId || voicePrefill ? "review" : initialMethod === "manual" ? "review" : initialMethod ? "input" : "select");
+  const [draft, setDraft] = useState<TransactionDraft>(() => voicePrefill
+    ? voicePrefill
+    : demoScenario
+      ? makeReceiptDraft(DEMO_REVIEW_RECEIPT_EXTRACTION)
+      : makeDraft(initialMethod ?? "manual"));
   const [saved, setSaved] = useState<Transaction | null>(null);
   const [saveError, setSaveError] = useState("");
   const [receiptExtractions, setReceiptExtractions] = useState<ReceiptExtraction[]>([]);
@@ -116,6 +120,9 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
   const [reviewDisclosure, setReviewDisclosure] = useState<{ title: string; description: string } | undefined>(demoScenario ? {
     title: "Prepared from your receipt.",
     description: "Compare the prepared draft with the evidence before approving.",
+  } : voicePrefill ? {
+    title: "Prepared from your voice request.",
+    description: "Check the details below, then save the record when they look right.",
   } : undefined);
   const [sourceEvidence, setSourceEvidence] = useState<{ label: string; text: string } | undefined>(demoScenario ? {
     label: "Receipt text",

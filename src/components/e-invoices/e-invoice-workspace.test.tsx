@@ -10,6 +10,12 @@ let submissionError = false;
 let submissionData: EInvoiceSubmissionWorkspace;
 let submitMutation = vi.fn();
 
+const navState = vi.hoisted(() => ({ search: "" }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/e-invoices",
+  useSearchParams: () => new URLSearchParams(navState.search),
+}));
 vi.mock("@/components/auth/auth-provider", () => ({ useAuth: () => ({ mode }) }));
 vi.mock("@/hooks/use-business", () => ({ useBusiness: () => ({ data: { id: "business-1" }, isPending: false, isError: false }) }));
 vi.mock("@/hooks/use-e-invoices", () => ({
@@ -28,6 +34,7 @@ vi.mock("@/hooks/use-e-invoices", () => ({
 
 beforeEach(() => {
   mode = "supabase";
+  navState.search = "";
   submissionError = false;
   submitMutation = vi.fn();
   submissionData = { environment: "sandbox", taxpayerIdentity: "C1234567890", productionReady: false, candidates: [], submissions: [], attention: [], summary: { needsAttention: 0, readyToSubmit: 0, inProgress: 0 } };
@@ -85,6 +92,19 @@ describe("EInvoiceWorkspace", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: /History/i }));
     expect(screen.getByRole("heading", { name: "Submission history" })).toBeInTheDocument();
+  });
+
+  it("opens the stage and preparation view named in the URL (voice navigation seam)", () => {
+    navState.search = "stage=submit";
+    const { unmount } = render(<EInvoiceWorkspace />);
+    expect(screen.getByRole("heading", { name: "Ready to submit" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Saved invoice candidates" })).not.toBeInTheDocument();
+    unmount();
+
+    navState.search = "stage=prepare&view=ready";
+    render(<EInvoiceWorkspace />);
+    expect(screen.getByRole("heading", { name: "Saved invoice candidates" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Ready for approval/i })).toHaveAttribute("aria-selected", "true");
   });
 
   it("keeps preparation records available when submission status fails independently", () => {

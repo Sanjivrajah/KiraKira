@@ -15,6 +15,8 @@ import {
   type OutstandingBalance,
 } from "./voice-finance";
 import { matchCustomers } from "./voice-customers";
+import { describePath, resolveDestination } from "./voice-navigation";
+import type { VoiceUiCommandType } from "./voice-ui-bus";
 import type {
   VoiceConfirmation,
   VoiceCustomerDraft,
@@ -72,6 +74,8 @@ export interface VoiceClientToolDeps {
   createInvoice(input: NewInvoice): Promise<Invoice>;
   navigate(href: string): void;
   getContext(): { pathname: string; businessName: string };
+  /** Dispatches a typed in-page command to whichever page is currently mounted. */
+  dispatchUiCommand?(type: VoiceUiCommandType): void;
   now?: () => Date;
   /** Optional deps power the "manage saved records" tools; wired in `use-voice-agent`. */
   updateTransaction?(transaction: Transaction): Promise<Transaction>;
@@ -221,23 +225,19 @@ const targetTransactionSchema = z.object({
   query: z.string().trim().max(120).optional(),
 });
 
-const navigateSchema = z.object({
-  destination: z.string().trim().min(1).max(40),
+const reviewInFormSchema = z.object({
+  form: z.enum(["invoice", "transaction"]),
 });
 
-const NAV_DESTINATIONS: Record<string, string> = {
-  dashboard: "/dashboard",
-  home: "/dashboard",
-  records: "/transactions",
-  transactions: "/transactions",
-  invoices: "/invoices",
-  "e-invoice": "/invoices",
-  einvoice: "/invoices",
-  reminders: "/reminders",
-  settings: "/settings",
-  business: "/settings",
-  voice: "/voice",
-};
+const navigateSchema = z.object({
+  destination: z.string().trim().min(1).max(60),
+  /** Optional e-Invoice stage tab (prepare/submit/history). */
+  tab: z.string().trim().max(40).optional(),
+  /** Optional e-Invoice preparation filter (needs_information/ready/approved). */
+  view: z.string().trim().max(40).optional(),
+  /** Optional settings section to scroll to (e.g. business-profile). */
+  section: z.string().trim().max(40).optional(),
+});
 
 const rm = (amount: number) => formatMoney(amount, { currency: "MYR" });
 
@@ -866,17 +866,45 @@ export function createVoiceClientTools(deps: VoiceClientToolDeps): Record<string
 
     navigate: (parameters) => {
       const parsed = navigateSchema.safeParse(parameters);
-      if (!parsed.success) return "Where would you like to go? Try the dashboard, records, or invoices.";
-      const key = parsed.data.destination.toLowerCase().replace(/[^a-z-]/g, "");
-      const href = NAV_DESTINATIONS[key];
-      if (!href) return "I can open the dashboard, records, invoices, reminders, or business details.";
-      deps.navigate(href);
-      return `Opening ${parsed.data.destination}.`;
+      if (!parsed.success) return "Where would you like to go? Try the dashboard, records, invoices, e-invoices, cash flow, or business details.";
+      const { destination, tab, view, section } = parsed.data;
+      const resolved = resolveDestination(destination, { tab, view, section });
+      if (!resolved) return "I can open the dashboard, records, invoices, e-invoices, reminders, cash flow, loan readiness, or business details.";
+      deps.navigate(resolved.href);
+      return `Opening ${resolved.label}.`;
+    },
+
+    review_in_form: (parameters) => {
+      const parsed = reviewInFormSchema.safeParse(parameters);
+      if (!parsed.success) return "Which form should I open — the invoice or the transaction?";
+      if (parsed.data.form === "invoice") {
+        if (!deps.draft.getInvoice()) return "There's no invoice staged yet. Tell me the customer and items first.";
+        deps.navigate("/invoices/new");
+        return "I've opened the invoice form with those details filled in. Review it on screen and save when it looks right.";
+      }
+      if (!deps.draft.getTransaction()) return "There's no transaction staged yet. Tell me the amount and what it was for first.";
+      deps.navigate("/transactions/new");
+      return "I've opened the transaction form with those details filled in. Review it and save when you're ready.";
+    },
+
+    add_line_to_open_invoice: () => {
+      const { pathname } = deps.getContext();
+      if (!pathname.startsWith("/invoices/new") && !pathname.endsWith("/edit")) {
+        return "Open an invoice form first, then I can add a line. Say \"start a new invoice\".";
+      }
+      deps.dispatchUiCommand?.("invoice.addLineItem");
+      return "I've added a blank line to the invoice. Tell me the description, quantity, and price.";
+    },
+
+    select_ready_e_invoices: () => {
+      deps.navigate("/e-invoices?stage=submit");
+      deps.dispatchUiCommand?.("einvoice.selectAllReady");
+      return "I've opened the submit tab and selected the invoices that are ready to send. Review them, then say submit.";
     },
 
     get_current_context: () => {
       const { pathname, businessName } = deps.getContext();
-      const page = Object.entries(NAV_DESTINATIONS).find(([, href]) => href === pathname)?.[0] ?? "the app";
+      const page = describePath(pathname);
       return `You're working in ${businessName} and currently viewing ${page}. Today is ${today()}.`;
     },
   };

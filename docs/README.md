@@ -15,7 +15,7 @@ to MyInvois or a lender.
 Today the repository contains two runnable, local-first applications:
 
 1. A Next.js App Router workspace for onboarding, transaction capture/review,
-   invoices, reminders, and preview dashboards.
+   invoices, reminders, and dashboards.
 2. A Telegram transaction agent that accepts text and voice notes, asks for
    missing information, presents a draft, and persists only explicitly
    confirmed records to local JSON files.

@@ -56,6 +56,8 @@ import {
   updateSupabaseParty,
 } from "@/services/party-service";
 import type { Invoice } from "@/types";
+import type { InvoiceBuilderPrefill } from "@/components/voice/voice-draft-to-form";
+import { useVoiceUiCommand } from "@/components/voice/voice-ui-bus";
 
 const isoDate = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -124,9 +126,12 @@ const emptyBuyer: PartyEditorViewModel = {
 export function InvoiceBuilder({
   now,
   initialInvoice,
+  prefill,
 }: {
   now: string;
   initialInvoice?: Invoice;
+  /** Voice-staged initial values for a new invoice (ignored when editing). */
+  prefill?: InvoiceBuilderPrefill;
 }) {
   const router = useRouter();
   const createInvoice = useCreateInvoice();
@@ -158,16 +163,16 @@ export function InvoiceBuilder({
       invoiceNumber:
         initialInvoice?.invoiceNumber ??
         `INV-${isoDate(today).replaceAll("-", "")}`,
-      buyerId: initialInvoice?.customerId ?? parties[0]?.id ?? "",
-      issueDate: initialInvoice?.issueDate ?? isoDate(today),
+      buyerId: initialInvoice?.customerId ?? prefill?.customerId ?? parties[0]?.id ?? "",
+      issueDate: initialInvoice?.issueDate ?? prefill?.issueDate ?? isoDate(today),
       issueTime: initialInvoice?.issueTime?.slice(0, 5) ?? "09:00",
-      dueDate: initialInvoice?.dueDate ?? isoDate(due),
+      dueDate: initialInvoice?.dueDate ?? prefill?.dueDate ?? isoDate(due),
       status: initialInvoice?.status === "sent" ? "sent" : "draft",
       originalDocumentReference:
         initialInvoice?.originalDocumentReference ?? "",
       paymentModeCode: initialInvoice?.paymentModeCode ?? "03",
       bankAccountIdentifier: initialInvoice?.bankAccountIdentifier ?? "",
-      prepaymentAmount: initialInvoice?.prepaymentAmount ?? 0,
+      prepaymentAmount: initialInvoice?.prepaymentAmount ?? prefill?.prepaymentAmount ?? 0,
       items: initialInvoice?.items.length
         ? initialInvoice.items.map((item) => ({
             id: item.id,
@@ -182,27 +187,45 @@ export function InvoiceBuilder({
             discountAmount: item.discountAmount ?? 0,
             chargeAmount: item.chargeAmount ?? 0,
           }))
-        : [
-            {
-              id: "item_initial",
-              description: "",
-              quantity: 1,
-              unitPrice: 0,
-              classificationCode: "022",
-              unitCode: "C62",
-              taxTypeCode: "06",
-              taxRate: 0,
-              exemptionReason: "",
-              discountAmount: 0,
-              chargeAmount: 0,
-            },
-          ],
-      notes: initialInvoice?.notes ?? "",
+        : prefill?.items.length
+          ? prefill.items
+          : [
+              {
+                id: "item_initial",
+                description: "",
+                quantity: 1,
+                unitPrice: 0,
+                classificationCode: "022",
+                unitCode: "C62",
+                taxTypeCode: "06",
+                taxRate: 0,
+                exemptionReason: "",
+                discountAmount: 0,
+                chargeAmount: 0,
+              },
+            ],
+      notes: initialInvoice?.notes ?? prefill?.notes ?? "",
       paymentTerms:
-        initialInvoice?.paymentTerms ?? "Payment due within 14 days.",
+        initialInvoice?.paymentTerms ?? prefill?.paymentTerms ?? "Payment due within 14 days.",
     },
   });
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
+  // Let the voice agent add a blank line to the invoice the owner is looking at.
+  useVoiceUiCommand("invoice.addLineItem", () => {
+    append({
+      id: makeItemId(),
+      description: "",
+      quantity: 1,
+      unitPrice: 0,
+      classificationCode: "022",
+      unitCode: "C62",
+      taxTypeCode: "06",
+      taxRate: 0,
+      exemptionReason: "",
+      discountAmount: 0,
+      chargeAmount: 0,
+    });
+  });
   useEffect(() => {
     if (mode !== "supabase" || !business?.id) return;
     let active = true;
@@ -210,10 +233,11 @@ export function InvoiceBuilder({
       .then((values) => {
         if (!active) return;
         setParties(values);
+        const preferredCustomerId = initialInvoice?.customerId ?? prefill?.customerId;
         const selectedId =
-          initialInvoice?.customerId &&
-          values.some((party) => party.id === initialInvoice.customerId)
-            ? initialInvoice.customerId
+          preferredCustomerId &&
+          values.some((party) => party.id === preferredCustomerId)
+            ? preferredCustomerId
             : values[0]?.id;
         if (selectedId)
           setValue("buyerId", selectedId, { shouldValidate: true });
@@ -229,7 +253,7 @@ export function InvoiceBuilder({
     return () => {
       active = false;
     };
-  }, [business?.id, initialInvoice?.customerId, mode, setValue]);
+  }, [business?.id, initialInvoice?.customerId, prefill?.customerId, mode, setValue]);
   const watched = useWatch({ control });
   const selectedBuyer = parties.find((party) => party.id === watched.buyerId);
   const items = (watched.items ?? []).map((item) => ({
@@ -1086,9 +1110,9 @@ export function InvoiceBuilder({
         <aside className="invoice-preview-column">
           <section
             className="invoice-preview panel"
-            aria-label="Invoice preview"
+            aria-label="Invoice summary"
           >
-            <p className="section-kicker">Live preview</p>
+            <p className="section-kicker">Invoice summary</p>
             <h2>{watched.invoiceNumber || "New document"}</h2>
             <p>
               <strong>Buyer:</strong>{" "}

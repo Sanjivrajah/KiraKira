@@ -23,7 +23,7 @@ const methods: Method[] = [
   { source: "manual", name: "Manual entry", description: "Enter a sale or expense yourself.", icon: FilePenLine, flow: "Available" },
   { source: "csv", name: "CSV import", description: "Import up to 100 rows on this device and check each one.", icon: FileSpreadsheet, flow: "Available" },
   { source: "bank_statement", name: "Bank statement", description: "Import transactions from a bank CSV or PDF statement.", icon: Landmark, flow: "Available" },
-  { source: "whatsapp", name: "Telegram order", description: "Preview how a Telegram order message could become a sale.", icon: MessageCircle, flow: "Demo" },
+  { source: "whatsapp", name: "Telegram order", description: "Turn a Telegram order message into a sale.", icon: MessageCircle, flow: "Demo" },
 ];
 
 export function InputMethodSelector({ onSelect }: { onSelect: (source: TransactionSourceType) => void }) {
