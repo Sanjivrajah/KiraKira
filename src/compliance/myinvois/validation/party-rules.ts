@@ -46,8 +46,8 @@ export const partyRules: MyInvoisValidationRule[] = [
       const failures = !countryCode || !referenceData.isActive("country", countryCode, asOfDate)
         ? [{ fieldPath: "buyer.billingAddress.countryCode", message: "Buyer country is not available in current MyInvois reference data." }]
         : [];
-      if (address.countryCode === "MY" && (!address.stateCode || !referenceData.isActive("state", address.stateCode, asOfDate))) {
-        failures.push({ fieldPath: "buyer.billingAddress.stateCode", message: "Malaysian buyer requires an active MyInvois state code." });
+      if (address.countryCode === "MY" && (!address.stateCode || !referenceData.isActive("state", address.stateCode, asOfDate) || address.stateCode === "17")) {
+        failures.push({ fieldPath: "buyer.billingAddress.stateCode", message: "Malaysian buyer requires an active state code from 01 to 16; state 17 is reserved for consolidated or non-Malaysian addresses." });
       }
       return failures;
     },

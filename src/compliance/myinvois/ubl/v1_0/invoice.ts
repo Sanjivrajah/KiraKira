@@ -24,6 +24,7 @@ export interface MyInvoisUblInvoiceLineV10 {
     OriginCountry?: Array<{ IdentificationCode: UblElement }>;
   }>;
   Price: Array<{ PriceAmount: UblAmount[] }>;
+  ItemPriceExtension: Array<{ Amount: UblAmount[] }>;
 }
 
 export interface MyInvoisUblInvoiceV10 {

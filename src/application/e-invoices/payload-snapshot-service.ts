@@ -1,9 +1,8 @@
 import { createHash } from "node:crypto";
 import {
   MYINVOIS_MAPPER_REGISTRY,
-  MYINVOIS_PINNED_REFERENCE_DATA,
   canonicalSerializeMyInvoisPayload,
-  createMyInvoisReferenceCatalog,
+  createPinnedMyInvoisReferenceCatalog,
   validateMyInvoisReadiness,
   type MyInvoisMapperRegistry,
   type MyInvoisReferenceCatalog,
@@ -40,13 +39,7 @@ export class EInvoicePayloadGenerationError extends Error {
 export class GenerateEInvoicePayloadSnapshotService {
   constructor(
     private readonly snapshots: EInvoicePayloadSnapshotRepository,
-    private readonly referenceData: MyInvoisReferenceCatalog = createMyInvoisReferenceCatalog(
-      MYINVOIS_PINNED_REFERENCE_DATA.entries,
-      {
-        ...MYINVOIS_PINNED_REFERENCE_DATA,
-        retrievedAt: isoDateSchema.parse(MYINVOIS_PINNED_REFERENCE_DATA.retrievedAt),
-      },
-    ),
+    private readonly referenceData: MyInvoisReferenceCatalog = createPinnedMyInvoisReferenceCatalog(),
     private readonly mappers: MyInvoisMapperRegistry = MYINVOIS_MAPPER_REGISTRY,
   ) {}
 

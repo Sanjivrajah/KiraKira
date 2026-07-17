@@ -100,7 +100,8 @@
         "Description": [{ "_": "Business consulting" }],
         "OriginCountry": [{ "IdentificationCode": [{ "_": "MYS" }] }]
       }],
-      "Price": [{ "PriceAmount": [{ "_": 100, "currencyID": "MYR" }] }]
+      "Price": [{ "PriceAmount": [{ "_": 100, "currencyID": "MYR" }] }],
+      "ItemPriceExtension": [{ "Amount": [{ "_": 200, "currencyID": "MYR" }] }]
     }]
   }]
 }

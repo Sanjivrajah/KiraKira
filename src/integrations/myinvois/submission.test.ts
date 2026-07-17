@@ -84,4 +84,37 @@ describe("MyInvois submission transport hardening", () => {
     });
     expect(result.error).toBeUndefined();
   });
+
+  it("accepts null nested details in a synchronous validation rejection", async () => {
+    const client = oauth(new Response(JSON.stringify({
+      submissionUid: null,
+      acceptedDocuments: [],
+      rejectedDocuments: [{
+        invoiceCodeNumber: "INV-1",
+        error: {
+          code: "2",
+          message: "Validation Error",
+          details: [{
+            code: "CF411",
+            target: "LineItem_ItemPriceExtension_Amount",
+            details: null,
+            message: "Item Price Extension is required",
+            propertyPath: "Invoice.InvoiceLine[0].ItemPriceExtension.Amount",
+          }],
+        },
+      }],
+    }), { status: 202 }));
+
+    const result = await new MyInvoisSubmissionTransport(client)
+      .submit(connection, JSON.stringify({ documents: [] }));
+
+    expect(result.error).toBeUndefined();
+    expect(result.data?.rejectedDocuments[0]?.error.innerErrors).toEqual([
+      expect.objectContaining({
+        errorCode: "CF411",
+        message: "Item Price Extension is required",
+        propertyPath: "Invoice.InvoiceLine[0].ItemPriceExtension.Amount",
+      }),
+    ]);
+  });
 });

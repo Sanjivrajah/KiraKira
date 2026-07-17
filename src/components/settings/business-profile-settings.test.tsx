@@ -36,11 +36,12 @@ describe("BusinessProfileSettings", () => {
 
   it("saves the reusable compliance fields and explains how to refresh preparation", async () => {
     render(<BusinessProfileSettings business={business} />);
-    fireEvent.change(screen.getByLabelText("MSIC code"), { target: { value: "56101" } });
-    fireEvent.change(screen.getByLabelText("Business activity description"), { target: { value: "Food and beverage services" } });
-    fireEvent.change(screen.getByLabelText("Business phone"), { target: { value: "+60123456789" } });
-    fireEvent.change(screen.getByLabelText("Registered address line 1"), { target: { value: "1 Jalan Niaga" } });
-    fireEvent.change(screen.getByLabelText("City"), { target: { value: "Kuala Lumpur" } });
+    fireEvent.change(screen.getByLabelText("MSIC code (required)"), { target: { value: "56101" } });
+    fireEvent.change(screen.getByLabelText("Business activity description (required)"), { target: { value: "Food and beverage services" } });
+    fireEvent.change(screen.getByLabelText("Business phone (required)"), { target: { value: "+60123456789" } });
+    fireEvent.change(screen.getByLabelText("Registered address line 1 (required)"), { target: { value: "1 Jalan Niaga" } });
+    fireEvent.change(screen.getByLabelText("City (required)"), { target: { value: "Kuala Lumpur" } });
+    fireEvent.change(screen.getByLabelText("State (required)"), { target: { value: "14" } });
     fireEvent.click(screen.getByRole("button", { name: "Save business details" }));
 
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({
@@ -50,6 +51,7 @@ describe("BusinessProfileSettings", () => {
       phone: "+60123456789",
       addressLine1: "1 Jalan Niaga",
       city: "Kuala Lumpur",
+      stateCode: "14",
       countryCode: "MY",
     })));
     expect(await screen.findByRole("status")).toHaveTextContent("prepare the invoice again");

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeMalaysiaStateCode } from "@/compliance/myinvois/reference-data/malaysia-states";
 import { commercialDocumentSchema, type Party } from "@/domain";
 import type {
   AssemblyProvenanceEntry,
@@ -45,7 +46,8 @@ function json(value: unknown): Json {
 }
 
 function address(row: { line1: string; line2: string | null; line3: string | null; city: string; postal_code: string | null; state_code: string | null; country_code: string }): StoredAddressSource {
-  return { addressLines: [row.line1, row.line2, row.line3].filter((line): line is string => Boolean(line)), city: row.city, postcode: row.postal_code ?? undefined, stateCode: row.state_code ?? undefined, countryCode: row.country_code };
+  const stateCode = row.country_code === "MY" ? normalizeMalaysiaStateCode(row.state_code ?? undefined) : row.state_code ?? undefined;
+  return { addressLines: [row.line1, row.line2, row.line3].filter((line): line is string => Boolean(line)), city: row.city, postcode: row.postal_code ?? undefined, stateCode: stateCode || undefined, countryCode: row.country_code };
 }
 
 function mapBusiness(row: BusinessJoin): StoredBusinessSource {

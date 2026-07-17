@@ -26,7 +26,8 @@ export class InvoiceService {
     return this.repository.create({ invoice: { ...input, ...totals, id: makeEntityId("inv"), createdAt: now, updatedAt: now } });
   }
   update(invoice: Invoice) {
-    return this.repository.update({ businessId: invoice.businessId, invoiceId: invoice.id, changes: { ...invoice, updatedAt: new Date().toISOString() } });
+    const totals = calculateInvoiceTotals(invoice.items);
+    return this.repository.update({ businessId: invoice.businessId, invoiceId: invoice.id, changes: { ...invoice, ...totals, updatedAt: new Date().toISOString() } });
   }
   async remove(businessId: string, invoiceId: string) {
     await this.repository.remove({ businessId, invoiceId });

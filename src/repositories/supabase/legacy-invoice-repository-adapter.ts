@@ -33,9 +33,11 @@ function toInvoice(row: InvoiceWithItems): Invoice {
     customerId: row.customer_id,
     customerName: snapshotValue(row.customer_snapshot, "name") ?? "Customer",
     dueDate: row.due_date ?? row.issue_date,
+    documentType: row.document_type as Invoice["documentType"],
     id: row.id,
     invoiceNumber: row.invoice_number,
     issueDate: row.issue_date,
+    issueTime: row.issue_time ?? undefined,
     items: row.invoice_items
       .sort((a, b) => a.line_number - b.line_number)
       .map((item): InvoiceLineItem => ({
@@ -53,6 +55,11 @@ function toInvoice(row: InvoiceWithItems): Invoice {
       })),
     notes: row.notes,
     paymentTerms: row.payment_terms,
+    paymentModeCode: row.payment_mode_code,
+    bankAccountIdentifier: row.bank_account_identifier,
+    originalDocumentReference: Array.isArray(row.document_references) && row.document_references[0] && typeof row.document_references[0] === "object" && !Array.isArray(row.document_references[0])
+      ? String((row.document_references[0] as Record<string, Json>).externalReference ?? "") || null
+      : null,
     prepaymentAmount: toAmount(row.prepaid_minor),
     status: toInvoiceStatus(row.status),
     subtotal: toAmount(row.subtotal_minor),

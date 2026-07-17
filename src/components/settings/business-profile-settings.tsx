@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { Building2, CheckCircle2 } from "lucide-react";
 import { FormField } from "@/components/forms/form-field";
+import { SelectField } from "@/components/forms/select-field";
+import { MALAYSIA_ADDRESS_STATE_OPTIONS, normalizeMalaysiaStateCode } from "@/compliance/myinvois/reference-data/malaysia-states";
 import { useUpdateBusinessCompliance } from "@/hooks/use-business";
 import type { Business } from "@/types";
 
@@ -11,11 +13,16 @@ interface BusinessProfileSettingsProps {
   business: Business;
 }
 
-type FieldErrors = Partial<Record<"msicCode" | "businessActivityDescription" | "phone" | "addressLine1" | "city" | "countryCode", string>>;
+type FieldErrors = Partial<Record<"legalName" | "tin" | "registrationNumber" | "msicCode" | "businessActivityDescription" | "phone" | "addressLine1" | "city" | "stateCode" | "countryCode", string>>;
 
 export function BusinessProfileSettings({ business }: BusinessProfileSettingsProps) {
   const update = useUpdateBusinessCompliance();
   const [values, setValues] = useState({
+    legalName: business.legalName ?? business.name,
+    tin: business.tin ?? "",
+    registrationScheme: business.registrationScheme ?? "brn",
+    registrationNumber: business.registrationNumber ?? "",
+    email: business.email ?? "",
     msicCode: business.msicCode ?? "",
     businessActivityDescription: business.businessActivityDescription ?? "",
     phone: business.phone ?? "",
@@ -23,7 +30,7 @@ export function BusinessProfileSettings({ business }: BusinessProfileSettingsPro
     addressLine2: business.addressLine2 ?? "",
     city: business.city ?? "",
     postcode: business.postcode ?? "",
-    stateCode: business.stateCode ?? "",
+    stateCode: normalizeMalaysiaStateCode(business.stateCode),
     countryCode: business.countryCode ?? "MY",
   });
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -38,18 +45,29 @@ export function BusinessProfileSettings({ business }: BusinessProfileSettingsPro
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const nextErrors: FieldErrors = {};
+    if (values.legalName.trim().length < 2) nextErrors.legalName = "Enter the supplier legal name.";
+    if (!values.tin.trim()) nextErrors.tin = "Enter the supplier TIN.";
+    if (!values.registrationNumber.trim()) nextErrors.registrationNumber = "Enter the supplier registration or identification number.";
     if (!/^\d{5}$/.test(values.msicCode.trim())) nextErrors.msicCode = "Enter the 5-digit MSIC code.";
     if (values.businessActivityDescription.trim().length < 2) nextErrors.businessActivityDescription = "Describe the business activity.";
     if (values.phone.trim().length < 5) nextErrors.phone = "Enter a valid business phone number.";
     if (!values.addressLine1.trim()) nextErrors.addressLine1 = "Enter the registered address.";
     if (!values.city.trim()) nextErrors.city = "Enter the city.";
     if (!/^[A-Za-z]{2}$/.test(values.countryCode.trim())) nextErrors.countryCode = "Use a 2-letter country code.";
+    if (values.countryCode.trim().toUpperCase() === "MY" && !MALAYSIA_ADDRESS_STATE_OPTIONS.some((option) => option.value === values.stateCode)) {
+      nextErrors.stateCode = "Choose the Malaysian state for this registered address.";
+    }
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
 
     try {
       await update.mutateAsync({
         businessId: business.id,
+        legalName: values.legalName.trim(),
+        tin: values.tin.trim(),
+        registrationScheme: values.registrationScheme,
+        registrationNumber: values.registrationNumber.trim(),
+        email: values.email.trim() || undefined,
         msicCode: values.msicCode.trim(),
         businessActivityDescription: values.businessActivityDescription.trim(),
         phone: values.phone.trim(),
@@ -80,15 +98,20 @@ export function BusinessProfileSettings({ business }: BusinessProfileSettingsPro
         <p>These reusable supplier details are included in each e-Invoice preparation snapshot.</p>
         <form className="settings-business-form" onSubmit={submit} noValidate>
           <div className="settings-business-form-grid">
-            <FormField label="MSIC code" name="msicCode" inputMode="numeric" maxLength={5} value={values.msicCode} error={errors.msicCode} hint="The 5-digit Malaysia Standard Industrial Classification code." onChange={(event) => set("msicCode", event.target.value)} />
-            <FormField label="Business phone" name="phone" type="tel" value={values.phone} error={errors.phone} onChange={(event) => set("phone", event.target.value)} />
-            <FormField className="settings-business-wide" label="Business activity description" name="businessActivityDescription" maxLength={300} value={values.businessActivityDescription} error={errors.businessActivityDescription} onChange={(event) => set("businessActivityDescription", event.target.value)} />
-            <FormField className="settings-business-wide" label="Registered address line 1" name="addressLine1" value={values.addressLine1} error={errors.addressLine1} onChange={(event) => set("addressLine1", event.target.value)} />
+            <FormField className="settings-business-wide" label="Supplier legal name (required)" name="legalName" required value={values.legalName} error={errors.legalName} onChange={(event) => set("legalName", event.target.value)} />
+            <FormField label="Supplier TIN (required)" name="tin" required value={values.tin} error={errors.tin} onChange={(event) => set("tin", event.target.value)} />
+            <SelectField label="Registration type (required)" name="registrationScheme" required value={values.registrationScheme} options={[{ value: "brn", label: "BRN" }, { value: "nric", label: "NRIC" }, { value: "passport", label: "Passport" }, { value: "army_number", label: "Army number" }, { value: "other", label: "Other" }]} onChange={(event) => set("registrationScheme", event.target.value)} />
+            <FormField label="Registration number (required)" name="registrationNumber" required value={values.registrationNumber} error={errors.registrationNumber} onChange={(event) => set("registrationNumber", event.target.value)} />
+            <FormField label="Business email (optional)" name="email" type="email" value={values.email} onChange={(event) => set("email", event.target.value)} />
+            <FormField label="MSIC code (required)" name="msicCode" inputMode="numeric" maxLength={5} required value={values.msicCode} error={errors.msicCode} hint="The 5-digit Malaysia Standard Industrial Classification code." onChange={(event) => set("msicCode", event.target.value)} />
+            <FormField label="Business phone (required)" name="phone" type="tel" required value={values.phone} error={errors.phone} onChange={(event) => set("phone", event.target.value)} />
+            <FormField className="settings-business-wide" label="Business activity description (required)" name="businessActivityDescription" maxLength={300} required value={values.businessActivityDescription} error={errors.businessActivityDescription} onChange={(event) => set("businessActivityDescription", event.target.value)} />
+            <FormField className="settings-business-wide" label="Registered address line 1 (required)" name="addressLine1" required value={values.addressLine1} error={errors.addressLine1} onChange={(event) => set("addressLine1", event.target.value)} />
             <FormField className="settings-business-wide" label="Address line 2 (optional)" name="addressLine2" value={values.addressLine2} onChange={(event) => set("addressLine2", event.target.value)} />
-            <FormField label="City" name="city" value={values.city} error={errors.city} onChange={(event) => set("city", event.target.value)} />
+            <FormField label="City (required)" name="city" required value={values.city} error={errors.city} onChange={(event) => set("city", event.target.value)} />
             <FormField label="Postcode (optional)" name="postcode" value={values.postcode} onChange={(event) => set("postcode", event.target.value)} />
-            <FormField label="State code (optional)" name="stateCode" value={values.stateCode} hint="For example, 14 for Kuala Lumpur." onChange={(event) => set("stateCode", event.target.value)} />
-            <FormField label="Country code" name="countryCode" maxLength={2} value={values.countryCode} error={errors.countryCode} hint="Use the ISO 2-letter code, such as MY." onChange={(event) => set("countryCode", event.target.value)} />
+            <SelectField label="State (required)" name="stateCode" required value={values.stateCode} error={errors.stateCode} hint="The official MyInvois state code is saved with the address." options={[{ value: "", label: "Choose a state" }, ...MALAYSIA_ADDRESS_STATE_OPTIONS]} onChange={(event) => set("stateCode", event.target.value)} />
+            <FormField label="Country code (required)" name="countryCode" maxLength={2} required value={values.countryCode} error={errors.countryCode} hint="Use the ISO 2-letter code, such as MY." onChange={(event) => set("countryCode", event.target.value)} />
           </div>
           {update.isError ? <p className="settings-error" role="alert">{update.error instanceof Error ? update.error.message : "Business details could not be saved."}</p> : null}
           {saved ? <div className="settings-profile-success" role="status"><CheckCircle2 aria-hidden="true" size={18} /><span>Business details saved. <Link href="/e-invoices">Return to e-Invoice preparation</Link> and prepare the invoice again to refresh its checks.</span></div> : null}

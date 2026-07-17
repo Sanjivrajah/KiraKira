@@ -89,4 +89,3 @@ export function partyDomainToEditor(party: Party): PartyEditorViewModel {
     countryCode: party.billingAddress?.countryCode ?? "MY",
   };
 }
-

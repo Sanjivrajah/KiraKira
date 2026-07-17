@@ -31,7 +31,7 @@ import {
 } from "./mapper";
 
 const VERSION = "1.0";
-const MAPPER_VERSION = "invoice-v1.0.3";
+const MAPPER_VERSION = "invoice-v1.0.4";
 const MALAYSIA_UTC_OFFSET_HOURS = 8;
 const DOCUMENT_TYPE_CODES: Readonly<Record<CommercialDocument["documentType"], string>> = Object.freeze({
   invoice: "01",
@@ -109,10 +109,21 @@ function mapAddress(address: Address, path: string): UblParty["PostalAddress"][n
       diagnostic("address.country.unsupported", `${path}.countryCode`, "Country code has no UBL alpha-3 mapping."),
     ]);
   }
+  const stateCode = countryCode === "MYS" ? address.stateCode : "17";
+  if (!stateCode || !/^(0[1-9]|1[0-7])$/.test(stateCode)) {
+    throw new MyInvoisMappingError([
+      diagnostic(
+        "address.state.invalid",
+        `${path}.stateCode`,
+        "Malaysian addresses must use an official MyInvois state code from 01 to 17, not a state name.",
+        "/Invoice/AccountingParty/Party/PostalAddress/CountrySubentityCode",
+      ),
+    ]);
+  }
   return {
     CityName: element(address.city),
     ...(address.postcode ? { PostalZone: element(address.postcode) } : {}),
-    CountrySubentityCode: element(address.stateCode ?? "17"),
+    CountrySubentityCode: element(stateCode),
     AddressLine: address.addressLines.map((line) => ({ Line: element(line) })),
     Country: [{ IdentificationCode: [{ _: countryCode, listID: "ISO3166-1", listAgencyID: "6" }] }],
   };
@@ -211,6 +222,7 @@ function mapLine(line: DocumentLine): MyInvoisUblInvoiceLineV10 {
         : {}),
     }],
     Price: [{ PriceAmount: amount(line.unitPrice) }],
+    ItemPriceExtension: [{ Amount: amount(line.totals.lineExtensionAmount) }],
   };
 }
 

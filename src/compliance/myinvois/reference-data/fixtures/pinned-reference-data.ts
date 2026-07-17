@@ -1,4 +1,6 @@
 import artifact from "./official/myinvois-sdk-2026-07-17.json";
+import type { ISODate } from "@/domain";
+import { createMyInvoisReferenceCatalog } from "../code-set";
 import { myInvoisReferenceCodeSchema } from "../reference-code.schema";
 
 const syncedAt = `${artifact.retrievedAt}T00:00:00.000Z`;
@@ -14,3 +16,11 @@ export const MYINVOIS_PINNED_REFERENCE_DATA = Object.freeze({
     syncedAt,
   }))),
 });
+
+export function createPinnedMyInvoisReferenceCatalog() {
+  return createMyInvoisReferenceCatalog(MYINVOIS_PINNED_REFERENCE_DATA.entries, {
+    version: MYINVOIS_PINNED_REFERENCE_DATA.version,
+    retrievedAt: MYINVOIS_PINNED_REFERENCE_DATA.retrievedAt as ISODate,
+    sourceUrls: MYINVOIS_PINNED_REFERENCE_DATA.sourceUrls,
+  });
+}

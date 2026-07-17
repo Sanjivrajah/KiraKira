@@ -1,5 +1,7 @@
 import type { MyInvoisValidationRule } from "./validation-rule";
 
+const countryAliases: Record<string, string> = { MY: "MYS", SG: "SGP", GB: "GBR" };
+
 export const businessRules: MyInvoisValidationRule[] = [
   {
     ruleId: "supplier.identity.present",
@@ -43,6 +45,27 @@ export const businessRules: MyInvoisValidationRule[] = [
     fieldPath: "supplier",
     message: "Supplier contact and address are required.",
     sourceReferenceLabel: "MyInvois Invoice v1.0 Supplier Contact",
+  },
+  {
+    ruleId: "supplier.address.valid",
+    category: "myinvois",
+    severity: "error",
+    appliesWhen: () => true,
+    validate: ({ supplier, referenceData, asOfDate }) => {
+      const address = supplier?.billingAddress;
+      if (!address) return [];
+      const countryCode = countryAliases[address.countryCode];
+      const failures = !countryCode || !referenceData.isActive("country", countryCode, asOfDate)
+        ? [{ fieldPath: "supplier.billingAddress.countryCode", message: "Supplier country is not available in current MyInvois reference data." }]
+        : [];
+      if (address.countryCode === "MY" && (!address.stateCode || !referenceData.isActive("state", address.stateCode, asOfDate) || address.stateCode === "17")) {
+        failures.push({ fieldPath: "supplier.billingAddress.stateCode", message: "Malaysian supplier requires an active state code from 01 to 16; state 17 is not valid for a Malaysian supplier address." });
+      }
+      return failures;
+    },
+    fieldPath: "supplier.billingAddress",
+    message: "Supplier address must use active country/state codes.",
+    sourceReferenceLabel: "MyInvois Invoice v1.0 Address",
   },
   {
     ruleId: "supplier.msic.active",

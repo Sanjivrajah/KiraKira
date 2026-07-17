@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { partySchema, type CommercialDocument, type Party } from "@/domain";
+import { MALAYSIA_ADDRESS_STATE_OPTIONS, normalizeMalaysiaStateCode } from "@/compliance/myinvois/reference-data/malaysia-states";
 import { FormField } from "@/components/forms/form-field";
 import { SelectField } from "@/components/forms/select-field";
 import { TextareaField } from "@/components/forms/textarea-field";
@@ -23,14 +24,16 @@ import {
   invoicePreparationFieldTarget,
   invoicePreparationFixLabel,
   partyEditorToDomain,
+  partyDomainToEditor,
   type PartyEditorViewModel,
 } from "@/frontend/view-models";
 import { useBusiness } from "@/hooks/use-business";
-import { useCreateInvoice } from "@/hooks/use-invoices";
+import { useCreateInvoice, useUpdateInvoice } from "@/hooks/use-invoices";
 import { calculateInvoiceTotals } from "@/lib/invoices/calculations";
 import { browserStorage } from "@/lib/storage/browser-storage";
 import { invoiceFormSchema, type InvoiceFormValues, type ValidInvoiceFormValues } from "@/lib/validation/invoice";
-import { createSupabaseParty, listSupabaseParties } from "@/services/party-service";
+import { createSupabaseParty, listSupabaseParties, updateSupabaseParty } from "@/services/party-service";
+import type { Invoice } from "@/types";
 
 const isoDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const makeItemId = () => `item_${typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
@@ -68,12 +71,13 @@ function initialParties(): Party[] {
 
 const emptyBuyer: PartyEditorViewModel = {
   id: "", kind: "business", legalName: "", tin: "", registrationScheme: "brn", registrationValue: "",
-  email: "", phone: "", addressLine1: "", addressLine2: "", city: "", postcode: "", stateCode: "17", countryCode: "MY",
+  email: "", phone: "", addressLine1: "", addressLine2: "", city: "", postcode: "", stateCode: "", countryCode: "MY",
 };
 
-export function InvoiceBuilder({ now }: { now: string }) {
+export function InvoiceBuilder({ now, initialInvoice }: { now: string; initialInvoice?: Invoice }) {
   const router = useRouter();
   const createInvoice = useCreateInvoice();
+  const updateInvoice = useUpdateInvoice();
   const { mode } = useAuth();
   const business = useBusiness().data ?? null;
   const today = useMemo(() => new Date(now), [now]);
@@ -85,23 +89,28 @@ export function InvoiceBuilder({ now }: { now: string }) {
   const { control, register, handleSubmit, setError, setValue, formState: { errors, isSubmitting } } = useForm<InvoiceFormValues, unknown, ValidInvoiceFormValues>({
     resolver: zodResolver(invoiceFormSchema),
     defaultValues: {
-      documentType: "invoice",
-      invoiceNumber: `INV-${isoDate(today).replaceAll("-", "")}`,
-      buyerId: parties[0]?.id ?? "",
-      issueDate: isoDate(today),
-      issueTime: "09:00",
-      dueDate: isoDate(due),
-      status: "draft",
-      originalDocumentReference: "",
-      paymentModeCode: "03",
-      bankAccountIdentifier: "",
-      prepaymentAmount: 0,
-      items: [{
+      documentType: initialInvoice?.documentType ?? "invoice",
+      invoiceNumber: initialInvoice?.invoiceNumber ?? `INV-${isoDate(today).replaceAll("-", "")}`,
+      buyerId: initialInvoice?.customerId ?? parties[0]?.id ?? "",
+      issueDate: initialInvoice?.issueDate ?? isoDate(today),
+      issueTime: initialInvoice?.issueTime?.slice(0, 5) ?? "09:00",
+      dueDate: initialInvoice?.dueDate ?? isoDate(due),
+      status: initialInvoice?.status === "sent" ? "sent" : "draft",
+      originalDocumentReference: initialInvoice?.originalDocumentReference ?? "",
+      paymentModeCode: initialInvoice?.paymentModeCode ?? "03",
+      bankAccountIdentifier: initialInvoice?.bankAccountIdentifier ?? "",
+      prepaymentAmount: initialInvoice?.prepaymentAmount ?? 0,
+      items: initialInvoice?.items.length ? initialInvoice.items.map((item) => ({
+        id: item.id, description: item.description, quantity: item.quantity, unitPrice: item.unitPrice,
+        classificationCode: item.classificationCode ?? "", unitCode: item.unitCode ?? "",
+        taxTypeCode: item.taxTypeCode ?? "", taxRate: item.taxRate, exemptionReason: item.exemptionReason ?? "",
+        discountAmount: item.discountAmount ?? 0, chargeAmount: item.chargeAmount ?? 0,
+      })) : [{
         id: "item_initial", description: "", quantity: 1, unitPrice: 0, classificationCode: "022", unitCode: "C62",
         taxTypeCode: "06", taxRate: 0, exemptionReason: "", discountAmount: 0, chargeAmount: 0,
       }],
-      notes: "",
-      paymentTerms: "Payment due within 14 days.",
+      notes: initialInvoice?.notes ?? "",
+      paymentTerms: initialInvoice?.paymentTerms ?? "Payment due within 14 days.",
     },
   });
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
@@ -112,13 +121,15 @@ export function InvoiceBuilder({ now }: { now: string }) {
       .then((values) => {
         if (!active) return;
         setParties(values);
-        if (values[0]) setValue("buyerId", values[0].id, { shouldValidate: true });
+        const selectedId = initialInvoice?.customerId && values.some((party) => party.id === initialInvoice.customerId)
+          ? initialInvoice.customerId : values[0]?.id;
+        if (selectedId) setValue("buyerId", selectedId, { shouldValidate: true });
       })
       .catch((error: unknown) => {
         if (active) setBuyerError(error instanceof Error ? error.message : "Customers could not be loaded.");
       });
     return () => { active = false; };
-  }, [business?.id, mode, setValue]);
+  }, [business?.id, initialInvoice?.customerId, mode, setValue]);
   const watched = useWatch({ control });
   const selectedBuyer = parties.find((party) => party.id === watched.buyerId);
   const items = (watched.items ?? []).map((item) => ({
@@ -148,7 +159,7 @@ export function InvoiceBuilder({ now }: { now: string }) {
     addressLine2: sourceBusiness.addressLine2 || "",
     city: sourceBusiness.city || "",
     postcode: sourceBusiness.postcode || "",
-    stateCode: sourceBusiness.stateCode || "17",
+    stateCode: normalizeMalaysiaStateCode(sourceBusiness.stateCode),
     countryCode: sourceBusiness.countryCode || "MY",
     email: sourceBusiness.email || "",
     phone: sourceBusiness.phone || "",
@@ -227,10 +238,15 @@ export function InvoiceBuilder({ now }: { now: string }) {
   const createBuyer = async () => {
     setBuyerError("");
     try {
-      const prepared = partyEditorToDomain(buyerDraft, { id: `party_${Date.now()}`, now: new Date().toISOString() });
+      if (buyerDraft.countryCode === "MY" && !MALAYSIA_ADDRESS_STATE_OPTIONS.some((option) => option.value === buyerDraft.stateCode)) {
+        throw new Error("Choose the Malaysian state for this customer address.");
+      }
+      const prepared = partyEditorToDomain(buyerDraft, { id: buyerDraft.id || `party_${Date.now()}`, now: new Date().toISOString() });
       const activeBusinessId = business?.id ?? (mode === "demo" ? DEMO_BUSINESS.id : "");
       if (!activeBusinessId) throw new Error("Your business workspace is still loading.");
-      const party = mode === "supabase" ? await createSupabaseParty(activeBusinessId, prepared) : prepared;
+      const party = mode === "supabase"
+        ? buyerDraft.id ? await updateSupabaseParty(activeBusinessId, prepared) : await createSupabaseParty(activeBusinessId, prepared)
+        : prepared;
       const next = [...parties.filter((existing) => existing.id !== party.id), party];
       setParties(next);
       if (mode === "demo") browserStorage.set(FRONTEND_STORAGE_KEYS.parties, next);
@@ -273,7 +289,7 @@ export function InvoiceBuilder({ now }: { now: string }) {
         supplierPartyId: `party_${activeBusinessId}`,
         now: new Date().toISOString(),
       });
-      const saved = await createInvoice.mutateAsync({
+      const invoiceInput = {
         businessId: activeBusinessId,
         customerId: buyer.id,
         invoiceNumber: values.invoiceNumber,
@@ -283,13 +299,21 @@ export function InvoiceBuilder({ now }: { now: string }) {
         issueDate: values.issueDate,
         dueDate: values.dueDate,
         status: values.status,
-        currency: "MYR",
+        currency: "MYR" as const,
         amountPaid: 0,
         prepaymentAmount: values.prepaymentAmount,
         items: values.items.map((item) => ({ ...item, id: item.id || makeItemId() })),
         notes: values.notes,
         paymentTerms: values.paymentTerms,
-      });
+        documentType: values.documentType,
+        issueTime: values.issueTime,
+        paymentModeCode: values.paymentModeCode,
+        bankAccountIdentifier: values.bankAccountIdentifier,
+        originalDocumentReference: values.originalDocumentReference,
+      };
+      const saved = initialInvoice
+        ? await updateInvoice.mutateAsync({ ...initialInvoice, ...invoiceInput })
+        : await createInvoice.mutateAsync(invoiceInput);
       const domain = invoiceBuilderToDomain(domainInput, {
         id: saved.id,
         businessId: saved.businessId,
@@ -301,25 +325,25 @@ export function InvoiceBuilder({ now }: { now: string }) {
         browserStorage.set(FRONTEND_STORAGE_KEYS.parties, parties);
         browserStorage.set(FRONTEND_STORAGE_KEYS.documents, [domain, ...existing.filter((document) => document.id !== domain.id)]);
       }
-      router.push("/invoices?created=1");
+      router.push(initialInvoice ? `/invoices/${saved.id}?updated=1` : "/invoices?created=1");
     } catch (error) {
       setError("root", { message: error instanceof Error ? error.message : "Invoice could not be saved." });
     }
   };
 
   return <>
-    <PageHeader eyebrow="Sales documents" title="Create an invoice or note" description="Add the customer and items. We’ll show what still needs attention before you save." />
+    <PageHeader eyebrow="Sales documents" title={initialInvoice ? "Edit draft invoice" : "Create an invoice or note"} description="Required MyInvois source fields are marked below. Changes are rechecked when the draft is saved." />
     <form className="invoice-builder-grid" noValidate onSubmit={handleSubmit(submit)}>
       <div className="invoice-form-column">
         <section className="panel invoice-form-section" aria-labelledby="basic-details-heading">
           <p className="section-kicker">1 · Basic details</p><h2 id="basic-details-heading">Document details</h2>
           <div className="review-form-grid">
-            <SelectField error={errors.documentType?.message} label="Document type" options={documentTypes} {...register("documentType")} />
+            <SelectField error={errors.documentType?.message} label="Document type (required)" options={documentTypes} required {...register("documentType")} />
             <SelectField error={errors.status?.message} label="Starting status" options={[{ value: "draft", label: "Draft" }, { value: "sent", label: "Sent" }]} {...register("status")} />
-            <FormField error={errors.invoiceNumber?.message} label="Document number" {...register("invoiceNumber")} />
-            <FormField error={errors.issueDate?.message} label="Issue date" type="date" {...register("issueDate")} />
-            <FormField error={errors.issueTime?.message} label="Issue time" type="time" {...register("issueTime")} />
-            <FormField error={errors.dueDate?.message} label="Due date" type="date" {...register("dueDate")} />
+            <FormField error={errors.invoiceNumber?.message} label="Document number (required)" required {...register("invoiceNumber")} />
+            <FormField error={errors.issueDate?.message} label="Issue date (required)" required type="date" {...register("issueDate")} />
+            <FormField error={errors.issueTime?.message} label="Issue time (required)" required type="time" {...register("issueTime")} />
+            <FormField error={errors.dueDate?.message} label="Due date (required)" required type="date" {...register("dueDate")} />
             {adjustmentDocument ? <FormField className="review-wide" error={errors.originalDocumentReference?.message} label="Original document reference" {...register("originalDocumentReference")} /> : null}
           </div>
         </section>
@@ -328,24 +352,25 @@ export function InvoiceBuilder({ now }: { now: string }) {
           <p className="section-kicker">2 · Customer</p><h2 id="buyer-heading">Customer details</h2>
           <div className="buyer-toolbar">
             <SelectField error={errors.buyerId?.message} label="Customer" options={parties.map((party) => ({ value: party.id, label: party.legalName }))} value={watched.buyerId || ""} {...register("buyerId")} />
-            <button className="button button-secondary" onClick={() => setShowBuyerEditor((open) => !open)} type="button"><UserPlus aria-hidden="true" size={17} />Create customer</button>
+            <button className="button button-secondary" onClick={() => { setBuyerDraft(emptyBuyer); setBuyerError(""); setShowBuyerEditor((open) => !open || Boolean(buyerDraft.id)); }} type="button"><UserPlus aria-hidden="true" size={17} />Create customer</button>
+            {selectedBuyer && selectedBuyer.kind !== "general_public" ? <button className="button button-secondary" onClick={() => { setBuyerDraft(partyDomainToEditor(selectedBuyer)); setShowBuyerEditor(true); setBuyerError(""); }} type="button">Edit customer details</button> : null}
             <button className="button button-secondary" onClick={() => setValue("buyerId", "party_general_public", { shouldValidate: true })} type="button">Use General Public</button>
           </div>
           {selectedBuyer ? <p className="structured-party-summary"><strong>{selectedBuyer.legalName}</strong><span>{selectedBuyer.taxIdentifiers.find((identifier) => identifier.scheme === "tin")?.value || "TIN incomplete"} · {selectedBuyer.billingAddress?.city || "Address incomplete"}</span></p> : null}
-          {showBuyerEditor ? <fieldset className="customer-editor"><legend>New customer</legend><div className="review-form-grid">
+          {showBuyerEditor ? <fieldset className="customer-editor"><legend>{buyerDraft.id ? "Edit customer" : "New customer"}</legend><div className="review-form-grid">
             <SelectField id="buyer-kind" label="Party type" options={[{ value: "business", label: "Business" }, { value: "individual", label: "Individual" }, { value: "government_entity", label: "Government entity" }, { value: "foreign_entity", label: "Foreign entity" }]} value={buyerDraft.kind} onChange={(event) => setBuyerDraft({ ...buyerDraft, kind: event.target.value as PartyEditorViewModel["kind"] })} />
-            <FormField id="buyer-legal-name" label="Legal name" value={buyerDraft.legalName} onChange={(event) => setBuyerDraft({ ...buyerDraft, legalName: event.target.value })} />
-            <FormField id="buyer-tin" label="TIN" value={buyerDraft.tin} onChange={(event) => setBuyerDraft({ ...buyerDraft, tin: event.target.value })} />
+            <FormField id="buyer-legal-name" label="Legal name (required)" required value={buyerDraft.legalName} onChange={(event) => setBuyerDraft({ ...buyerDraft, legalName: event.target.value })} />
+            <FormField id="buyer-tin" label="TIN (required)" required value={buyerDraft.tin} onChange={(event) => setBuyerDraft({ ...buyerDraft, tin: event.target.value })} />
             <SelectField id="buyer-registration-type" label="Registration type" options={[{ value: "brn", label: "BRN" }, { value: "nric", label: "NRIC" }, { value: "passport", label: "Passport" }, { value: "army_number", label: "Army number" }]} value={buyerDraft.registrationScheme} onChange={(event) => setBuyerDraft({ ...buyerDraft, registrationScheme: event.target.value as PartyEditorViewModel["registrationScheme"] })} />
-            <FormField id="buyer-registration-value" label="Registration value" value={buyerDraft.registrationValue} onChange={(event) => setBuyerDraft({ ...buyerDraft, registrationValue: event.target.value })} />
+            <FormField id="buyer-registration-value" label="Registration value (required)" required value={buyerDraft.registrationValue} onChange={(event) => setBuyerDraft({ ...buyerDraft, registrationValue: event.target.value })} />
             <FormField id="buyer-email" label="Email" type="email" value={buyerDraft.email} onChange={(event) => setBuyerDraft({ ...buyerDraft, email: event.target.value })} />
-            <FormField id="buyer-phone" label="Phone" value={buyerDraft.phone} onChange={(event) => setBuyerDraft({ ...buyerDraft, phone: event.target.value })} />
-            <FormField id="buyer-address-line-1" label="Address line 1" value={buyerDraft.addressLine1} onChange={(event) => setBuyerDraft({ ...buyerDraft, addressLine1: event.target.value })} />
-            <FormField id="buyer-city" label="City" value={buyerDraft.city} onChange={(event) => setBuyerDraft({ ...buyerDraft, city: event.target.value })} />
+            <FormField id="buyer-phone" label="Phone (required)" required value={buyerDraft.phone} onChange={(event) => setBuyerDraft({ ...buyerDraft, phone: event.target.value })} />
+            <FormField id="buyer-address-line-1" label="Address line 1 (required)" required value={buyerDraft.addressLine1} onChange={(event) => setBuyerDraft({ ...buyerDraft, addressLine1: event.target.value })} />
+            <FormField id="buyer-city" label="City (required)" required value={buyerDraft.city} onChange={(event) => setBuyerDraft({ ...buyerDraft, city: event.target.value })} />
             <FormField id="buyer-postcode" label="Postcode" value={buyerDraft.postcode} onChange={(event) => setBuyerDraft({ ...buyerDraft, postcode: event.target.value })} />
-            <FormField id="buyer-state-code" label="State code" value={buyerDraft.stateCode} onChange={(event) => setBuyerDraft({ ...buyerDraft, stateCode: event.target.value })} />
-            <FormField id="buyer-country-code" label="Country code" value={buyerDraft.countryCode} onChange={(event) => setBuyerDraft({ ...buyerDraft, countryCode: event.target.value.toUpperCase() })} />
-          </div>{buyerError ? <p className="field-error" role="alert">{buyerError}</p> : null}<button className="button button-primary" onClick={createBuyer} type="button">Save customer</button></fieldset> : null}
+            <SelectField id="buyer-state-code" label="State (required)" required value={buyerDraft.stateCode} options={[{ value: "", label: "Choose a state" }, ...MALAYSIA_ADDRESS_STATE_OPTIONS]} onChange={(event) => setBuyerDraft({ ...buyerDraft, stateCode: event.target.value })} />
+            <FormField id="buyer-country-code" label="Country code (required)" required value={buyerDraft.countryCode} onChange={(event) => setBuyerDraft({ ...buyerDraft, countryCode: event.target.value.toUpperCase() })} />
+          </div>{buyerError ? <p className="field-error" role="alert">{buyerError}</p> : null}<button className="button button-primary" onClick={createBuyer} type="button">{buyerDraft.id ? "Save customer changes" : "Save customer"}</button></fieldset> : null}
         </section>
 
         <section className="panel invoice-form-section" aria-labelledby="items-heading">
@@ -354,15 +379,15 @@ export function InvoiceBuilder({ now }: { now: string }) {
           <datalist id="unit-codes"><option value="C62">One</option><option value="KGM">Kilogram</option></datalist>
           <datalist id="tax-type-codes"><option value="06">Not applicable</option><option value="02">Service tax</option><option value="01">Sales tax</option><option value="E">Tax exemption</option></datalist>
           <div className="line-items">{fields.map((field, index) => <fieldset className="line-item migrated-line-item" key={field.id}><legend>Item {index + 1}</legend>
-            <FormField className="line-description" error={errors.items?.[index]?.description?.message} label="Description" {...register(`items.${index}.description`)} />
-            <FormField error={errors.items?.[index]?.quantity?.message} label="Quantity" min="0.01" step="0.01" type="number" {...register(`items.${index}.quantity`, { valueAsNumber: true })} />
-            <FormField error={errors.items?.[index]?.unitPrice?.message} label="Unit price (RM)" min="0" step="0.01" type="number" {...register(`items.${index}.unitPrice`, { valueAsNumber: true })} />
+            <FormField className="line-description" error={errors.items?.[index]?.description?.message} label="Description (required)" required {...register(`items.${index}.description`)} />
+            <FormField error={errors.items?.[index]?.quantity?.message} label="Quantity (required by Niaga)" min="0.01" required step="0.01" type="number" {...register(`items.${index}.quantity`, { valueAsNumber: true })} />
+            <FormField error={errors.items?.[index]?.unitPrice?.message} label="Unit price (RM) (required)" min="0" required step="0.01" type="number" {...register(`items.${index}.unitPrice`, { valueAsNumber: true })} />
             <input type="hidden" {...register(`items.${index}.id`)} />
             <button aria-label={`Remove item ${index + 1}`} className="remove-line-item" disabled={fields.length === 1} onClick={() => remove(index)} type="button"><Trash2 aria-hidden="true" size={17} />Remove</button>
-            <details className="advanced-fields"><summary>Tax, classification and adjustments <ChevronRight aria-hidden="true" size={16} /></summary><div className="review-form-grid">
-              <FormField error={errors.items?.[index]?.classificationCode?.message} hint="Type to search the supported demo codes." label="Classification code" list="classification-codes" {...register(`items.${index}.classificationCode`)} />
-              <FormField error={errors.items?.[index]?.unitCode?.message} hint="Type to search the supported demo codes." label="Unit code" list="unit-codes" {...register(`items.${index}.unitCode`)} />
-              <FormField error={errors.items?.[index]?.taxTypeCode?.message} hint="Type to search the supported demo codes." label="Tax type code" list="tax-type-codes" {...register(`items.${index}.taxTypeCode`)} />
+            <details className="advanced-fields" open><summary>Required tax and classification fields <ChevronRight aria-hidden="true" size={16} /></summary><div className="review-form-grid">
+              <FormField error={errors.items?.[index]?.classificationCode?.message} hint="Enter an official MyInvois classification code." label="Classification code (required)" list="classification-codes" required {...register(`items.${index}.classificationCode`)} />
+              <FormField error={errors.items?.[index]?.unitCode?.message} hint="Enter the applicable unit code." label="Unit code (required by Niaga)" list="unit-codes" required {...register(`items.${index}.unitCode`)} />
+              <FormField error={errors.items?.[index]?.taxTypeCode?.message} hint="Enter an official MyInvois tax type code." label="Tax type code (required)" list="tax-type-codes" required {...register(`items.${index}.taxTypeCode`)} />
               <FormField error={errors.items?.[index]?.taxRate?.message} label="Tax rate (%)" min="0" max="100" step="0.01" type="number" {...register(`items.${index}.taxRate`, { valueAsNumber: true })} />
               <FormField error={errors.items?.[index]?.exemptionReason?.message} label="Exemption reason" {...register(`items.${index}.exemptionReason`)} />
               <FormField error={errors.items?.[index]?.discountAmount?.message} label="Discount (RM)" min="0" step="0.01" type="number" {...register(`items.${index}.discountAmount`, { valueAsNumber: true })} />
@@ -379,7 +404,7 @@ export function InvoiceBuilder({ now }: { now: string }) {
         </div></details>
         <details className="panel invoice-form-section progressive-section"><summary>6 · Additional details</summary><TextareaField error={errors.notes?.message} label="Notes" rows={4} {...register("notes")} /></details>
         {errors.root?.message ? <div className="form-alert" role="alert"><AlertCircle aria-hidden="true" size={18} />{errors.root.message}</div> : null}
-        <div className="invoice-save-actions"><button className="button button-secondary" onClick={() => router.push("/invoices")} type="button">Cancel</button><button className="button button-primary" disabled={isSubmitting || createInvoice.isPending} type="submit"><Save aria-hidden="true" size={18} />Save document</button></div>
+        <div className="invoice-save-actions"><button className="button button-secondary" onClick={() => router.push(initialInvoice ? `/invoices/${initialInvoice.id}` : "/invoices")} type="button">Cancel</button><button className="button button-primary" disabled={isSubmitting || createInvoice.isPending || updateInvoice.isPending} type="submit"><Save aria-hidden="true" size={18} />{initialInvoice ? "Save changes" : "Save document"}</button></div>
       </div>
 
       <aside className="invoice-preview-column">

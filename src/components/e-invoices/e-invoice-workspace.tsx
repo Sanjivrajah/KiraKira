@@ -30,10 +30,10 @@ function fieldsFrom(record: EInvoicePreparationView): PreparationSupplementalFie
 
 function fixTarget(record: EInvoicePreparationView, fieldPath: string) {
   if (fieldPath.startsWith("supplier.") || fieldPath.startsWith("business.")) return { href: "/settings#business-profile", label: "Update business details" };
-  if (fieldPath.startsWith("buyer.")) return { href: `/invoices/${record.sourceInvoiceId}`, label: "Review customer on invoice" };
+  if (fieldPath.startsWith("buyer.")) return { href: `/invoices/${record.sourceInvoiceId}/edit`, label: "Edit required customer fields" };
   if (fieldPath === "document.issueTime") return { href: "#preparation-field-documentOnlyIssueTime", label: "Enter issue time here" };
   if (fieldPath === "document.exchangeRate") return { href: "#preparation-field-exchangeRate", label: "Enter exchange rate here" };
-  return { href: `/invoices/${record.sourceInvoiceId}`, label: "Review source invoice" };
+  return { href: `/invoices/${record.sourceInvoiceId}/edit`, label: "Edit required invoice fields" };
 }
 
 function nestedProviderErrors(error: MyInvoisStructuredError): MyInvoisStructuredError[] {

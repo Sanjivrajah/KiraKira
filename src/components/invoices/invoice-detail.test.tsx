@@ -23,19 +23,30 @@ const invoice: Invoice = {
   createdAt: "2026-07-17T10:00:00.000Z",
   updatedAt: "2026-07-17T10:00:00.000Z",
 };
+let currentInvoice = invoice;
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/components/auth/auth-provider", () => ({ useAuth: () => ({ mode: "supabase" }) }));
 vi.mock("@/hooks/use-business", () => ({ useBusiness: () => ({ data: { id: "business-1", name: "Niaga Satu", registrationNumber: null, tin: null } }) }));
 vi.mock("@/hooks/use-invoices", () => ({
-  useInvoice: () => ({ data: invoice, isPending: false, isError: false, refetch: vi.fn() }),
+  useInvoice: () => ({ data: currentInvoice, isPending: false, isError: false, refetch: vi.fn() }),
   useUpdateInvoice: () => ({ mutateAsync, isPending: false }),
   useDeleteInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
-beforeEach(() => mutateAsync.mockReset().mockResolvedValue({ ...invoice, prepaymentAmount: 25 }));
+beforeEach(() => {
+  currentInvoice = invoice;
+  mutateAsync.mockReset().mockResolvedValue({ ...invoice, prepaymentAmount: 25 });
+});
 
 describe("InvoiceDetail prepayment", () => {
+  it("links draft invoices to the complete required-field editor", () => {
+    currentInvoice = { ...invoice, status: "draft" };
+    render(<InvoiceDetail id={invoice.id} />);
+    expect(screen.getByRole("link", { name: "Edit invoice and required fields" }))
+      .toHaveAttribute("href", `/invoices/${invoice.id}/edit`);
+  });
+
   it("allows a prepayment to be added to an existing sent source invoice", async () => {
     render(<InvoiceDetail id={invoice.id} />);
     fireEvent.change(screen.getByLabelText("Prepayment amount (RM)"), { target: { value: "25" } });

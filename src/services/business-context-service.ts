@@ -1,4 +1,5 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser-client";
+import { normalizeMalaysiaStateCode } from "@/compliance/myinvois/reference-data/malaysia-states";
 import type { Business, BusinessInput } from "@/types";
 
 type SupabaseBusinessRow = {
@@ -20,6 +21,11 @@ type SupabaseBusinessRow = {
 
 export interface BusinessComplianceUpdate {
   businessId: string;
+  legalName: string;
+  tin: string;
+  registrationScheme: string;
+  registrationNumber: string;
+  email?: string;
   msicCode: string;
   businessActivityDescription: string;
   addressLine1: string;
@@ -56,7 +62,7 @@ function toBusiness(row: SupabaseBusinessRow): Business {
     addressLine2: address?.line2 ?? undefined,
     city: address?.city,
     postcode: address?.postal_code ?? undefined,
-    stateCode: address?.state_code ?? undefined,
+    stateCode: address?.country_code === "MY" ? normalizeMalaysiaStateCode(address.state_code ?? undefined) || undefined : address?.state_code ?? undefined,
     countryCode: address?.country_code,
     email: contact("email"),
     phone: contact("phone"),
@@ -106,19 +112,10 @@ export async function createSupabaseBusiness(input: BusinessInput): Promise<Busi
 
 export async function updateSupabaseBusinessCompliance(input: BusinessComplianceUpdate): Promise<Business> {
   const client = getSupabaseBrowserClient();
-  const { error } = await client.rpc("update_business_compliance_profile", {
+  const rpcClient = client as unknown as { rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message: string } | null }> };
+  const { error } = await rpcClient.rpc("update_business_einvoice_profile", {
     p_business_id: input.businessId,
-    p_msic_code: input.msicCode,
-    p_business_activity_description: input.businessActivityDescription,
-    p_primary_address: {
-      line1: input.addressLine1,
-      line2: input.addressLine2 || null,
-      city: input.city,
-      postal_code: input.postcode || null,
-      state_code: input.stateCode || null,
-      country_code: input.countryCode,
-    },
-    p_primary_phone: input.phone,
+    p_profile: input,
   });
   if (error) throw new Error(`Could not update business details: ${error.message}`);
 

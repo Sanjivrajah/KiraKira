@@ -46,7 +46,7 @@ export const EMPTY_BUSINESS_ONBOARDING: BusinessOnboardingViewModel = {
   addressLine2: "",
   city: "",
   postcode: "",
-  stateCode: "17",
+  stateCode: "",
   countryCode: "MY",
   email: "",
   phone: "",
@@ -100,4 +100,3 @@ export function businessOnboardingToDomain(input: BusinessOnboardingViewModel, m
     updatedAt: metadata.now,
   });
 }
-

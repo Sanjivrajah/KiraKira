@@ -12,6 +12,9 @@ const msicConstraintMigrationSql = readFileSync(resolve(migrationsDirectory, "20
 const payloadHashFunctionMigrationSql = readFileSync(resolve(migrationsDirectory, "20260718090000_fix_e_invoice_payload_hash_function.sql"), "utf8");
 const myInvoisSecretReferenceMigrationSql = readFileSync(resolve(migrationsDirectory, "20260718100000_normalize_myinvois_secret_references.sql"), "utf8");
 const rejectedSubmissionRepairMigrationSql = readFileSync(resolve(migrationsDirectory, "20260718110000_repair_myinvois_rejected_submission_responses.sql"), "utf8");
+const laterRejectedSubmissionRepairMigrationSql = readFileSync(resolve(migrationsDirectory, "20260718120000_repair_later_myinvois_rejected_responses.sql"), "utf8");
+const invoiceEditingMigrationSql = readFileSync(resolve(migrationsDirectory, "20260718130000_update_party_einvoice_profile.sql"), "utf8");
+const supplierEditingMigrationSql = readFileSync(resolve(migrationsDirectory, "20260718140000_update_business_einvoice_profile.sql"), "utf8");
 
 describe("Supabase schema migrations", () => {
   it("uses ordered timestamped migrations for every Session 2 schema area", () => {
@@ -54,6 +57,9 @@ describe("Supabase schema migrations", () => {
       "20260718090000_fix_e_invoice_payload_hash_function.sql",
       "20260718100000_normalize_myinvois_secret_references.sql",
       "20260718110000_repair_myinvois_rejected_submission_responses.sql",
+      "20260718120000_repair_later_myinvois_rejected_responses.sql",
+      "20260718130000_update_party_einvoice_profile.sql",
+      "20260718140000_update_business_einvoice_profile.sql",
     ]);
   });
 
@@ -67,6 +73,17 @@ describe("Supabase schema migrations", () => {
     expect(migrationSql).toContain("document_version <> '1.0'");
     expect(migrationSql).toContain("alter column document_version set default '1.0'");
     expect(migrationSql).toContain("check (document_version in ('1.0', '1.1'))");
+  });
+
+  it("atomically persists editable buyer profiles and required draft metadata", () => {
+    expect(invoiceEditingMigrationSql).toContain("function public.update_party_einvoice_profile");
+    expect(invoiceEditingMigrationSql).toContain("function public.save_invoice_draft_with_metadata");
+    expect(invoiceEditingMigrationSql).toContain("complete customer identity, contact and address fields are required");
+    expect(invoiceEditingMigrationSql).toContain("document number and issue time are required");
+    expect(invoiceEditingMigrationSql).toContain("grant execute on function public.update_party_einvoice_profile");
+    expect(invoiceEditingMigrationSql).toContain("grant execute on function public.save_invoice_draft_with_metadata");
+    expect(supplierEditingMigrationSql).toContain("function public.update_business_einvoice_profile");
+    expect(supplierEditingMigrationSql).toContain("supplier legal name, TIN and registration are required");
   });
 
   it("gates v1.0 production activation and leases reconciliation work durably", () => {
@@ -166,6 +183,8 @@ describe("Supabase schema migrations", () => {
     expect(rejectedSubmissionRepairMigrationSql).toContain("submission.raw_response->'rejectedDocuments'");
     expect(rejectedSubmissionRepairMigrationSql).toContain("raw_response->>'submissionUid'");
     expect(rejectedSubmissionRepairMigrationSql).toContain("error_code = 'invalid_response'");
+    expect(laterRejectedSubmissionRepairMigrationSql).toContain("rejection_error = rejected.item->'error'");
+    expect(laterRejectedSubmissionRepairMigrationSql).toContain("error_code = 'invalid_response'");
   });
 
   it("keeps MyInvois delegation references tenant-scoped and signed bytes immutable", () => {

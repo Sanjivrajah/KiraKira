@@ -39,10 +39,30 @@ revision and a new payload snapshot.
 The offline catalog version is `myinvois-sdk-2026-07-17`, retrieved on
 2026-07-17. It contains 3,854 normalized codes from all nine official JSON
 downloads. `npm run data:import:myinvois` is the explicit build-time import
-boundary; it validates non-empty tables, field shapes, and conflicting codes
-before writing a versioned artifact. Generation fails closed if a required code
-set is absent or the catalog is expired. Runtime code never scrapes official
-pages.
+boundary. Stage 7 Session 1 writes only `*.candidate.json` files and validates
+strict source-specific row shapes, non-empty tables, duplicate codes, bounded
+HTTPS responses, raw-file SHA-256 checksums, deterministic ordering, and an
+aggregate checksum before any later review or promotion step. Runtime code
+never scrapes official pages.
+
+Retrieve a disposable candidate, then verify the same candidate without network
+access:
+
+```bash
+npm run data:import:myinvois -- \
+  --version myinvois-sdk-YYYY-MM-DD-candidate \
+  --retrieved-at YYYY-MM-DD \
+  --output /tmp/myinvois-sdk-YYYY-MM-DD.candidate.json
+npm run data:import:myinvois -- \
+  --verify /tmp/myinvois-sdk-YYYY-MM-DD.candidate.json
+```
+
+The refresh command cannot write a reviewed artifact filename. As observed on
+17 July 2026, the official MSIC download repeats code `16211` twice with the
+same description and category. The hardened importer rejects that duplicate
+instead of silently collapsing it, so the checked-in 17 July catalog remains
+the last known good runtime artifact pending an upstream correction and the
+Stage 7 semantic review/promotion session.
 
 Primary references:
 

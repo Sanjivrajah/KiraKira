@@ -1,7 +1,6 @@
 import {
-  MYINVOIS_DEVELOPMENT_REFERENCE_CODES,
   INVOICE_V1_0_FIELD_REGISTRY,
-  createMyInvoisReferenceCatalog,
+  createPinnedMyInvoisReferenceCatalog,
   validateMyInvoisReadiness,
   type MyInvoisValidationScenario,
 } from "@/compliance/myinvois";
@@ -21,7 +20,7 @@ import type {
 } from "./contracts";
 import { PREPARATION_FIELD_REGISTRY, preparationSupplementalSchema, type PreparationSupplementalFields } from "./preparation-fields";
 
-const referenceData = createMyInvoisReferenceCatalog(MYINVOIS_DEVELOPMENT_REFERENCE_CODES);
+const referenceData = createPinnedMyInvoisReferenceCatalog();
 
 function groupFor(fieldPath: string): PreparationDiagnosticGroup {
   if (fieldPath.startsWith("supplier.") || fieldPath.startsWith("business.")) return "supplier";

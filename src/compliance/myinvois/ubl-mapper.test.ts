@@ -69,6 +69,9 @@ describe("Invoice v1.0 UBL mapper", () => {
       MultiplierFactorNumeric: [{ _: 0.1 }],
       Amount: [{ _: 20, currencyID: "MYR" }],
     })]);
+    expect(invoice.InvoiceLine[0].ItemPriceExtension).toEqual([{
+      Amount: [{ _: 200, currencyID: "MYR" }],
+    }]);
     expect(invoice.LegalMonetaryTotal[0].PayableAmount[0]._).toBe(192);
   });
 
@@ -232,6 +235,20 @@ describe("Invoice v1.0 UBL mapper", () => {
         ublPath: "/Invoice",
       }));
     }
+  });
+
+  it("never emits a Malaysian state name as CountrySubentityCode", () => {
+    const buyer = {
+      ...UBL_FIXTURE_BUYER,
+      billingAddress: { ...UBL_FIXTURE_BUYER.billingAddress!, stateCode: "Selangor" },
+    };
+    expect(() => invoiceV10Mapper.map(UBL_STANDARD_B2B_INVOICE, fixtureMappingContext(buyer)))
+      .toThrowError(expect.objectContaining({
+        diagnostics: expect.arrayContaining([expect.objectContaining({
+          code: "address.state.invalid",
+          fieldPath: "buyer.billingAddress.stateCode",
+        })]),
+      }));
   });
 
   it("rejects unreconciled line totals with an exact field path", () => {

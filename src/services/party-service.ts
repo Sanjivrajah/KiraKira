@@ -1,4 +1,6 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser-client";
+import { normalizeMalaysiaStateCode } from "@/compliance/myinvois/reference-data/malaysia-states";
+import { partyDomainToEditor } from "@/frontend/view-models";
 import { partySchema, type Party } from "@/domain";
 
 type PartyRow = {
@@ -15,7 +17,8 @@ function toParty(row: PartyRow): Party {
     const value = row.party_addresses.find((item) => item.address_type === type);
     return value ? {
       addressLines: [value.line1, value.line2, value.line3].filter((line): line is string => Boolean(line)),
-      city: value.city, postcode: value.postal_code ?? undefined, stateCode: value.state_code ?? undefined,
+      city: value.city, postcode: value.postal_code ?? undefined,
+      stateCode: value.country_code === "MY" ? normalizeMalaysiaStateCode(value.state_code ?? undefined) || undefined : value.state_code ?? undefined,
       countryCode: value.country_code,
     } : undefined;
   };
@@ -57,5 +60,20 @@ export async function createSupabaseParty(businessId: string, party: Party): Pro
 
   const { data, error: reloadError } = await client.from("parties").select(selection).eq("id", created.id).single();
   if (reloadError) throw new Error(`Customer was created but could not be reloaded: ${reloadError.message}`);
+  return toParty(data as unknown as PartyRow);
+}
+
+export async function updateSupabaseParty(businessId: string, party: Party): Promise<Party> {
+  const input = partyDomainToEditor(party);
+  const client = getSupabaseBrowserClient();
+  const rpcClient = client as unknown as { rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message: string } | null }> };
+  const { error } = await rpcClient.rpc("update_party_einvoice_profile", {
+    p_business_id: businessId,
+    p_party_id: party.id,
+    p_party: input,
+  });
+  if (error) throw new Error(`Could not update customer details: ${error.message}`);
+  const { data, error: reloadError } = await client.from("parties").select(selection).eq("business_id", businessId).eq("id", party.id).single();
+  if (reloadError) throw new Error(`Customer details were updated but could not be reloaded: ${reloadError.message}`);
   return toParty(data as unknown as PartyRow);
 }

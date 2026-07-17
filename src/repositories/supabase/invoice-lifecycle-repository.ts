@@ -17,7 +17,9 @@ export class SupabaseInvoiceLifecycleRepository {
 
   async saveDraft(invoice: Invoice) {
     const totals = calculateInvoiceTotalsMinor(invoice.items);
-    const { data, error } = await this.client.rpc("save_invoice_draft", {
+    const client = this.client;
+    const rpcClient = client as unknown as { rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: { id: string; total_minor: number }; error: { message: string } | null }> };
+    const { data, error } = await rpcClient.rpc("save_invoice_draft_with_metadata", {
       p_business_id: invoice.businessId,
       // Local IDs are intentionally not reused as database UUIDs during the
       // migration. Existing UUID records may be updated; new drafts get a DB ID.
@@ -32,6 +34,16 @@ export class SupabaseInvoiceLifecycleRepository {
         prepaid_minor: Math.round((invoice.prepaymentAmount ?? 0) * 100),
       } as Json,
       p_items: invoice.items.map((item) => this.toItemPayload(item)) as Json,
+      p_metadata: {
+        invoiceNumber: invoice.invoiceNumber,
+        documentType: invoice.documentType ?? "invoice",
+        issueTime: invoice.issueTime ?? "09:00",
+        paymentModeCode: invoice.paymentModeCode ?? "03",
+        bankAccountIdentifier: invoice.bankAccountIdentifier ?? "",
+        documentReferences: invoice.originalDocumentReference
+          ? [{ type: "original_invoice", externalReference: invoice.originalDocumentReference }]
+          : [],
+      },
     });
     if (error) throw error;
     // The server is authoritative: it independently derives these minor-unit totals.

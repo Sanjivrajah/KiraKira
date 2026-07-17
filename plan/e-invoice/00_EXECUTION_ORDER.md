@@ -8,7 +8,7 @@ The initial production scenario is a standard Malaysian B2B invoice. Consolidate
 
 Before changing fields, readiness, or payload mapping, read `REFERENCE_INVOICE_V1_0_FIELD_REQUIREMENTS.md`. The official Invoice v1.0 SDK page is the payload contract; the guideline appendix remains a capture and policy checklist.
 
-## Six-stage roadmap
+## Seven-stage roadmap
 
 | Stage | Plan | Exit outcome |
 |---|---|---|
@@ -18,8 +18,11 @@ Before changing fields, readiness, or payload mapping, read `REFERENCE_INVOICE_V
 | 4 | `04_TAXPAYER_AND_INTERMEDIARY_AUTHENTICATION.md` | Server-only taxpayer or intermediary OAuth is verified per environment, without certificate or signing operations. |
 | 5 | `05_SANDBOX_SUBMISSION_AND_STATUS_RECONCILIATION.md` | Persisted v1.0 snapshots submit idempotently and reconcile to official terminal status, including partial acceptance and cancellation. |
 | 6 | `06_PRODUCTION_HARDENING_AND_OPERATIONS.md` | Production is observable, recoverable, auditable, redacted, explicitly activated, and protected by emergency disable. |
+| 7 | `07_REFERENCE_CODE_RETRIEVAL_AND_VALIDATION.md` | Official code tables are safely refreshed, reviewed, served to controlled inputs, and enforced before approval. |
 
 Complete stages in order. A later stage may depend on a stable earlier contract but must not weaken its tenant isolation, immutable-history, or fail-closed rules.
+
+Stage 7 is a post-sandbox corrective gate discovered during live validation. Production activation remains blocked until it is complete, even if the earlier Stage 6 operational controls are present.
 
 ## Cross-stage rules
 

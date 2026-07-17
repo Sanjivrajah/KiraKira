@@ -10,8 +10,8 @@ const errorSchema: z.ZodType<MyInvoisStructuredError> = z.lazy(() => z.object({
   target: z.string().nullish().transform((value) => value ?? undefined),
   error: z.string().optional(),
   message: z.string().optional(),
-  innerError: z.array(errorSchema).optional(),
-  details: z.array(errorSchema).optional(),
+  innerError: z.array(errorSchema).nullish().transform((value) => value ?? undefined),
+  details: z.array(errorSchema).nullish().transform((value) => value ?? undefined),
 }).transform((value) => ({
   propertyName: value.propertyName ?? value.target,
   propertyPath: value.propertyPath,

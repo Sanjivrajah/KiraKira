@@ -97,7 +97,7 @@ describe("GenerateEInvoicePayloadSnapshotService", () => {
     expect(first).toMatchObject({
       documentRevision: 5,
       documentVersion: "1.0",
-      mapperVersion: "invoice-v1.0.3",
+      mapperVersion: "invoice-v1.0.4",
       referenceDataVersion: "myinvois-sdk-2026-07-17",
       format: "json",
     });
@@ -122,7 +122,7 @@ describe("GenerateEInvoicePayloadSnapshotService", () => {
       "e_invoice_document_001",
       "2026-07-17T12:00:00.000Z",
     );
-    expect(snapshot).toMatchObject({ documentVersion: "1.0", mapperVersion: "invoice-v1.0.3" });
+    expect(snapshot).toMatchObject({ documentVersion: "1.0", mapperVersion: "invoice-v1.0.4" });
     expect(JSON.parse(snapshot.unsignedPayload).Invoice[0].InvoiceTypeCode[0].listVersionID).toBe("1.0");
   });
 
