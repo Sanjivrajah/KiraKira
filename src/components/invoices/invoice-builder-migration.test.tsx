@@ -15,7 +15,7 @@ describe("Session 7 invoice builder", () => {
 
   it("creates a structured customer and selects it", async () => {
     render(<InvoiceBuilder now="2026-07-15T09:00:00.000Z" />);
-    fireEvent.click(screen.getByRole("button", { name: /Create customer/ }));
+    fireEvent.click(screen.getByRole("button", { name: /New customer/ }));
     fireEvent.change(screen.getByLabelText("Legal name (required)"), { target: { value: "New Buyer Sdn. Bhd." } });
     fireEvent.change(screen.getByLabelText("TIN (required)"), { target: { value: "C2345678901" } });
     fireEvent.change(screen.getByLabelText("Registration value (required)"), { target: { value: "202601234567" } });
