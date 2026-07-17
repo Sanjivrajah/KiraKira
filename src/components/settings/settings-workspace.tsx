@@ -6,6 +6,10 @@ import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/shared/page-header";
 import { BrowserLocalExport } from "./browser-local-export";
 import { TelegramLink } from "./telegram-link";
+import { AppearanceSettings } from "./appearance-settings";
+import { RegionalSettings } from "./regional-settings";
+import { AccountSettings } from "./account-settings";
+import { AboutSettings } from "./about-settings";
 
 export function SettingsWorkspace() {
   const business = useBusiness().data;
@@ -35,6 +39,10 @@ export function SettingsWorkspace() {
 
         <TelegramLink />
 
+        <AppearanceSettings />
+
+        <RegionalSettings />
+
         <section className="settings-section" aria-labelledby="data-tools-title">
           <div className="settings-section-heading">
             <div>
@@ -45,6 +53,10 @@ export function SettingsWorkspace() {
           </div>
           <BrowserLocalExport />
         </section>
+
+        <AccountSettings />
+
+        <AboutSettings />
       </div>
     </AppShell>
   );

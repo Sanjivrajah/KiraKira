@@ -19,6 +19,8 @@ export interface MyInvoisUblInvoiceLineV11 {
       ItemClassificationCode: Array<UblValue<string> & { listID: string }>;
     }>;
     Description: UblElement;
+    BuyersItemIdentification?: Array<{ ID: UblElement }>;
+    SellersItemIdentification?: Array<{ ID: UblElement }>;
     OriginCountry?: Array<{ IdentificationCode: UblElement }>;
   }>;
   Price: Array<{ PriceAmount: UblAmount[] }>;
@@ -36,14 +38,25 @@ export interface MyInvoisUblInvoiceV11 {
   BillingReference?: Array<{
     InvoiceDocumentReference: Array<{ ID?: UblElement; UUID?: UblElement; IssueDate?: UblElement }>;
   }>;
+  AdditionalDocumentReference?: Array<{
+    ID: UblElement;
+    DocumentType: UblElement;
+    DocumentDescription?: UblElement;
+  }>;
   AccountingSupplierParty: Array<{ Party: UblParty[] }>;
   AccountingCustomerParty: Array<{ Party: UblParty[] }>;
   PaymentMeans?: Array<{
     PaymentMeansCode: UblElement;
     PaymentID?: UblElement;
+    PaymentDueDate?: UblElement;
     PayeeFinancialAccount?: Array<{ ID: UblElement }>;
   }>;
   PaymentTerms?: Array<{ Note: UblElement }>;
+  PricingExchangeRate?: Array<{
+    SourceCurrencyCode: UblElement;
+    TargetCurrencyCode: UblElement;
+    CalculationRate: Array<UblValue<number>>;
+  }>;
   AllowanceCharge?: UblAllowanceCharge[];
   TaxTotal: UblTaxTotal[];
   LegalMonetaryTotal: Array<{
@@ -67,4 +80,3 @@ export interface MyInvoisUblJsonInvoiceV11 {
 }
 
 export type MyInvoisUblIdentifier = UblIdentifier;
-

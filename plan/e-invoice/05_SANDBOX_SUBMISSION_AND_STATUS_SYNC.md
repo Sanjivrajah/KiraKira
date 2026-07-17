@@ -2,7 +2,7 @@
 
 ## Goal
 
-Submit approved, signed documents to the MyInvois sandbox, persist every synchronous result, and reconcile asynchronous document status without duplicate or cross-tenant submissions.
+Submit approved, unsigned MyInvois v1.0 documents to the sandbox, persist every synchronous result, and reconcile asynchronous document status without duplicate or cross-tenant submissions. Digital signatures are explicitly out of scope.
 
 ## Submission service
 
@@ -10,9 +10,9 @@ Build a server-side application service that:
 
 1. Accepts selected approved e-Invoice document IDs for one business.
 2. Reloads and authorises every record.
-3. Rejects mixed environments, formats, superseded revisions, unsigned payloads, and non-submittable statuses.
+3. Rejects non-v1.0 payloads, mixed formats, superseded revisions, altered payload bytes, and non-submittable statuses.
 4. Enforces a maximum of 100 documents, 5 MB total request size, and 300 KB per document.
-5. Builds each API item from the exact signed bytes, base64 document, exact-byte hash, format, and internal code number.
+5. Builds each API item from the exact immutable unsigned v1.0 bytes, base64 document, exact-byte hash, format, and internal code number.
 6. Creates a local pending submission with an internal idempotency key before the network call.
 7. Calls `POST /api/v1.0/documentsubmissions/`.
 8. Stores correlation headers, HTTP status, submission UID, accepted documents, rejected documents, and structured errors.
@@ -53,7 +53,7 @@ Protect history from update/delete through normal application roles.
 
 ## Idempotency and retries
 
-- Derive idempotency from business, environment, selected signed snapshot IDs, and exact request hash.
+- Derive idempotency from business, environment, selected payload snapshot IDs, and exact request hash.
 - Repeated clicks must return the existing local attempt rather than creating a second call.
 - Respect MyInvois `Retry-After` and duplicate-submission behaviour.
 - Retry only transport or explicitly retryable failures.
@@ -76,7 +76,7 @@ Use a durable job/queue or scheduled worker rather than depending on a browser t
 
 ## UI changes
 
-Enable submission on `/e-invoices` only for approved, signed sandbox records.
+Enable submission on `/e-invoices` only for approved, immutable unsigned v1.0 sandbox records.
 
 Show:
 
@@ -96,7 +96,7 @@ Model cancellation eligibility and deadline data now, but implement the actual c
 
 ## Tests
 
-- Submission rejects unapproved, unsigned, superseded, cross-tenant, mixed-format, and mixed-environment documents.
+- Submission rejects unapproved, altered, superseded, cross-tenant, mixed-format, and non-v1.0 documents.
 - Size and count limits are enforced before network calls.
 - Exact bytes used for hash, base64, and request payload match.
 - Double-click and retry scenarios produce one external call.
@@ -119,5 +119,4 @@ Model cancellation eligibility and deadline data now, but implement the actual c
 
 ## Handoff to Stage 6
 
-Stage 6 may start only after at least one controlled sandbox fixture completes the full local lifecycle from approved signed snapshot to reconciled `Valid` or actionable `Invalid`, with all identifiers and events persisted.
-
+Stage 6 may start only after at least one controlled sandbox fixture completes the full local lifecycle from approved unsigned v1.0 snapshot to reconciled `Valid` or actionable `Invalid`, with all identifiers and events persisted.

@@ -22,6 +22,8 @@ export class MyInvoisMapperRegistry {
     if (!mapper) {
       throw new MyInvoisMappingError([{
         code: "mapper.unsupported",
+        canonicalPath: "document.documentType",
+        ublPath: "/Invoice/InvoiceTypeCode",
         fieldPath: "mapper",
         message: `No ${input.payloadFormat} mapper supports ${input.documentType} for version ${input.version}.`,
         documentVersion: input.version,
@@ -30,4 +32,3 @@ export class MyInvoisMapperRegistry {
     return mapper;
   }
 }
-

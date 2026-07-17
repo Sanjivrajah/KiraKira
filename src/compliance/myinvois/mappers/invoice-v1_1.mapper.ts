@@ -31,7 +31,17 @@ import {
 } from "./mapper";
 
 const VERSION = "1.1";
-const MAPPER_VERSION = "invoice-v1.1.0";
+const MAPPER_VERSION = "invoice-v1.1.1";
+const DOCUMENT_TYPE_CODES: Readonly<Record<CommercialDocument["documentType"], string>> = Object.freeze({
+  invoice: "01",
+  credit_note: "02",
+  debit_note: "03",
+  refund_note: "04",
+  self_billed_invoice: "11",
+  self_billed_credit_note: "12",
+  self_billed_debit_note: "13",
+  self_billed_refund_note: "14",
+});
 const COUNTRY_ALPHA_3: Readonly<Record<string, string>> = Object.freeze({
   MY: "MYS",
   MYS: "MYS",
@@ -52,8 +62,8 @@ const element = <Value extends string | number | boolean>(value: Value): Array<{
 const number = (value: string) => Number(value);
 const amount = (value: MoneyValue): UblAmount[] => [{ _: number(value.amount), currencyID: value.currency }];
 
-function diagnostic(code: string, fieldPath: string, message: string): MyInvoisMappingDiagnostic {
-  return { code, fieldPath, message, documentVersion: VERSION };
+function diagnostic(code: string, canonicalPath: string, message: string, ublPath = "/Invoice"): MyInvoisMappingDiagnostic {
+  return { code, canonicalPath, ublPath, fieldPath: canonicalPath, message, documentVersion: VERSION };
 }
 
 function mapAllowanceCharge(adjustment: AllowanceCharge): UblAllowanceCharge {
@@ -104,13 +114,30 @@ function registrationIdentifier(party: Party, path: string) {
   const schemeID = registration ? REGISTRATION_SCHEMES[registration.scheme] : undefined;
   if (!registration || !schemeID) {
     throw new MyInvoisMappingError([
-      diagnostic("party.registration.unsupported", `${path}.registrationIdentifiers`, "A supported registration identifier is required."),
+      diagnostic("party.registration.unsupported", `${path}.registrationIdentifiers`, "A supported registration identifier is required.", "/Invoice/AccountingCustomerParty/Party/PartyIdentification"),
     ]);
   }
   return { registration, schemeID };
 }
 
 function mapParty(party: Party, path: "supplier" | "buyer", business?: Business): UblParty {
+  if (path === "buyer" && party.kind === "general_public") {
+    return {
+      PartyIdentification: [
+        { ID: [{ _: "EI00000000010", schemeID: "TIN" }] },
+        { ID: [{ _: "NA", schemeID: "BRN" }] },
+      ],
+      PostalAddress: [{
+        CityName: element("NA"),
+        PostalZone: element("00000"),
+        CountrySubentityCode: element("17"),
+        AddressLine: [{ Line: element("NA") }],
+        Country: [{ IdentificationCode: [{ _: "MYS", listID: "ISO3166-1", listAgencyID: "6" }] }],
+      }],
+      PartyLegalEntity: [{ RegistrationName: element("General Public") }],
+      Contact: [{ Telephone: element("NA") }],
+    };
+  }
   if (!party.billingAddress) {
     throw new MyInvoisMappingError([
       diagnostic("party.address.missing", `${path}.billingAddress`, "A billing address is required for UBL mapping."),
@@ -166,8 +193,10 @@ function mapLine(line: DocumentLine): MyInvoisUblInvoiceLineV11 {
     Item: [{
       CommodityClassification: [{
         ItemClassificationCode: [{ _: line.classificationCode, listID: "CLASS" }],
-      }],
+      }, ...(line.itemMetadata.tariffCode ? [{ ItemClassificationCode: [{ _: line.itemMetadata.tariffCode, listID: "PTC" }] }] : [])],
       Description: element(line.description),
+      ...(line.itemMetadata.buyerItemReference ? { BuyersItemIdentification: [{ ID: element(line.itemMetadata.buyerItemReference) }] } : {}),
+      ...(line.itemMetadata.sellerItemReference ? { SellersItemIdentification: [{ ID: element(line.itemMetadata.sellerItemReference) }] } : {}),
       ...(line.itemMetadata.countryOfOrigin
         ? { OriginCountry: [{ IdentificationCode: element(COUNTRY_ALPHA_3[line.itemMetadata.countryOfOrigin] ?? line.itemMetadata.countryOfOrigin) }] }
         : {}),
@@ -227,7 +256,7 @@ export class InvoiceV11Mapper implements MyInvoisDocumentMapper<MyInvoisUblJsonI
   readonly payloadFormat = "json" as const;
 
   supports(documentType: CommercialDocument["documentType"]): boolean {
-    return documentType === "invoice";
+    return ["invoice", "credit_note", "debit_note", "refund_note"].includes(documentType);
   }
 
   map(document: CommercialDocument, context: MyInvoisMappingContext): MyInvoisUblJsonInvoiceV11 {
@@ -241,7 +270,7 @@ export class InvoiceV11Mapper implements MyInvoisDocumentMapper<MyInvoisUblJsonI
       ID: element(document.internalDocumentNumber),
       IssueDate: element(document.issueDate),
       IssueTime: element(document.issueTime),
-      InvoiceTypeCode: [{ _: "01", listVersionID: "1.1" }],
+      InvoiceTypeCode: [{ _: DOCUMENT_TYPE_CODES[document.documentType], listVersionID: "1.1" }],
       DocumentCurrencyCode: element(document.currency),
       ...(document.taxCurrency ? { TaxCurrencyCode: element(document.taxCurrency) } : {}),
       ...(document.notes.length ? { Note: document.notes.map((note) => ({ _: note })) } : {}),
@@ -251,6 +280,26 @@ export class InvoiceV11Mapper implements MyInvoisDocumentMapper<MyInvoisUblJsonI
           EndDate: element(document.billingPeriod.endDate),
         }],
       } : {}),
+      ...(document.references.filter((reference) => reference.type === "original_invoice").length ? {
+        BillingReference: document.references
+          .filter((reference) => reference.type === "original_invoice")
+          .map((reference) => ({
+            InvoiceDocumentReference: [{
+              ...(reference.externalReference || reference.internalDocumentId ? { ID: element(reference.externalReference ?? reference.internalDocumentId!) } : {}),
+              ...(reference.myInvoisUuid ? { UUID: element(reference.myInvoisUuid) } : {}),
+              ...(reference.issueDate ? { IssueDate: element(reference.issueDate) } : {}),
+            }],
+          })),
+      } : {}),
+      ...(document.references.filter((reference) => reference.type !== "original_invoice").length ? {
+        AdditionalDocumentReference: document.references
+          .filter((reference) => reference.type !== "original_invoice")
+          .map((reference) => ({
+            ID: element(reference.externalReference ?? reference.internalDocumentId ?? "NA"),
+            DocumentType: element(reference.type === "customs_form" ? "CustomsImportForm" : reference.type),
+            ...(reference.description ? { DocumentDescription: element(reference.description) } : {}),
+          })),
+      } : {}),
       AccountingSupplierParty: [{ Party: [supplier] }],
       AccountingCustomerParty: [{ Party: [buyer] }],
       ...(document.paymentInstructions ? {
@@ -259,6 +308,7 @@ export class InvoiceV11Mapper implements MyInvoisDocumentMapper<MyInvoisUblJsonI
           ...(document.paymentInstructions.paymentReference
             ? { PaymentID: element(document.paymentInstructions.paymentReference) }
             : {}),
+          ...(document.paymentInstructions.dueDate ? { PaymentDueDate: element(document.paymentInstructions.dueDate) } : {}),
           ...(document.paymentInstructions.bankAccountIdentifier
             ? { PayeeFinancialAccount: [{ ID: element(document.paymentInstructions.bankAccountIdentifier) }] }
             : {}),
@@ -266,6 +316,13 @@ export class InvoiceV11Mapper implements MyInvoisDocumentMapper<MyInvoisUblJsonI
         ...(document.paymentInstructions.paymentTerms
           ? { PaymentTerms: [{ Note: element(document.paymentInstructions.paymentTerms) }] }
           : {}),
+      } : {}),
+      ...(document.taxCurrency && document.exchangeRate ? {
+        PricingExchangeRate: [{
+          SourceCurrencyCode: element(document.currency),
+          TargetCurrencyCode: element(document.taxCurrency),
+          CalculationRate: element(number(document.exchangeRate)),
+        }],
       } : {}),
       ...(adjustments.length ? { AllowanceCharge: adjustments.map(mapAllowanceCharge) } : {}),
       TaxTotal: document.taxTotals.map(mapTaxTotal),

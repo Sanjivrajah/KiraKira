@@ -8,6 +8,20 @@ process.env.NEXT_PUBLIC_AUTH_MODE = "demo";
 
 window.scrollTo = () => undefined;
 
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => false,
+  }),
+});
+
 beforeEach(() => {
   localStorage.clear();
 });

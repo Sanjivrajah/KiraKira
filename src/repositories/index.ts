@@ -29,5 +29,6 @@ export { LegacyInvoiceRepositoryAdapter } from "./supabase/legacy-invoice-reposi
 export { SupabaseTransactionRepository } from "./supabase/transaction-repository";
 export { SupabaseInvoiceLifecycleRepository } from "./supabase/invoice-lifecycle-repository";
 export { SupabaseEInvoiceRepository } from "./supabase/e-invoice-repository";
+export { SupabaseEInvoiceSubmissionRepository } from "./supabase/e-invoice-submission-repository";
 export { SupabasePaymentRepository } from "./supabase/payment-repository";
 export { SupabaseReminderRepository } from "./supabase/reminder-repository";

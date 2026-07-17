@@ -731,6 +731,347 @@ export type Database = {
           },
         ]
       }
+      e_invoice_payload_snapshots: {
+        Row: {
+          business_id: string
+          document_revision: number
+          document_version: string
+          e_invoice_document_id: string
+          format: string
+          generated_at: string
+          id: string
+          mapper_version: string
+          payload_size_bytes: number
+          reference_data_version: string
+          unsigned_payload: string
+          unsigned_payload_hash: string
+        }
+        Insert: {
+          business_id: string
+          document_revision: number
+          document_version: string
+          e_invoice_document_id: string
+          format: string
+          generated_at: string
+          id?: string
+          mapper_version: string
+          payload_size_bytes: number
+          reference_data_version: string
+          unsigned_payload: string
+          unsigned_payload_hash: string
+        }
+        Update: {
+          business_id?: string
+          document_revision?: number
+          document_version?: string
+          e_invoice_document_id?: string
+          format?: string
+          generated_at?: string
+          id?: string
+          mapper_version?: string
+          payload_size_bytes?: number
+          reference_data_version?: string
+          unsigned_payload?: string
+          unsigned_payload_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "e_invoice_payload_snapshots_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "e_invoice_payload_snapshots_e_invoice_document_id_fkey"
+            columns: ["e_invoice_document_id"]
+            isOneToOne: false
+            referencedRelation: "e_invoice_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      e_invoice_signed_snapshots: {
+        Row: {
+          business_id: string
+          certificate_issuer: string
+          certificate_not_after: string
+          certificate_serial_number: string
+          certificate_subject: string
+          certificate_thumbprint: string
+          created_at: string
+          connection_id: string
+          environment: string
+          id: string
+          implementation_version: string
+          signed_payload: string
+          signed_payload_hash: string
+          signing_algorithm: string
+          signing_timestamp: string
+          unsigned_payload_hash: string
+          unsigned_snapshot_id: string
+        }
+        Insert: {
+          business_id: string
+          certificate_issuer: string
+          certificate_not_after: string
+          certificate_serial_number: string
+          certificate_subject: string
+          certificate_thumbprint: string
+          created_at?: string
+          connection_id: string
+          environment: string
+          id?: string
+          implementation_version: string
+          signed_payload: string
+          signed_payload_hash: string
+          signing_algorithm: string
+          signing_timestamp: string
+          unsigned_payload_hash: string
+          unsigned_snapshot_id: string
+        }
+        Update: {
+          business_id?: string
+          certificate_issuer?: string
+          certificate_not_after?: string
+          certificate_serial_number?: string
+          certificate_subject?: string
+          certificate_thumbprint?: string
+          created_at?: string
+          connection_id?: string
+          environment?: string
+          id?: string
+          implementation_version?: string
+          signed_payload?: string
+          signed_payload_hash?: string
+          signing_algorithm?: string
+          signing_timestamp?: string
+          unsigned_payload_hash?: string
+          unsigned_snapshot_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "e_invoice_signed_snapshots_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "e_invoice_signed_snapshots_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "myinvois_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "e_invoice_signed_snapshots_unsigned_snapshot_id_fkey"
+            columns: ["unsigned_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "e_invoice_payload_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      e_invoice_status_events: {
+        Row: {
+          business_id: string
+          created_at: string
+          details: Json
+          e_invoice_document_id: string
+          id: string
+          occurred_at: string
+          source: string
+          status: string
+          submission_id: string
+          validation_result: Json | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          details?: Json
+          e_invoice_document_id: string
+          id?: string
+          occurred_at: string
+          source: string
+          status: string
+          submission_id: string
+          validation_result?: Json | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          details?: Json
+          e_invoice_document_id?: string
+          id?: string
+          occurred_at?: string
+          source?: string
+          status?: string
+          submission_id?: string
+          validation_result?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "e_invoice_status_events_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "e_invoice_status_events_e_invoice_document_id_fkey"
+            columns: ["e_invoice_document_id"]
+            isOneToOne: false
+            referencedRelation: "e_invoice_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "e_invoice_status_events_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "e_invoice_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      e_invoice_submission_documents: {
+        Row: {
+          accepted: boolean | null
+          cancellation_eligible_until: string | null
+          created_at: string
+          e_invoice_document_id: string
+          invoice_code_number: string
+          long_id: string | null
+          myinvois_uuid: string | null
+          rejection_error: Json | null
+          share_url: string | null
+          payload_snapshot_id: string
+          status: string
+          submission_id: string
+          validation_result: Json | null
+        }
+        Insert: {
+          accepted?: boolean | null
+          cancellation_eligible_until?: string | null
+          created_at?: string
+          e_invoice_document_id: string
+          invoice_code_number: string
+          long_id?: string | null
+          myinvois_uuid?: string | null
+          rejection_error?: Json | null
+          share_url?: string | null
+          payload_snapshot_id: string
+          status: string
+          submission_id: string
+          validation_result?: Json | null
+        }
+        Update: {
+          accepted?: boolean | null
+          cancellation_eligible_until?: string | null
+          created_at?: string
+          e_invoice_document_id?: string
+          invoice_code_number?: string
+          long_id?: string | null
+          myinvois_uuid?: string | null
+          rejection_error?: Json | null
+          share_url?: string | null
+          payload_snapshot_id?: string
+          status?: string
+          submission_id?: string
+          validation_result?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "e_invoice_submission_documents_e_invoice_document_id_fkey"
+            columns: ["e_invoice_document_id"]
+            isOneToOne: false
+            referencedRelation: "e_invoice_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "e_invoice_submission_documents_payload_snapshot_id_fkey"
+            columns: ["payload_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "e_invoice_payload_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "e_invoice_submission_documents_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "e_invoice_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      e_invoice_submissions: {
+        Row: {
+          business_id: string
+          correlation_id: string | null
+          created_at: string
+          environment: string
+          error_code: string | null
+          error_message: string | null
+          http_status: number | null
+          id: string
+          idempotency_key: string
+          raw_response: Json | null
+          request_hash: string
+          requested_at: string
+          responded_at: string | null
+          retry_after: string | null
+          retry_count: number
+          status: string
+          submission_uid: string | null
+        }
+        Insert: {
+          business_id: string
+          correlation_id?: string | null
+          created_at?: string
+          environment: string
+          error_code?: string | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          idempotency_key: string
+          raw_response?: Json | null
+          request_hash: string
+          requested_at: string
+          responded_at?: string | null
+          retry_after?: string | null
+          retry_count?: number
+          status: string
+          submission_uid?: string | null
+        }
+        Update: {
+          business_id?: string
+          correlation_id?: string | null
+          created_at?: string
+          environment?: string
+          error_code?: string | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          idempotency_key?: string
+          raw_response?: Json | null
+          request_hash?: string
+          requested_at?: string
+          responded_at?: string | null
+          retry_after?: string | null
+          retry_count?: number
+          status?: string
+          submission_uid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "e_invoice_submissions_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       einvoice_submissions: {
         Row: {
           attempt_number: number
@@ -1602,6 +1943,93 @@ export type Database = {
           {
             foreignKeyName: "invoices_voided_by_fkey"
             columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      myinvois_connections: {
+        Row: {
+          auth_mode: string
+          business_id: string
+          certificate_issuer: string | null
+          certificate_not_after: string | null
+          certificate_not_before: string | null
+          certificate_serial_number: string | null
+          certificate_subject: string | null
+          certificate_thumbprint: string | null
+          client_id_secret_ref: string
+          client_secret_secret_ref: string
+          created_at: string
+          credential_set_id: string
+          enabled: boolean
+          environment: string
+          id: string
+          onbehalfof_value: string
+          signing_certificate_chain_secret_ref: string | null
+          signing_certificate_secret_ref: string | null
+          signing_key_passphrase_secret_ref: string | null
+          signing_private_key_secret_ref: string | null
+          taxpayer_registration_scheme: string | null
+          taxpayer_registration_value: string | null
+          taxpayer_tin: string
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          auth_mode?: string
+          business_id: string
+          client_id_secret_ref: string
+          client_secret_secret_ref: string
+          credential_set_id: string
+          enabled?: boolean
+          environment: string
+          id?: string
+          signing_certificate_chain_secret_ref?: string | null
+          signing_certificate_secret_ref?: string | null
+          signing_key_passphrase_secret_ref?: string | null
+          signing_private_key_secret_ref?: string | null
+          taxpayer_registration_scheme?: string | null
+          taxpayer_registration_value?: string | null
+          taxpayer_tin: string
+        }
+        Update: {
+          auth_mode?: string
+          business_id?: string
+          certificate_issuer?: string | null
+          certificate_not_after?: string | null
+          certificate_not_before?: string | null
+          certificate_serial_number?: string | null
+          certificate_subject?: string | null
+          certificate_thumbprint?: string | null
+          client_id_secret_ref?: string
+          client_secret_secret_ref?: string
+          credential_set_id?: string
+          enabled?: boolean
+          environment?: string
+          signing_certificate_chain_secret_ref?: string | null
+          signing_certificate_secret_ref?: string | null
+          signing_key_passphrase_secret_ref?: string | null
+          signing_private_key_secret_ref?: string | null
+          taxpayer_registration_scheme?: string | null
+          taxpayer_registration_value?: string | null
+          taxpayer_tin?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "myinvois_connections_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "myinvois_connections_verified_by_fkey"
+            columns: ["verified_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

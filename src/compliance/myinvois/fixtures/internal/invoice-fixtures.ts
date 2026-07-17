@@ -255,6 +255,4 @@ export function fixtureMappingContext(buyer = UBL_FIXTURE_BUYER): MyInvoisMappin
 
 export const UBL_PENDING_FIXTURES = Object.freeze([
   { name: "self-billed invoice", reason: "Pending a dedicated self-billed mapper." },
-  { name: "credit note referencing an invoice", reason: "Pending a credit-note mapper and BillingReference support." },
 ]);
-

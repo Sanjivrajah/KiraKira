@@ -2,8 +2,8 @@ import { myInvoisReferenceCodeSchema } from "../reference-code.schema";
 
 const metadata = {
   active: true,
-  sourceVersion: "MyInvois SDK snapshot 2026-07-14",
-  syncedAt: "2026-07-14T00:00:00.000Z",
+  sourceVersion: "myinvois-sdk-2026-07-17",
+  syncedAt: "2026-07-17T00:00:00.000Z",
 };
 
 const entries = [

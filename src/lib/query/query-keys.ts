@@ -14,6 +14,7 @@ export const queryKeys = {
   eInvoices: {
     all: ["e-invoices"] as const,
     workspace: (businessId: string) => ["e-invoices", businessId, "workspace"] as const,
+    submissions: (businessId: string) => ["e-invoices", businessId, "submissions"] as const,
   },
   reminders: {
     all: ["reminders"] as const,

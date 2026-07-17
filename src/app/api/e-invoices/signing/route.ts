@@ -1,0 +1,71 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { EInvoiceSigningService } from "@/application/e-invoices";
+import {
+  EnvironmentSecretProvider,
+  MyInvoisIntermediaryOAuthClient,
+  MyInvoisJsonSigningAdapter,
+} from "@/integrations/myinvois";
+import { createSupabaseServerClient } from "@/lib/supabase/server-client";
+import { SupabaseEInvoiceRepository } from "@/repositories";
+
+export const runtime = "nodejs";
+
+const businessIdSchema = z.string().uuid();
+const environmentSchema = z.enum(["sandbox", "production"]);
+const requestSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("test_connection"), businessId: businessIdSchema, environment: environmentSchema }).strict(),
+  z.object({ action: z.literal("inspect_certificate"), businessId: businessIdSchema, environment: environmentSchema }).strict(),
+  z.object({ action: z.literal("sign_snapshot"), businessId: businessIdSchema, environment: environmentSchema, snapshotId: z.string().uuid() }).strict(),
+]);
+
+const secrets = new EnvironmentSecretProvider();
+const oauth = new MyInvoisIntermediaryOAuthClient(secrets, {
+  identityBaseUrls: {
+    sandbox: process.env.MYINVOIS_SANDBOX_IDENTITY_BASE_URL ?? "https://preprod-api.myinvois.hasil.gov.my",
+    production: process.env.MYINVOIS_PRODUCTION_IDENTITY_BASE_URL ?? "https://api.myinvois.hasil.gov.my",
+  },
+});
+const signer = new MyInvoisJsonSigningAdapter(secrets);
+
+type Client = Awaited<ReturnType<typeof createSupabaseServerClient>>;
+
+function responseError(message: string, status: number) {
+  return NextResponse.json({ error: message }, { status, headers: { "Cache-Control": "no-store" } });
+}
+
+async function elevatedMember(client: Client, businessId: string) {
+  const { data: auth, error: authError } = await client.auth.getUser();
+  if (authError || !auth.user) return null;
+  const { data, error } = await client.from("business_members").select("role")
+    .eq("business_id", businessId).eq("user_id", auth.user.id).eq("status", "active").maybeSingle();
+  if (error || !data || !["owner", "admin", "accountant"].includes(data.role)) return null;
+  return { userId: auth.user.id, role: data.role };
+}
+
+export async function POST(request: Request) {
+  const parsed = requestSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return responseError("Check the MyInvois request details and try again.", 400);
+  const client = await createSupabaseServerClient();
+  const member = await elevatedMember(client, parsed.data.businessId);
+  if (!member) return responseError("An owner, admin, or accountant role is required for MyInvois signing operations.", 403);
+  const repository = new SupabaseEInvoiceRepository(client);
+  const service = new EInvoiceSigningService(repository, oauth, signer);
+  const now = new Date().toISOString();
+  try {
+    const result = parsed.data.action === "test_connection"
+      ? await service.testConnection(parsed.data.businessId, parsed.data.environment, member.userId, now)
+      : parsed.data.action === "inspect_certificate"
+        ? await service.inspectCertificate(parsed.data.businessId, parsed.data.environment)
+        : await service.signSnapshot(parsed.data.businessId, parsed.data.environment, parsed.data.snapshotId, now);
+    return NextResponse.json({ result }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    const code = error instanceof Error && "code" in error ? String(error.code) : "operation.failed";
+    const actionable = code.startsWith("certificate.") || code.startsWith("connection.") || code.startsWith("snapshot.");
+    const message = actionable && error instanceof Error
+      ? error.message
+      : "The MyInvois operation could not be completed. Check the server-side connection configuration and try again.";
+    return responseError(message, code.endsWith("not_found") ? 404 : 409);
+  }
+}
+

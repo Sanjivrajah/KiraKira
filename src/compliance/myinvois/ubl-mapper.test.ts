@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decimalStringSchema, type CommercialDocument } from "@/domain";
+import { decimalStringSchema, partySchema, type CommercialDocument } from "@/domain";
 import expectedStandardB2b from "./fixtures/expected-ubl/invoice-v1_1-standard-b2b.json";
 import {
   UBL_DOCUMENT_DISCOUNT_INVOICE,
@@ -16,6 +16,7 @@ import {
   MyInvoisMappingError,
   canonicalSerializeMyInvoisPayload,
   hashMyInvoisPayload,
+  invoiceV10Mapper,
   invoiceV11Mapper,
   type MyInvoisDocumentMapper,
 } from "./mappers";
@@ -50,6 +51,52 @@ describe("Invoice v1.1 UBL mapper", () => {
     expect(invoice.LegalMonetaryTotal[0].PayableAmount[0]._).toBe(192);
   });
 
+  it("maps an adjustment type and its original MyInvois reference", () => {
+    const adjustment: CommercialDocument = {
+      ...UBL_STANDARD_B2B_INVOICE,
+      documentType: "credit_note",
+      internalDocumentNumber: "CN-FIXTURE-001",
+      references: [{
+        type: "original_invoice",
+        externalReference: "INV-FIXTURE-001",
+        myInvoisUuid: "123e4567-e89b-42d3-a456-426614174000",
+        issueDate: "2026-07-15" as CommercialDocument["issueDate"],
+      }],
+    };
+    const invoice = invoiceV11Mapper.map(adjustment, fixtureMappingContext()).Invoice[0];
+    expect(invoice.InvoiceTypeCode).toEqual([{ _: "02", listVersionID: "1.1" }]);
+    expect(invoice.BillingReference).toEqual([{
+      InvoiceDocumentReference: [{
+        ID: [{ _: "INV-FIXTURE-001" }],
+        UUID: [{ _: "123e4567-e89b-42d3-a456-426614174000" }],
+        IssueDate: [{ _: "2026-07-15" }],
+      }],
+    }]);
+  });
+
+  it("maps the enabled consolidated general-public identity without empty placeholders", () => {
+    const generalPublic = partySchema.parse({
+      id: "party_general_public",
+      kind: "general_public",
+      legalName: "General Public",
+      roles: ["buyer"],
+      taxIdentifiers: [],
+      registrationIdentifiers: [],
+      createdAt: "2026-07-15T00:00:00.000Z",
+      updatedAt: "2026-07-15T00:00:00.000Z",
+    });
+    const payload = invoiceV11Mapper.map(
+      { ...UBL_STANDARD_B2B_INVOICE, buyerPartyId: generalPublic.id },
+      fixtureMappingContext(generalPublic),
+    );
+    const buyer = payload.Invoice[0].AccountingCustomerParty[0].Party[0];
+    expect(buyer.PartyIdentification).toEqual([
+      { ID: [{ _: "EI00000000010", schemeID: "TIN" }] },
+      { ID: [{ _: "NA", schemeID: "BRN" }] },
+    ]);
+    expect(JSON.stringify(payload)).not.toContain('"":');
+  });
+
   it("throws structured diagnostics for missing required party data", () => {
     const buyer = { ...UBL_FIXTURE_BUYER, billingAddress: undefined };
     expect(() => invoiceV11Mapper.map(UBL_STANDARD_B2B_INVOICE, fixtureMappingContext(buyer)))
@@ -58,12 +105,14 @@ describe("Invoice v1.1 UBL mapper", () => {
       invoiceV11Mapper.map(UBL_STANDARD_B2B_INVOICE, fixtureMappingContext(buyer));
     } catch (error) {
       expect(error).toBeInstanceOf(MyInvoisMappingError);
-      expect((error as MyInvoisMappingError).diagnostics).toContainEqual({
+      expect((error as MyInvoisMappingError).diagnostics).toContainEqual(expect.objectContaining({
         code: "party.address.missing",
         fieldPath: "buyer.billingAddress",
         message: "A billing address is required for UBL mapping.",
         documentVersion: "1.1",
-      });
+        canonicalPath: "buyer.billingAddress",
+        ublPath: "/Invoice",
+      }));
     }
   });
 
@@ -118,19 +167,33 @@ describe("mapper registry and version isolation", () => {
       documentType: "invoice",
       payloadFormat: "json",
     })).toBe(invoiceV11Mapper);
+    expect(MYINVOIS_MAPPER_REGISTRY.resolve({
+      version: "1.0",
+      documentType: "invoice",
+      payloadFormat: "json",
+    })).toBe(invoiceV10Mapper);
+    expect((invoiceV10Mapper.map(UBL_STANDARD_B2B_INVOICE, fixtureMappingContext()) as { Invoice: Array<{ InvoiceTypeCode: Array<{ listVersionID: string }> }> })
+      .Invoice[0].InvoiceTypeCode[0].listVersionID).toBe("1.0");
   });
 
   it.each([
-    { version: "1.0", documentType: "invoice" as const, payloadFormat: "json" as const },
+    { version: "2.0", documentType: "invoice" as const, payloadFormat: "json" as const },
     { version: "1.1", documentType: "invoice" as const, payloadFormat: "xml" as const },
     { version: "1.1", documentType: "self_billed_invoice" as const, payloadFormat: "json" as const },
-    { version: "1.1", documentType: "credit_note" as const, payloadFormat: "json" as const },
   ])("rejects unsupported $version $documentType $payloadFormat mappings", (selection) => {
     expect(() => MYINVOIS_MAPPER_REGISTRY.resolve(selection)).toThrowError(
       expect.objectContaining({
         diagnostics: [expect.objectContaining({ code: "mapper.unsupported", documentVersion: selection.version })],
       }),
     );
+  });
+
+  it("uses the Invoice v1.1 UBL structure for adjustment documents", () => {
+    expect(MYINVOIS_MAPPER_REGISTRY.resolve({
+      version: "1.1",
+      documentType: "credit_note",
+      payloadFormat: "json",
+    })).toBe(invoiceV11Mapper);
   });
 
   it("keeps mapper versions isolated", () => {
@@ -157,7 +220,6 @@ describe("mapper registry and version isolation", () => {
   it("tracks deferred document fixtures explicitly", () => {
     expect(UBL_PENDING_FIXTURES.map((fixture) => fixture.name)).toEqual([
       "self-billed invoice",
-      "credit note referencing an invoice",
     ]);
   });
 });
@@ -189,4 +251,3 @@ describe("canonical UBL serialization and hashing", () => {
     expect(Object.isFrozen(snapshot.unsignedPayload)).toBe(true);
   });
 });
-

@@ -228,3 +228,228 @@ export interface EInvoicePreparationRepository {
   approveReadyRevision(businessId: string, documentId: string, expectedRevision: number, readinessResult: PreparationReadinessResult): Promise<EInvoicePreparationRecord>;
   createRevision(businessId: string, documentId: string): Promise<EInvoicePreparationRecord>;
 }
+
+export type EInvoicePayloadFormat = "json";
+
+export interface EInvoicePayloadSnapshotRecord {
+  id: string;
+  businessId: string;
+  eInvoiceDocumentId: string;
+  documentRevision: number;
+  documentVersion: "1.0" | "1.1";
+  mapperVersion: string;
+  referenceDataVersion: string;
+  format: EInvoicePayloadFormat;
+  /** Exact minified bytes represented as UTF-8 text. Never reconstruct from JSONB. */
+  unsignedPayload: string;
+  unsignedPayloadHash: string;
+  payloadSizeBytes: number;
+  generatedAt: string;
+}
+
+export type PersistEInvoicePayloadSnapshotInput = Omit<EInvoicePayloadSnapshotRecord, "id">;
+
+export interface EInvoicePayloadSnapshotRepository {
+  loadApprovedForGeneration(businessId: string, documentId: string): Promise<EInvoicePreparationRecord | null>;
+  findExact(input: Pick<PersistEInvoicePayloadSnapshotInput,
+    "businessId" | "eInvoiceDocumentId" | "documentRevision" | "documentVersion" |
+    "mapperVersion" | "referenceDataVersion" | "format"
+  >): Promise<EInvoicePayloadSnapshotRecord | null>;
+  persistImmutable(input: PersistEInvoicePayloadSnapshotInput): Promise<EInvoicePayloadSnapshotRecord>;
+}
+
+export type MyInvoisEnvironment = "sandbox" | "production";
+export type MyInvoisAuthMode = "taxpayer" | "intermediary";
+
+export interface MyInvoisConnectionRecord {
+  id: string;
+  businessId: string;
+  environment: MyInvoisEnvironment;
+  authMode: MyInvoisAuthMode;
+  taxpayerTin: string;
+  taxpayerRegistrationScheme?: "ROB";
+  taxpayerRegistrationValue?: string;
+  onbehalfofValue: string;
+  credentialSetId: string;
+  clientIdSecretRef: string;
+  clientSecretSecretRef: string;
+  signingCertificateSecretRef?: string;
+  signingPrivateKeySecretRef?: string;
+  signingKeyPassphraseSecretRef?: string;
+  signingCertificateChainSecretRef?: string;
+  enabled: boolean;
+  verifiedAt?: string;
+  verifiedBy?: string;
+  certificateThumbprint?: string;
+  certificateSubject?: string;
+  certificateIssuer?: string;
+  certificateSerialNumber?: string;
+  certificateNotBefore?: string;
+  certificateNotAfter?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PersistMyInvoisConnectionInput = Omit<
+  MyInvoisConnectionRecord,
+  "id" | "onbehalfofValue" | "verifiedAt" | "verifiedBy" |
+  "certificateThumbprint" | "certificateSubject" | "certificateIssuer" |
+  "certificateSerialNumber" | "certificateNotBefore" | "certificateNotAfter" |
+  "createdAt" | "updatedAt"
+>;
+
+export interface SigningCertificateMetadata {
+  thumbprintSha256: string;
+  subject: string;
+  issuer: string;
+  serialNumber: string;
+  notBefore: string;
+  notAfter: string;
+  expiresWithinDays: number;
+}
+
+export interface EInvoiceSignedSnapshotRecord {
+  id: string;
+  businessId: string;
+  unsignedSnapshotId: string;
+  unsignedPayloadHash: string;
+  signedPayload: string;
+  signedPayloadHash: string;
+  certificateThumbprint: string;
+  certificateSubject: string;
+  certificateIssuer: string;
+  certificateSerialNumber: string;
+  certificateNotAfter: string;
+  signingAlgorithm: "RSA-SHA256";
+  implementationVersion: string;
+  environment: MyInvoisEnvironment;
+  connectionId: string;
+  signingTimestamp: string;
+  createdAt: string;
+}
+
+export type PersistEInvoiceSignedSnapshotInput = Omit<EInvoiceSignedSnapshotRecord, "id" | "createdAt">;
+
+export interface EInvoiceSigningRepository {
+  findConnection(businessId: string, environment: MyInvoisEnvironment): Promise<MyInvoisConnectionRecord | null>;
+  upsertConnection(input: PersistMyInvoisConnectionInput): Promise<MyInvoisConnectionRecord>;
+  markConnectionVerified(connectionId: string, businessId: string, verifiedBy: string, verifiedAt: string): Promise<void>;
+  updateCertificateMetadata(connectionId: string, businessId: string, metadata: SigningCertificateMetadata): Promise<void>;
+  findUnsignedSnapshot(businessId: string, snapshotId: string): Promise<EInvoicePayloadSnapshotRecord | null>;
+  findSignedSnapshot(unsignedSnapshotId: string, certificateThumbprint: string, implementationVersion: string): Promise<EInvoiceSignedSnapshotRecord | null>;
+  persistSignedSnapshot(input: PersistEInvoiceSignedSnapshotInput): Promise<EInvoiceSignedSnapshotRecord>;
+}
+
+export type EInvoiceSubmissionStatus = "pending" | "submitted" | "processing" | "completed" | "failed";
+export type EInvoiceDocumentSubmissionStatus = "submitted" | "processing" | "valid" | "invalid" | "cancelled" | "failed";
+
+export interface EInvoiceSubmissionCandidate {
+  payloadSnapshotId: string;
+  businessId: string;
+  eInvoiceDocumentId: string;
+  documentRevision: number;
+  documentVersion: "1.0" | "1.1";
+  format: EInvoicePayloadFormat;
+  unsignedPayload: string;
+  unsignedPayloadHash: string;
+  invoiceCodeNumber: string;
+  approved: boolean;
+  active: boolean;
+  submissionEligible: boolean;
+}
+
+export interface MyInvoisStructuredError {
+  propertyName?: string;
+  propertyPath?: string;
+  errorCode?: string;
+  message: string;
+  innerErrors?: MyInvoisStructuredError[];
+}
+
+export interface EInvoiceSubmissionDocumentRecord {
+  submissionId: string;
+  eInvoiceDocumentId: string;
+  payloadSnapshotId: string;
+  invoiceCodeNumber: string;
+  accepted?: boolean;
+  status: EInvoiceDocumentSubmissionStatus;
+  myinvoisUuid?: string;
+  longId?: string;
+  shareUrl?: string;
+  rejectionError?: MyInvoisStructuredError;
+  validationResult?: unknown;
+  cancellationEligibleUntil?: string;
+}
+
+export interface EInvoiceSubmissionRecord {
+  id: string;
+  businessId: string;
+  environment: MyInvoisEnvironment;
+  idempotencyKey: string;
+  requestHash: string;
+  submissionUid?: string;
+  status: EInvoiceSubmissionStatus;
+  requestedAt: string;
+  respondedAt?: string;
+  httpStatus?: number;
+  correlationId?: string;
+  retryCount: number;
+  retryAfter?: string;
+  errorCode?: string;
+  errorMessage?: string;
+  documents: EInvoiceSubmissionDocumentRecord[];
+}
+
+export interface CreatePendingSubmissionInput {
+  businessId: string;
+  environment: MyInvoisEnvironment;
+  idempotencyKey: string;
+  requestHash: string;
+  requestedAt: string;
+  documents: Array<Pick<EInvoiceSubmissionDocumentRecord,
+    "eInvoiceDocumentId" | "payloadSnapshotId" | "invoiceCodeNumber"
+  >>;
+}
+
+export interface RecordSubmissionResponseInput {
+  submissionId: string;
+  businessId: string;
+  status: EInvoiceSubmissionStatus;
+  respondedAt: string;
+  httpStatus?: number;
+  correlationId?: string;
+  submissionUid?: string;
+  retryAfter?: string;
+  errorCode?: string;
+  errorMessage?: string;
+  rawResponse?: unknown;
+  retryCount: number;
+  documents: Array<Pick<EInvoiceSubmissionDocumentRecord,
+    "invoiceCodeNumber" | "accepted" | "status" | "myinvoisUuid" | "rejectionError"
+  >>;
+}
+
+export interface ReconcileSubmissionInput {
+  submissionId: string;
+  businessId: string;
+  status: EInvoiceSubmissionStatus;
+  checkedAt: string;
+  retryAfter?: string;
+  documents: Array<Pick<EInvoiceSubmissionDocumentRecord,
+    "invoiceCodeNumber" | "status" | "myinvoisUuid" | "longId" | "shareUrl" |
+    "validationResult" | "cancellationEligibleUntil"
+  >>;
+}
+
+export interface EInvoiceSubmissionRepository {
+  listSubmissionCandidates(businessId: string, environment: MyInvoisEnvironment): Promise<EInvoiceSubmissionCandidate[]>;
+  loadSubmissionCandidates(businessId: string, payloadSnapshotIds: string[]): Promise<EInvoiceSubmissionCandidate[]>;
+  findConnection(businessId: string, environment: MyInvoisEnvironment): Promise<MyInvoisConnectionRecord | null>;
+  findSubmissionByIdempotencyKey(businessId: string, idempotencyKey: string): Promise<EInvoiceSubmissionRecord | null>;
+  createPendingSubmission(input: CreatePendingSubmissionInput): Promise<{ record: EInvoiceSubmissionRecord; created: boolean }>;
+  recordSubmissionResponse(input: RecordSubmissionResponseInput): Promise<EInvoiceSubmissionRecord>;
+  findSubmission(businessId: string, submissionId: string): Promise<EInvoiceSubmissionRecord | null>;
+  listSubmissions(businessId: string): Promise<EInvoiceSubmissionRecord[]>;
+  listDueSubmissions(limit: number, at: string): Promise<EInvoiceSubmissionRecord[]>;
+  reconcileSubmission(input: ReconcileSubmissionInput): Promise<EInvoiceSubmissionRecord>;
+}

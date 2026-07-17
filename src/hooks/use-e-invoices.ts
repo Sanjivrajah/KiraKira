@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { EInvoicePreparationRecord, EInvoiceWorkspace, PreparationSupplementalFields } from "@/application/e-invoices";
+import type { EInvoicePreparationRecord, EInvoiceSubmissionRecord, EInvoiceWorkspace, PreparationSupplementalFields } from "@/application/e-invoices";
 import { queryKeys } from "@/lib/query/query-keys";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
@@ -9,6 +9,47 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const body = await response.json().catch(() => ({})) as { error?: string };
   if (!response.ok) throw new Error(body.error || "The e-Invoice request failed.");
   return body as T;
+}
+
+export interface EInvoiceSubmissionWorkspace {
+  environment: "sandbox";
+  taxpayerIdentity?: string;
+  candidates: Array<{ payloadSnapshotId: string; eInvoiceDocumentId: string; invoiceCodeNumber: string; encodedSizeBytes: number; documentVersion: "1.0" }>;
+  submissions: EInvoiceSubmissionRecord[];
+}
+
+function submissionPost<T>(body: Record<string, unknown>) {
+  return request<T>("/api/e-invoices/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+}
+
+export function useEInvoiceSubmissions(businessId: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.eInvoices.submissions(businessId),
+    queryFn: () => request<EInvoiceSubmissionWorkspace>(`/api/e-invoices/submissions?businessId=${encodeURIComponent(businessId)}`),
+    enabled: enabled && Boolean(businessId),
+  });
+}
+
+function useSubmissionMutation<TInput extends { businessId: string }>(mutationFn: (input: TInput) => Promise<unknown>) {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn, onSuccess: async (_, input) => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.eInvoices.submissions(input.businessId) });
+  } });
+}
+
+export function useSubmitEInvoices() {
+  return useSubmissionMutation((input: { businessId: string; payloadSnapshotIds: string[] }) =>
+    submissionPost<{ result: EInvoiceSubmissionRecord }>({ action: "submit", ...input }));
+}
+
+export function useGenerateEInvoiceSandboxPayload() {
+  return useSubmissionMutation((input: { businessId: string; documentId: string }) =>
+    submissionPost({ action: "generate_v1_0", ...input }));
+}
+
+export function useRefreshEInvoiceSubmission() {
+  return useSubmissionMutation((input: { businessId: string; submissionId: string }) =>
+    submissionPost<{ result: EInvoiceSubmissionRecord }>({ action: "refresh", ...input }));
 }
 
 function post<T>(body: Record<string, unknown>) {
@@ -52,4 +93,3 @@ export function useCreateEInvoiceRevision() {
   return useWorkspaceMutation((input: { businessId: string; documentId: string }) =>
     post<{ result: EInvoicePreparationRecord }>({ action: "create_revision", ...input }));
 }
-

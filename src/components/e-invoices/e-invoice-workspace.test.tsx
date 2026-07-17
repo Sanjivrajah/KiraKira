@@ -14,6 +14,10 @@ vi.mock("@/hooks/use-e-invoices", () => ({
   useSaveEInvoiceFields: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useApproveEInvoice: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useCreateEInvoiceRevision: () => ({ isPending: false, mutateAsync: vi.fn() }),
+  useEInvoiceSubmissions: () => ({ data: { environment: "sandbox", taxpayerIdentity: "C1234567890", candidates: [], submissions: [] }, isPending: false, isError: false, refetch: vi.fn() }),
+  useSubmitEInvoices: () => ({ isPending: false, mutateAsync: vi.fn() }),
+  useGenerateEInvoiceSandboxPayload: () => ({ isPending: false, mutateAsync: vi.fn() }),
+  useRefreshEInvoiceSubmission: () => ({ isPending: false, mutateAsync: vi.fn() }),
 }));
 
 beforeEach(() => {

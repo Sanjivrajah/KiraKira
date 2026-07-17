@@ -37,6 +37,10 @@ describe("Supabase schema migrations", () => {
       "20260717170000_voice_conversation_history.sql",
       "20260717180000_e_invoice_persistence_and_assembly.sql",
       "20260717210000_e_invoice_preparation_workspace.sql",
+      "20260717230000_e_invoice_payload_snapshots.sql",
+      "20260718000000_e_invoice_intermediary_auth_and_signing.sql",
+      "20260718010000_e_invoice_sandbox_submission_and_status.sql",
+      "20260718020000_myinvois_taxpayer_auth_mode.sql",
     ]);
   });
 
@@ -88,6 +92,47 @@ describe("Supabase schema migrations", () => {
     expect(migrationSql).toContain("function public.create_e_invoice_revision");
     expect(migrationSql).toContain("e_invoice_documents_one_active_source_revision");
     expect(migrationSql).toContain("authoritative internal preparation checks must pass before approval");
+  });
+
+  it("stores exact immutable e-invoice payload snapshots behind tenant guards", () => {
+    expect(migrationSql).toContain("create table public.e_invoice_payload_snapshots");
+    expect(migrationSql).toContain("unsigned_payload text not null");
+    expect(migrationSql).toContain("document_version in ('1.0', '1.1')");
+    expect(migrationSql).toContain("payload_size_bytes = octet_length(unsigned_payload)");
+    expect(migrationSql).toContain("assert_e_invoice_payload_snapshot_source");
+    expect(migrationSql).toContain("unsigned payload hash does not match the exact UTF-8 bytes");
+    expect(migrationSql).toContain("e_invoice_payload_snapshots_read");
+    expect(migrationSql).toContain("e_invoice_payload_snapshots_insert");
+    expect(migrationSql).toContain("revoke update, delete, truncate on public.e_invoice_payload_snapshots from anon, authenticated");
+    expect(migrationSql).not.toContain("e_invoice_payload_snapshots_update");
+  });
+
+  it("keeps MyInvois delegation references tenant-scoped and signed bytes immutable", () => {
+    expect(migrationSql).toContain("create table public.myinvois_connections");
+    expect(migrationSql).toContain("auth_mode text not null check (auth_mode = 'intermediary')");
+    expect(migrationSql).toContain("onbehalfof_value text generated always");
+    expect(migrationSql).toContain("create table public.e_invoice_signed_snapshots");
+    expect(migrationSql).toContain("assert_e_invoice_signed_snapshot_source");
+    expect(migrationSql).toContain("signed payload hash does not match the exact UTF-8 bytes");
+    expect(migrationSql).toContain("signed payload must contain the MyInvois UBL signature structures");
+    expect(migrationSql).toContain("signed snapshots require the active approved document revision");
+    expect(migrationSql).toContain("revoke update, delete, truncate on public.e_invoice_signed_snapshots from anon, authenticated");
+    expect(migrationSql).not.toContain("e_invoice_signed_snapshots_update");
+    expect(migrationSql).toContain("check (auth_mode in ('taxpayer', 'intermediary'))");
+  });
+
+  it("keeps sandbox submission and status history tenant-scoped and append-only", () => {
+    expect(migrationSql).toContain("create table public.e_invoice_submissions");
+    expect(migrationSql).toContain("create table public.e_invoice_submission_documents");
+    expect(migrationSql).toContain("payload_snapshot_id uuid not null references public.e_invoice_payload_snapshots");
+    expect(migrationSql).toContain("payload.document_version = '1.0'");
+    expect(migrationSql).toContain("create table public.e_invoice_status_events");
+    expect(migrationSql).toContain("unique (business_id, idempotency_key)");
+    expect(migrationSql).toContain("function public.create_e_invoice_pending_submission");
+    expect(migrationSql).toContain("function public.record_e_invoice_submission_response");
+    expect(migrationSql).toContain("function public.reconcile_e_invoice_submission");
+    expect(migrationSql).toContain("revoke insert, update, delete, truncate on public.e_invoice_submissions");
+    expect(migrationSql).not.toContain("e_invoice_submissions_update");
   });
 
   it("keeps evidence buckets private and storage paths business-scoped", () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, FileCheck2, Info, LockKeyhole } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileCheck2, Info, LockKeyhole, RefreshCw, Send } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { EInvoicePreparationStatus, EInvoicePreparationView, PreparationSupplementalFields } from "@/application/e-invoices";
 import { PREPARATION_FIELD_REGISTRY } from "@/application/e-invoices";
@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { useBusiness } from "@/hooks/use-business";
-import { useApproveEInvoice, useCreateEInvoiceRevision, useEInvoiceWorkspace, usePrepareEInvoices, useSaveEInvoiceFields } from "@/hooks/use-e-invoices";
+import { useApproveEInvoice, useCreateEInvoiceRevision, useEInvoiceSubmissions, useEInvoiceWorkspace, useGenerateEInvoiceSandboxPayload, usePrepareEInvoices, useRefreshEInvoiceSubmission, useSaveEInvoiceFields, useSubmitEInvoices } from "@/hooks/use-e-invoices";
 
 type View = EInvoicePreparationStatus | "submitted";
 const views: Array<{ key: View; label: string }> = [
@@ -39,12 +39,17 @@ export function EInvoiceWorkspace() {
   const business = useBusiness();
   const businessId = business.data?.id ?? "";
   const workspace = useEInvoiceWorkspace(businessId, mode === "supabase");
+  const submissionWorkspace = useEInvoiceSubmissions(businessId, mode === "supabase");
   const prepare = usePrepareEInvoices();
   const saveFields = useSaveEInvoiceFields();
   const approve = useApproveEInvoice();
   const createRevision = useCreateEInvoiceRevision();
+  const submit = useSubmitEInvoices();
+  const generateSandboxPayload = useGenerateEInvoiceSandboxPayload();
+  const refreshSubmission = useRefreshEInvoiceSubmission();
   const [view, setView] = useState<View>("needs_information");
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
+  const [selectedPayloads, setSelectedPayloads] = useState<string[]>([]);
   const [selectedPreparationId, setSelectedPreparationId] = useState("");
   const [draftFields, setDraftFields] = useState<PreparationSupplementalFields>(emptyFields);
   const [dirty, setDirty] = useState(false);
@@ -55,6 +60,8 @@ export function EInvoiceWorkspace() {
   const visiblePreparations = view === "submitted" ? [] : preparations.filter((record) => record.active && record.status === view);
   const selectedPreparation = visiblePreparations.find((record) => record.id === selectedPreparationId) ?? visiblePreparations[0];
   const candidatesById = useMemo(() => new Map((workspace.data?.candidates ?? []).map((candidate) => [candidate.id, candidate])), [workspace.data?.candidates]);
+  const submissionCandidates = submissionWorkspace.data?.candidates ?? [];
+  const selectedEncodedSize = submissionCandidates.filter((candidate) => selectedPayloads.includes(candidate.payloadSnapshotId)).reduce((sum, candidate) => sum + candidate.encodedSizeBytes, 0);
 
   const choosePreparation = (record: EInvoicePreparationView) => {
     if (dirty && !window.confirm("Discard the unsaved changes to this preparation revision?")) return;
@@ -77,16 +84,27 @@ export function EInvoiceWorkspace() {
   };
 
   if (mode === "demo") return <><PageHeader eyebrow="Compliance preparation" title="e-Invoices" description="Complete and approve e-Invoice preparation records separately from invoice payment tracking." /><section className="panel einvoice-demo"><LockKeyhole aria-hidden="true" /><div><h2>Supabase workspace required</h2><p>This browser-only demo does not simulate e-Invoice approvals or submissions. Sign in to a configured Supabase workspace to prepare persisted invoices.</p></div></section></>;
-  if (business.isPending || workspace.isPending) return <LoadingState label="Loading e-Invoice preparation workspace" />;
-  if (business.isError || workspace.isError) return <><ErrorState title="We could not load e-Invoice preparations" description="No records were changed. Check your connection and try again." /><button className="button button-secondary" onClick={() => workspace.refetch()} type="button">Try again</button></>;
+  if (business.isPending || workspace.isPending || submissionWorkspace.isPending) return <LoadingState label="Loading e-Invoice preparation workspace" />;
+  if (business.isError || workspace.isError || submissionWorkspace.isError) return <><ErrorState title="We could not load e-Invoice preparations" description="No records were changed. Check your connection and try again." /><button className="button button-secondary" onClick={() => { void workspace.refetch(); void submissionWorkspace.refetch(); }} type="button">Try again</button></>;
 
   const counts = workspace.data?.counts;
   return <>
-    <PageHeader eyebrow="Compliance preparation" title="e-Invoices" description="Resolve missing information, run NiagaAI internal preparation checks, and approve a frozen revision. This workspace does not submit to MyInvois." />
+    <PageHeader eyebrow="Compliance preparation" title="e-Invoices" description="Prepare and approve immutable revisions, then submit unsigned MyInvois v1.0 payloads to the sandbox and reconcile their official status." />
     {message ? <div className="inline-success" role="status"><CheckCircle2 aria-hidden="true" size={18} />{message}</div> : null}
     {error ? <div className="form-alert" role="alert">{error}</div> : null}
     <section aria-label="Preparation summary" className="einvoice-summary">
       <div><span>Selected</span><strong>{selectedSources.length}</strong></div><div><span>Needs information</span><strong>{counts?.needsInformation ?? 0}</strong></div><div><span>Ready</span><strong>{counts?.ready ?? 0}</strong></div><div><span>Approved</span><strong>{counts?.approved ?? 0}</strong></div>
+    </section>
+
+    <section aria-labelledby="sandbox-heading" className="panel einvoice-submission-panel">
+      <div className="einvoice-environment-banner"><strong>Sandbox environment</strong><span>No production submissions are available in this stage.</span></div>
+      <div className="einvoice-section-heading"><div><h2 id="sandbox-heading">MyInvois v1.0 payloads ready for submission</h2><p>Digital signatures are out of scope for this sandbox flow. Represented taxpayer: <strong>{submissionWorkspace.data?.taxpayerIdentity ?? "not configured"}</strong>.</p></div><button className="button button-primary" disabled={!selectedPayloads.length || submit.isPending || !submissionWorkspace.data?.taxpayerIdentity} onClick={() => {
+        const taxpayer = submissionWorkspace.data?.taxpayerIdentity ?? "the configured taxpayer";
+        if (!window.confirm(`Submit ${selectedPayloads.length} unsigned v1.0 document${selectedPayloads.length === 1 ? "" : "s"} (${new Intl.NumberFormat("en-MY").format(selectedEncodedSize)} encoded bytes) to the MyInvois sandbox on behalf of ${taxpayer}?`)) return;
+        void run(async () => { await submit.mutateAsync({ businessId, payloadSnapshotIds: selectedPayloads }); setSelectedPayloads([]); setView("submitted"); }, "Sandbox submission recorded. Official validation is still processing.");
+      }} type="button"><Send aria-hidden="true" size={17} />{submit.isPending ? "Submitting…" : "Submit to sandbox"}</button></div>
+      <div className="einvoice-submission-metrics"><span>{selectedPayloads.length} selected</span><span>{new Intl.NumberFormat("en-MY").format(selectedEncodedSize)} encoded bytes</span></div>
+      {submissionCandidates.length ? <div className="einvoice-candidate-list">{submissionCandidates.map((candidate) => <label className="einvoice-candidate" key={candidate.payloadSnapshotId}><input checked={selectedPayloads.includes(candidate.payloadSnapshotId)} onChange={(event) => setSelectedPayloads((current) => event.target.checked ? [...current, candidate.payloadSnapshotId] : current.filter((id) => id !== candidate.payloadSnapshotId))} type="checkbox" /><span><strong>{candidate.invoiceCodeNumber}</strong><small>Approved unsigned v1.0 snapshot · {new Intl.NumberFormat("en-MY").format(candidate.encodedSizeBytes)} encoded bytes</small></span></label>)}</div> : <p className="einvoice-submission-empty">No approved v1.0 sandbox payloads are available. Open an approved preparation below and prepare its sandbox payload.</p>}
     </section>
 
     <section className="panel einvoice-candidates" aria-labelledby="candidate-heading">
@@ -98,7 +116,7 @@ export function EInvoiceWorkspace() {
       {views.map((item) => <button aria-selected={view === item.key} key={item.key} onClick={() => changeView(item.key)} role="tab" type="button">{item.label}{item.key !== "submitted" ? <span>{preparations.filter((record) => record.active && record.status === item.key).length}</span> : null}</button>)}
     </div>
 
-    {view === "submitted" ? <section className="panel einvoice-empty"><FileCheck2 aria-hidden="true" /><h2>No submitted records</h2><p>Submission is introduced in a later stage. NiagaAI does not simulate MyInvois status here.</p></section> : visiblePreparations.length === 0 ? <section className="panel einvoice-empty"><Info aria-hidden="true" /><h2>No {views.find((item) => item.key === view)?.label.toLowerCase()} records</h2><p>Prepare an eligible saved invoice or choose another status.</p></section> : <div className="einvoice-workspace-grid">
+    {view === "submitted" ? (submissionWorkspace.data?.submissions.length ? <section aria-label="Sandbox submissions" className="einvoice-submission-list">{submissionWorkspace.data.submissions.map((submission) => <article className="panel einvoice-submission-card" key={submission.id}><div className="einvoice-section-heading"><div><span className={`einvoice-status ${submission.status}`}>{submission.status}</span><h2>{submission.submissionUid ? `Submission ${submission.submissionUid}` : "Local pending submission"}</h2><p>{new Intl.DateTimeFormat("en-MY", { dateStyle: "medium", timeStyle: "short" }).format(new Date(submission.requestedAt))} · {submission.documents.length} document{submission.documents.length === 1 ? "" : "s"}</p></div>{!["completed", "failed"].includes(submission.status) ? <button className="button button-secondary" disabled={refreshSubmission.isPending} onClick={() => void run(() => refreshSubmission.mutateAsync({ businessId, submissionId: submission.id }), "Sandbox status refreshed." )} type="button"><RefreshCw aria-hidden="true" size={17} />Refresh status</button> : null}</div>{submission.errorMessage ? <div className="form-alert" role="alert">{submission.errorMessage}{submission.retryAfter ? ` Try again after ${new Intl.DateTimeFormat("en-MY", { timeStyle: "short" }).format(new Date(submission.retryAfter))}.` : ""}</div> : null}<div className="einvoice-submission-documents">{submission.documents.map((document) => <div key={document.eInvoiceDocumentId}><span className={`einvoice-status ${document.status}`}>{document.status}</span><strong>{document.invoiceCodeNumber}</strong>{document.myinvoisUuid ? <small>MyInvois UUID: {document.myinvoisUuid}</small> : null}{document.shareUrl ? <a href={document.shareUrl} rel="noreferrer" target="_blank">Open validation link</a> : null}{document.rejectionError ? <small className="is-error">{document.rejectionError.message}</small> : null}{document.validationResult ? <details><summary>Validation details</summary><pre>{JSON.stringify(document.validationResult, null, 2)}</pre></details> : null}</div>)}</div></article>)}</section> : <section className="panel einvoice-empty"><FileCheck2 aria-hidden="true" /><h2>No sandbox submissions</h2><p>Approved unsigned v1.0 snapshots will appear above when they are ready for controlled sandbox submission.</p></section>) : visiblePreparations.length === 0 ? <section className="panel einvoice-empty"><Info aria-hidden="true" /><h2>No {views.find((item) => item.key === view)?.label.toLowerCase()} records</h2><p>Prepare an eligible saved invoice or choose another status.</p></section> : <div className="einvoice-workspace-grid">
       <section className="einvoice-record-list" aria-label={`${views.find((item) => item.key === view)?.label} preparations`}>{visiblePreparations.map((record) => { const candidate = candidatesById.get(record.sourceInvoiceId); return <button aria-current={selectedPreparation?.id === record.id} className="einvoice-record-card" key={record.id} onClick={() => choosePreparation(record)} type="button"><span className={`einvoice-status ${record.status}`}>{record.status.replace("_", " ")}</span><strong>{candidate?.invoiceNumber ?? "Saved invoice"}</strong><small>Revision {record.revision} · {record.scenario.replaceAll("_", " ")}</small><span>{record.readinessResult.diagnostics.filter((item) => item.severity === "error").length} blockers</span></button>; })}</section>
       {selectedPreparation ? <section className="panel einvoice-editor" aria-labelledby="editor-heading">
         <div className="einvoice-section-heading"><div><span className={`einvoice-status ${selectedPreparation.status}`}>{selectedPreparation.status.replace("_", " ")}</span><h2 id="editor-heading">{candidatesById.get(selectedPreparation.sourceInvoiceId)?.invoiceNumber ?? "Preparation revision"}</h2><p>Internal preparation revision {selectedPreparation.revision}. Payment status remains separate.</p></div></div>
@@ -106,7 +124,7 @@ export function EInvoiceWorkspace() {
         {selectedPreparation.status !== "approved" ? <form onSubmit={(event) => { event.preventDefault(); void run(() => saveFields.mutateAsync({ businessId, documentId: selectedPreparation.id, expectedRevision: selectedPreparation.revision, fields: draftFields }), "Preparation fields saved and checks refreshed."); }}>
           <fieldset className="einvoice-fields"><legend>Document-specific information</legend><p>Reusable supplier or buyer corrections belong in their source records. These overrides apply only to this revision.</p>{PREPARATION_FIELD_REGISTRY.filter((field) => field.appliesWhen(selectedPreparation.scenario)).map((field) => <label key={field.key}><span>{field.label}</span><input aria-describedby={`help-${field.key}`} onChange={(event) => { setDraftFields((current) => ({ ...current, [field.key]: event.target.value })); setDirty(true); }} step={field.inputType === "decimal" ? "any" : undefined} type={field.inputType === "decimal" ? "number" : field.inputType} value={draftFields[field.key] ?? fieldsFrom(selectedPreparation)[field.key] ?? ""} /><small id={`help-${field.key}`}>{field.helpText} · {field.registry.label}</small></label>)}</fieldset>
           <div className="einvoice-actions"><button className="button button-secondary" disabled={!dirty || saveFields.isPending} type="submit">{saveFields.isPending ? "Saving…" : "Save and recheck"}</button>{selectedPreparation.status === "ready" ? <button className="button button-primary" disabled={dirty || approve.isPending} onClick={() => { if (window.confirm("Approve and freeze this revision? Future edits will create a new revision.")) void run(() => approve.mutateAsync({ businessId, documentId: selectedPreparation.id, expectedRevision: selectedPreparation.revision }), "Preparation approved and frozen."); }} type="button">{approve.isPending ? "Approving…" : "Approve revision"}</button> : null}</div>
-        </form> : <div className="einvoice-approved"><LockKeyhole aria-hidden="true" /><div><h3>Frozen approval</h3><p>Approved {selectedPreparation.approvedAt ? new Intl.DateTimeFormat("en-MY", { dateStyle: "medium", timeStyle: "short" }).format(new Date(selectedPreparation.approvedAt)) : "at the server boundary"}. Editing creates a new revision and removes this revision from later submission eligibility.</p><button className="button button-secondary" disabled={createRevision.isPending} onClick={() => { if (window.confirm("Create an editable revision from this approved snapshot?")) void run(() => createRevision.mutateAsync({ businessId, documentId: selectedPreparation.id }), "A new editable preparation revision was created."); }} type="button">Create new revision</button></div></div>}
+        </form> : <div className="einvoice-approved"><LockKeyhole aria-hidden="true" /><div><h3>Frozen approval</h3><p>Approved {selectedPreparation.approvedAt ? new Intl.DateTimeFormat("en-MY", { dateStyle: "medium", timeStyle: "short" }).format(new Date(selectedPreparation.approvedAt)) : "at the server boundary"}. Editing creates a new revision and removes this revision from later submission eligibility.</p><div className="einvoice-actions"><button className="button button-primary" disabled={generateSandboxPayload.isPending || submissionCandidates.some((candidate) => candidate.eInvoiceDocumentId === selectedPreparation.id)} onClick={() => void run(() => generateSandboxPayload.mutateAsync({ businessId, documentId: selectedPreparation.id }), "Unsigned MyInvois v1.0 sandbox payload prepared.")} type="button">{submissionCandidates.some((candidate) => candidate.eInvoiceDocumentId === selectedPreparation.id) ? "Sandbox payload ready" : generateSandboxPayload.isPending ? "Preparing…" : "Prepare sandbox payload"}</button><button className="button button-secondary" disabled={createRevision.isPending} onClick={() => { if (window.confirm("Create an editable revision from this approved snapshot?")) void run(() => createRevision.mutateAsync({ businessId, documentId: selectedPreparation.id }), "A new editable preparation revision was created."); }} type="button">Create new revision</button></div></div></div>}
 
         <section className="einvoice-diagnostics" aria-labelledby="diagnostics-heading"><h3 id="diagnostics-heading">NiagaAI internal preparation checks</h3><p>These are internal checks, not official MyInvois validation.</p>{(["supplier", "buyer", "document", "line", "tax", "scenario"] as const).map((group) => { const diagnostics = selectedPreparation.readinessResult.diagnostics.filter((item) => item.group === group); if (!diagnostics.length) return null; return <div key={group}><h4>{group}</h4><ul>{diagnostics.map((diagnostic) => { const target = fixTarget(selectedPreparation, diagnostic.fieldPath); return <li className={`is-${diagnostic.severity}`} key={`${diagnostic.code}-${diagnostic.fieldPath}`}><span>{diagnostic.severity === "error" ? <AlertTriangle aria-hidden="true" size={17} /> : <Info aria-hidden="true" size={17} />}</span><div><strong>{diagnostic.message}</strong><small>{diagnostic.sourceReferenceLabel}</small>{diagnostic.severity === "error" ? <Link href={target.href}>{target.label}</Link> : null}</div></li>; })}</ul></div>; })}</section>
       </section> : null}

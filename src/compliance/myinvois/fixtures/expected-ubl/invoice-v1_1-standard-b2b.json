@@ -53,6 +53,7 @@
     "PaymentMeans": [{
       "PaymentMeansCode": [{ "_": "03" }],
       "PaymentID": [{ "_": "INV-FIXTURE-001" }],
+      "PaymentDueDate": [{ "_": "2026-08-14" }],
       "PayeeFinancialAccount": [{ "ID": [{ "_": "1234567890" }] }]
     }],
     "PaymentTerms": [{ "Note": [{ "_": "Payment due within 30 days." }] }],
