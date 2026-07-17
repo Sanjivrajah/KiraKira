@@ -2962,6 +2962,43 @@ li {
   margin: 10px 0 22px;
 }
 
+.csv-template-help {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: -4px 0 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--canvas);
+}
+
+.csv-template-help > div {
+  min-width: 0;
+}
+
+.csv-template-help strong,
+.csv-template-help span {
+  display: block;
+}
+
+.csv-template-help strong {
+  color: var(--ink-950);
+  font-size: var(--text-small);
+}
+
+.csv-template-help span {
+  margin-top: 3px;
+  color: var(--ink-500);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.csv-template-help .button {
+  flex: 0 0 auto;
+}
+
 .upload-dropzone {
   display: grid;
   width: 100%;
@@ -3027,6 +3064,17 @@ li {
   font-size: 0.75rem;
   font-weight: 600;
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .csv-template-help {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .csv-template-help .button {
+    width: 100%;
+  }
 }
 
 .capture-actions {

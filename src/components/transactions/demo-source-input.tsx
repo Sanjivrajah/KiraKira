@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FileSpreadsheet, Landmark, MessageCircle, UploadCloud } from "lucide-react";
+import { Download, FileSpreadsheet, Landmark, MessageCircle, UploadCloud } from "lucide-react";
 import { TextareaField } from "@/components/forms/textarea-field";
 import { DEMO_WHATSAPP_ORDER_MESSAGE } from "@/data/demo";
 import { parseTransactionCsv, type ImportedTransactionDraft } from "@/lib/imports/transaction-csv";
@@ -116,6 +116,18 @@ export function DemoSourceInput({ source, onContinue, onImported, onBack }: {
       <p className="section-kicker">{copy.eyebrow} · Step 1 of 3</p>
       <h2 id="file-input-title">{copy.title}</h2>
       <p className="capture-help">{copy.help}</p>
+      {source === "csv" ? (
+        <div className="csv-template-help">
+          <div>
+            <strong>Not sure how to format your file?</strong>
+            <span>Start with a ready-to-fill template that matches this importer.</span>
+          </div>
+          <a className="button button-secondary" download href="/samples/niaga-transaction-import-sample.csv">
+            <Download aria-hidden="true" size={18} />
+            Download sample CSV
+          </a>
+        </div>
+      ) : null}
       <button className="upload-dropzone" onClick={() => fileRef.current?.click()} type="button">
         <span className="upload-icon"><Icon aria-hidden="true" size={26} /></span>
         <strong>{file?.name || "Select a file"}</strong>
