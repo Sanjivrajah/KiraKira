@@ -45,7 +45,66 @@ function addDays(isoDate: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-const money = (value: number) => Math.round(value * 100) / 100;
+const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+/** The normalized payment methods the app stores, matching `paymentMethodSchema`. */
+export type NormalizedPaymentMethod = "cash" | "bank_transfer" | "card" | "ewallet" | "credit" | "unknown";
+
+/**
+ * Splits a spoken amount into subtotal/tax/total. All voice tax arithmetic lives
+ * here (never delegated to the model) so rounding is deterministic and testable.
+ * - `inclusive`: the amount already contains tax (RM106 including 6%).
+ * - otherwise: tax is added on top (RM100 + 6% = RM106).
+ * Tax is derived from the rounded subtotal so the three values always reconcile.
+ */
+export function computeTransactionTotals(
+  amount: number,
+  taxRate: number,
+  inclusive: boolean,
+): { subtotal: number; tax: number; total: number } {
+  const safeAmount = Number.isFinite(amount) && amount > 0 ? amount : 0;
+  const safeRate = Number.isFinite(taxRate) && taxRate > 0 ? taxRate : 0;
+  if (safeRate === 0) {
+    const value = money(safeAmount);
+    return { subtotal: value, tax: 0, total: value };
+  }
+  if (inclusive) {
+    const total = money(safeAmount);
+    const subtotal = money(safeAmount / (1 + safeRate / 100));
+    return { subtotal, tax: money(total - subtotal), total };
+  }
+  const subtotal = money(safeAmount);
+  const tax = money(subtotal * (safeRate / 100));
+  return { subtotal, tax, total: money(subtotal + tax) };
+}
+
+// Ordered so more specific phrases win (e.g. "credit card" resolves to card, not credit).
+const PAYMENT_METHOD_ALIASES: readonly [NormalizedPaymentMethod, RegExp][] = [
+  ["cash", /\b(cash|tunai|kontan)\b/i],
+  ["card", /\b(credit\s*card|debit\s*card|visa|master\s*card|mastercard|amex|kad)\b/i],
+  ["bank_transfer", /\b(bank\s*transfer|transfer|online\s*banking|internet\s*banking|duitnow|fpx|giro|deposit|ibg)\b/i],
+  ["ewallet", /\b(e-?wallet|wallet|tng|touch\s*'?n?\s*go|touchngo|grab\s*pay|grabpay|boost|shopee\s*pay|shopeepay|qr\s*pay|qr)\b/i],
+  ["credit", /\b(credit|hutang|berhutang|owe|owing|install?ment|instal?men)\b/i],
+  ["card", /\bcard\b/i],
+];
+
+/**
+ * Maps a spoken payment method (English or common Malay/Manglish) to the stored
+ * `paymentMethodSchema` enum. Unknown input resolves to "unknown" rather than
+ * guessing, so the owner can still see and correct it in review.
+ */
+export function normalizePaymentMethod(text: string | null | undefined): NormalizedPaymentMethod {
+  if (!text) return "unknown";
+  const value = text.trim().toLowerCase();
+  if (!value) return "unknown";
+  if (value === "cash" || value === "bank_transfer" || value === "card" || value === "ewallet" || value === "credit") {
+    return value;
+  }
+  for (const [method, pattern] of PAYMENT_METHOD_ALIASES) {
+    if (pattern.test(value)) return method;
+  }
+  return "unknown";
+}
 
 /** Resolves a named period to inclusive ISO bounds, anchored to the KL calendar. */
 export function resolveFinancePeriod(key: FinancePeriodKey, now = new Date()): FinancePeriod {
@@ -127,10 +186,43 @@ export function summarizeTransactions(
   };
 }
 
+/**
+ * Ranks saved transactions against a spoken query (description, category,
+ * counterparty, or an amount). Pure and deterministic so the "manage records"
+ * tools can be unit-tested. Falls back to most-recent-first for an empty query.
+ */
+export function searchTransactions(
+  transactions: readonly Transaction[],
+  query: string,
+  limit = 5,
+): Transaction[] {
+  const byDateDesc = (a: Transaction, b: Transaction) => b.date.localeCompare(a.date);
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return [...transactions].sort(byDateDesc).slice(0, limit);
+  const amountToken = Number(normalized.replace(/[^0-9.]/g, ""));
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+  return transactions
+    .map((transaction) => {
+      const haystack = `${transaction.description} ${transaction.category} ${transaction.counterpartyName}`.toLowerCase();
+      let score = 0;
+      for (const token of tokens) {
+        if (token.length >= 2 && haystack.includes(token)) score += 10;
+      }
+      if (Number.isFinite(amountToken) && amountToken > 0 && Math.abs(transaction.total - amountToken) < 0.005) score += 25;
+      return { transaction, score };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score || byDateDesc(a.transaction, b.transaction))
+    .slice(0, limit)
+    .map((entry) => entry.transaction);
+}
+
 /** An invoice-derived outstanding balance ("who owes me"), computed in the browser. */
 export interface OutstandingBalance {
+  invoiceId: string;
   invoiceNumber: string;
   customerName: string;
+  customerEmail: string | null;
   outstanding: number;
   dueDate: string;
   overdue: boolean;
@@ -138,8 +230,10 @@ export interface OutstandingBalance {
 
 export function outstandingBalances(
   invoices: readonly {
+    id?: string;
     invoiceNumber: string;
     customerName: string;
+    customerEmail?: string | null;
     status: string;
     total: number;
     amountPaid: number;
@@ -150,8 +244,10 @@ export function outstandingBalances(
   return invoices
     .filter((invoice) => invoice.status !== "void" && invoice.status !== "draft")
     .map((invoice) => ({
+      invoiceId: invoice.id ?? "",
       invoiceNumber: invoice.invoiceNumber,
       customerName: invoice.customerName,
+      customerEmail: invoice.customerEmail ?? null,
       outstanding: money(invoice.total - invoice.amountPaid),
       dueDate: invoice.dueDate,
       overdue: invoice.status !== "paid" && Boolean(invoice.dueDate && invoice.dueDate < today),

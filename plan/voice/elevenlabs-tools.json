@@ -1,0 +1,368 @@
+[
+  {
+    "type": "client",
+    "name": "create_transaction_draft",
+    "description": "Stage a new income or expense the owner just described. Does NOT save it — it appears in the on-screen review queue. Always read the parsed summary back and ask the owner to confirm before calling confirm_transaction.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "type", "type": "string", "value_type": "llm_prompt", "description": "\"income\" for money in, \"expense\" for money out.", "required": true },
+      { "id": "amount", "type": "number", "value_type": "llm_prompt", "description": "The amount in MYR ringgit. Never invent this; ask if unclear.", "required": false },
+      { "id": "description", "type": "string", "value_type": "llm_prompt", "description": "What the transaction was for.", "required": false },
+      { "id": "category", "type": "string", "value_type": "llm_prompt", "description": "A short category such as Fuel, Supplies, Sales.", "required": false },
+      { "id": "counterpartyName", "type": "string", "value_type": "llm_prompt", "description": "The merchant or customer name, if mentioned.", "required": false },
+      { "id": "paymentMethod", "type": "string", "value_type": "llm_prompt", "description": "How it was paid: cash, bank transfer, card, e-wallet, or credit.", "required": false },
+      { "id": "date", "type": "string", "value_type": "llm_prompt", "description": "ISO date YYYY-MM-DD. Resolve relative dates against {{today}} in Asia/Kuala_Lumpur.", "required": false },
+      { "id": "taxRate", "type": "number", "value_type": "llm_prompt", "description": "SST percentage if mentioned, e.g. 6. Default 0.", "required": false },
+      { "id": "taxInclusive", "type": "boolean", "value_type": "llm_prompt", "description": "True if the amount already includes tax, false if tax is added on top.", "required": false },
+      { "id": "quantity", "type": "number", "value_type": "llm_prompt", "description": "Quantity of items, if mentioned.", "required": false },
+      { "id": "unit", "type": "string", "value_type": "llm_prompt", "description": "Unit of the quantity, if mentioned.", "required": false },
+      { "id": "notes", "type": "string", "value_type": "llm_prompt", "description": "Any extra note the owner adds.", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "update_transaction_draft",
+    "description": "Correct one or more fields on the transaction currently staged for review. Use when the owner fixes a value by voice.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "type", "type": "string", "value_type": "llm_prompt", "description": "\"income\" or \"expense\".", "required": false },
+      { "id": "amount", "type": "number", "value_type": "llm_prompt", "description": "New amount in MYR.", "required": false },
+      { "id": "description", "type": "string", "value_type": "llm_prompt", "description": "New description.", "required": false },
+      { "id": "category", "type": "string", "value_type": "llm_prompt", "description": "New category.", "required": false },
+      { "id": "counterpartyName", "type": "string", "value_type": "llm_prompt", "description": "New merchant or customer.", "required": false },
+      { "id": "paymentMethod", "type": "string", "value_type": "llm_prompt", "description": "New payment method.", "required": false },
+      { "id": "date", "type": "string", "value_type": "llm_prompt", "description": "New ISO date YYYY-MM-DD.", "required": false },
+      { "id": "taxRate", "type": "number", "value_type": "llm_prompt", "description": "New SST percentage.", "required": false },
+      { "id": "taxInclusive", "type": "boolean", "value_type": "llm_prompt", "description": "Whether the amount includes tax.", "required": false },
+      { "id": "notes", "type": "string", "value_type": "llm_prompt", "description": "New note.", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "confirm_transaction",
+    "description": "Persist the staged transaction to the owner's records. Only call this after the owner explicitly confirms. Do not claim the record is saved unless this returns success.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": []
+  },
+  {
+    "type": "client",
+    "name": "discard_draft",
+    "description": "Discard the currently staged draft without saving it.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "kind", "type": "string", "value_type": "llm_prompt", "description": "\"transaction\", \"invoice\", or \"all\".", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "query_finances",
+    "description": "Answer a question about the owner's numbers over a period. All arithmetic is computed locally; read the returned figures verbatim.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "period", "type": "string", "value_type": "llm_prompt", "description": "One of: today, yesterday, this_week, this_month, last_month, this_year, all.", "required": false },
+      { "id": "metric", "type": "string", "value_type": "llm_prompt", "description": "One of: summary, profit, income, expenses, biggest_expense, cash_in, cash_out.", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "get_business_snapshot",
+    "description": "Give a quick health check: this month's money in and out, estimated profit, unpaid invoices, and drafts waiting for review.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": []
+  },
+  {
+    "type": "client",
+    "name": "get_business_context",
+    "description": "Report which e-invoice details the business still needs (TIN, SST registration, MSIC code, address, registration number).",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": []
+  },
+  {
+    "type": "client",
+    "name": "list_invoices",
+    "description": "Read back the most recent invoices with their totals and statuses.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": []
+  },
+  {
+    "type": "client",
+    "name": "list_recent_transactions",
+    "description": "Read back the owner's most recent records.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "limit", "type": "number", "value_type": "llm_prompt", "description": "How many records to read back, 1 to 10. Default 5.", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "find_transactions",
+    "description": "Search saved records by amount, description, category, or counterparty. Use this before editing or deleting a record to identify it. The result includes each record's id in square brackets.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "query", "type": "string", "value_type": "llm_prompt", "description": "What to search for, e.g. \"45 petrol\" or a customer name.", "required": false },
+      { "id": "type", "type": "string", "value_type": "llm_prompt", "description": "Filter by \"income\" or \"expense\".", "required": false },
+      { "id": "limit", "type": "number", "value_type": "llm_prompt", "description": "Maximum matches, 1 to 10.", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "edit_transaction",
+    "description": "Load a saved record into the review queue for editing. Provide the record id from find_transactions, or a query to identify it. After loading, use update_transaction_draft then confirm_transaction.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "transactionId", "type": "string", "value_type": "llm_prompt", "description": "The record id from find_transactions.", "required": false },
+      { "id": "query", "type": "string", "value_type": "llm_prompt", "description": "A description or amount to identify the record if you don't have the id.", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "delete_transaction",
+    "description": "Stage a record for deletion. This does NOT delete it — you must read the record back and get explicit confirmation, then call confirm_delete.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "transactionId", "type": "string", "value_type": "llm_prompt", "description": "The record id from find_transactions.", "required": false },
+      { "id": "query", "type": "string", "value_type": "llm_prompt", "description": "A description or amount to identify the record if you don't have the id.", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "confirm_delete",
+    "description": "Permanently delete the record staged by delete_transaction. Only call after the owner explicitly confirms the deletion.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": []
+  },
+  {
+    "type": "client",
+    "name": "search_customers",
+    "description": "Look up saved customers by name. Returns matching names with their TIN where known.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "query", "type": "string", "value_type": "llm_prompt", "description": "The customer name to search for.", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "create_customer",
+    "description": "Stage a new customer for review. Does NOT save it — read it back and call confirm_customer after the owner confirms.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "name", "type": "string", "value_type": "llm_prompt", "description": "The customer or business name.", "required": true },
+      { "id": "tin", "type": "string", "value_type": "llm_prompt", "description": "The customer's tax identification number, if known.", "required": false },
+      { "id": "email", "type": "string", "value_type": "llm_prompt", "description": "The customer's email, if known.", "required": false },
+      { "id": "phone", "type": "string", "value_type": "llm_prompt", "description": "The customer's phone number, if known.", "required": false },
+      { "id": "registrationNumber", "type": "string", "value_type": "llm_prompt", "description": "The business registration number (BRN), if known.", "required": false },
+      { "id": "address", "type": "string", "value_type": "llm_prompt", "description": "The customer's address, if mentioned.", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "confirm_customer",
+    "description": "Save the customer staged by create_customer. Only call after the owner confirms.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": []
+  },
+  {
+    "type": "client",
+    "name": "list_receivables",
+    "description": "Report who owes the owner money on issued invoices, highlighting overdue ones.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": []
+  },
+  {
+    "type": "client",
+    "name": "draft_reminder",
+    "description": "Draft a friendly payment reminder for an outstanding invoice and put it in the review queue. Read the draft back; call send_reminder only after the owner confirms.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "customerName", "type": "string", "value_type": "llm_prompt", "description": "The customer to remind.", "required": false },
+      { "id": "invoiceNumber", "type": "string", "value_type": "llm_prompt", "description": "The specific invoice number, if given.", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "send_reminder",
+    "description": "Mark the drafted reminder as sent against its invoice. Call with no parameters to send the staged reminder, or specify a customer or invoice. Only after the owner confirms.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "customerName", "type": "string", "value_type": "llm_prompt", "description": "The customer to remind, if not using the staged draft.", "required": false },
+      { "id": "invoiceNumber", "type": "string", "value_type": "llm_prompt", "description": "The invoice number, if not using the staged draft.", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "record_invoice_payment",
+    "description": "Stage a payment received against an outstanding invoice. Does NOT save it — read it back and call confirm_invoice_payment after the owner confirms. Overpayments are rejected.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "customerName", "type": "string", "value_type": "llm_prompt", "description": "The customer who paid.", "required": false },
+      { "id": "invoiceNumber", "type": "string", "value_type": "llm_prompt", "description": "The invoice number, if given.", "required": false },
+      { "id": "amount", "type": "number", "value_type": "llm_prompt", "description": "Amount paid in MYR. Defaults to the full outstanding amount if not given.", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "confirm_invoice_payment",
+    "description": "Record the staged payment against the invoice, updating its status. Only call after the owner confirms.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": []
+  },
+  {
+    "type": "client",
+    "name": "create_invoice_draft",
+    "description": "Stage a new e-invoice for review. Provide the customer name and line items. A known customer's TIN and email are attached automatically. Does NOT save it — call confirm_invoice after the owner confirms.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "customerName", "type": "string", "value_type": "llm_prompt", "description": "The customer to invoice.", "required": true },
+      { "id": "items", "type": "string", "value_type": "llm_prompt", "description": "A JSON string array of line items, e.g. [{\"description\":\"Kraf bag\",\"quantity\":3,\"unitPrice\":30,\"taxRate\":6}]. taxRate is the SST percentage.", "required": true },
+      { "id": "customerEmail", "type": "string", "value_type": "llm_prompt", "description": "Override the customer email, if given.", "required": false },
+      { "id": "buyerTin", "type": "string", "value_type": "llm_prompt", "description": "Override the buyer TIN, if given.", "required": false },
+      { "id": "issueDate", "type": "string", "value_type": "llm_prompt", "description": "Issue date YYYY-MM-DD. Defaults to today.", "required": false },
+      { "id": "dueDate", "type": "string", "value_type": "llm_prompt", "description": "Due date YYYY-MM-DD. Defaults to 14 days after issue.", "required": false },
+      { "id": "paymentTerms", "type": "string", "value_type": "llm_prompt", "description": "Payment terms text.", "required": false },
+      { "id": "notes", "type": "string", "value_type": "llm_prompt", "description": "Any note for the invoice.", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "update_invoice_draft",
+    "description": "Change details on the staged invoice: customer, dates, payment terms, prepayment, or notes.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "customerName", "type": "string", "value_type": "llm_prompt", "description": "New customer name (re-links their TIN and email).", "required": false },
+      { "id": "issueDate", "type": "string", "value_type": "llm_prompt", "description": "New issue date YYYY-MM-DD.", "required": false },
+      { "id": "dueDate", "type": "string", "value_type": "llm_prompt", "description": "New due date YYYY-MM-DD.", "required": false },
+      { "id": "paymentTerms", "type": "string", "value_type": "llm_prompt", "description": "New payment terms.", "required": false },
+      { "id": "prepaymentAmount", "type": "number", "value_type": "llm_prompt", "description": "Prepayment amount in MYR.", "required": false },
+      { "id": "notes", "type": "string", "value_type": "llm_prompt", "description": "New note.", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "add_invoice_line_item",
+    "description": "Add a line item to the staged invoice and report the new total.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "description", "type": "string", "value_type": "llm_prompt", "description": "What the line item is.", "required": true },
+      { "id": "quantity", "type": "number", "value_type": "llm_prompt", "description": "Quantity.", "required": true },
+      { "id": "unitPrice", "type": "number", "value_type": "llm_prompt", "description": "Unit price in MYR.", "required": true },
+      { "id": "taxRate", "type": "number", "value_type": "llm_prompt", "description": "SST percentage for the line, e.g. 6. Default 0.", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "remove_invoice_line_item",
+    "description": "Remove a line item from the staged invoice by its description or position. The invoice must keep at least one line.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "description", "type": "string", "value_type": "llm_prompt", "description": "The description of the line to remove.", "required": false },
+      { "id": "index", "type": "number", "value_type": "llm_prompt", "description": "The 1-based position of the line to remove.", "required": false }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "confirm_invoice",
+    "description": "Save the staged invoice as a draft e-invoice with a sequential invoice number. Only call after the owner confirms.",
+    "expects_response": true,
+    "response_timeout_secs": 15,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": []
+  },
+  {
+    "type": "client",
+    "name": "navigate",
+    "description": "Open a page in the app for the owner.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": [
+      { "id": "destination", "type": "string", "value_type": "llm_prompt", "description": "One of: dashboard, records, invoices, reminders, settings, voice.", "required": true }
+    ]
+  },
+  {
+    "type": "client",
+    "name": "get_current_context",
+    "description": "Report which business and page the owner is currently viewing, and today's date.",
+    "expects_response": true,
+    "response_timeout_secs": 10,
+    "execution_mode": "immediate",
+    "dynamic_variables": { "dynamic_variable_placeholders": {} },
+    "parameters": []
+  }
+]

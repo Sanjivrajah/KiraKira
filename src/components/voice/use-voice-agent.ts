@@ -10,6 +10,7 @@ import { services } from "@/services";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useBusiness } from "@/hooks/use-business";
 import { createVoiceClientTools, type VoiceDraftController } from "./client-tools";
+import { createVoiceCustomerResolver } from "./voice-customers";
 import { kualaLumpurToday } from "./voice-finance";
 import { useVoiceDraftStore } from "./voice-draft-store";
 import { appendTranscriptTurn, type TranscriptTurn } from "./voice-transcript";
@@ -26,9 +27,17 @@ const draftController: VoiceDraftController = {
   getTransaction: () => useVoiceDraftStore.getState().transaction,
   clearTransaction: () => useVoiceDraftStore.getState().clearTransaction(),
   setInvoice: (draft) => useVoiceDraftStore.getState().setInvoice(draft),
+  patchInvoice: (patch) => useVoiceDraftStore.getState().patchInvoice(patch),
   getInvoice: () => useVoiceDraftStore.getState().invoice,
   clearInvoice: () => useVoiceDraftStore.getState().clearInvoice(),
   setReminder: (draft) => useVoiceDraftStore.getState().setReminder(draft),
+  getReminder: () => useVoiceDraftStore.getState().reminder,
+  setPendingDelete: (draft) => useVoiceDraftStore.getState().setPendingDelete(draft),
+  getPendingDelete: () => useVoiceDraftStore.getState().pendingDelete,
+  setPendingPayment: (draft) => useVoiceDraftStore.getState().setPendingPayment(draft),
+  getPendingPayment: () => useVoiceDraftStore.getState().pendingPayment,
+  setCustomer: (draft) => useVoiceDraftStore.getState().setCustomer(draft),
+  getCustomer: () => useVoiceDraftStore.getState().customer,
   setLastConfirmation: (confirmation) => useVoiceDraftStore.getState().setLastConfirmation(confirmation),
 };
 
@@ -101,6 +110,7 @@ export function useVoiceAgent(): UseVoiceAgentResult {
   const pathnameRef = useRef(pathname);
   const businessNameRef = useRef(businessName);
   const businessIdRef = useRef(business?.id ?? null);
+  const businessRef = useRef(business ?? null);
   const authModeRef = useRef(mode);
   const transcriptRef = useRef<TranscriptTurn[]>([]);
   const storageSessionRef = useRef<Promise<string | null> | null>(null);
@@ -110,6 +120,7 @@ export function useVoiceAgent(): UseVoiceAgentResult {
   useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
   useEffect(() => { businessNameRef.current = businessName; }, [businessName]);
   useEffect(() => { businessIdRef.current = business?.id ?? null; }, [business?.id]);
+  useEffect(() => { businessRef.current = business ?? null; }, [business]);
   useEffect(() => { authModeRef.current = mode; }, [mode]);
 
   const queueTranscriptTurn = useCallback((turn: TranscriptTurn) => {
@@ -223,8 +234,10 @@ export function useVoiceAgent(): UseVoiceAgentResult {
       ]);
       const invalidateInvoices = () => Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.invoices.list(businessId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.reminders.list(businessId) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(businessId) }),
       ]);
+      const customers = createVoiceCustomerResolver({ mode, businessId });
 
       const clientTools = createVoiceClientTools({
         businessId,
@@ -236,12 +249,45 @@ export function useVoiceAgent(): UseVoiceAgentResult {
           await invalidateTransactions();
           return created;
         },
+        updateTransaction: async (transaction) => {
+          const updated = await services.transactions.update(transaction);
+          await invalidateTransactions();
+          return updated;
+        },
+        removeTransaction: async (transactionId) => {
+          await services.transactions.remove(businessId, transactionId);
+          await invalidateTransactions();
+        },
         listInvoices: () => services.invoices.initializeDemo(businessId),
         nextInvoiceNumber: () => services.invoices.nextInvoiceNumber(businessId),
         createInvoice: async (input) => {
           const created = await services.invoices.create(input);
           await invalidateInvoices();
           return created;
+        },
+        updateInvoice: async (invoice) => {
+          const updated = await services.invoices.update(invoice);
+          await invalidateInvoices();
+          return updated;
+        },
+        markReminderSent: async (invoice, messagePreview) => {
+          await services.reminders.markSent(invoice, messagePreview);
+          await invalidateInvoices();
+        },
+        listCustomers: () => customers.list(),
+        createCustomer: (input) => customers.create(input),
+        getBusinessContext: () => {
+          const active = businessRef.current;
+          if (!active) return null;
+          const filled = (value?: string | null) => Boolean(value && value.trim());
+          return {
+            businessName: active.name,
+            hasTin: filled(active.tin),
+            hasSstRegistration: filled(active.sstRegistration),
+            hasMsicCode: filled(active.msicCode),
+            hasAddress: filled(active.addressLine1) || filled(active.city),
+            hasRegistrationNumber: filled(active.registrationNumber),
+          };
         },
         navigate: (href) => router.push(href),
         getContext: () => ({ pathname: pathnameRef.current, businessName: businessNameRef.current }),

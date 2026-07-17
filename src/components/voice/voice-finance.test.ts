@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Transaction } from "@/types";
 import {
+  computeTransactionTotals,
   kualaLumpurToday,
+  normalizePaymentMethod,
   outstandingBalances,
   resolveFinancePeriod,
   summarizeTransactions,
@@ -88,5 +90,63 @@ describe("outstandingBalances", () => {
     expect(balances.map((balance) => balance.invoiceNumber)).toEqual(["INV-1", "INV-2"]);
     expect(balances[0]).toMatchObject({ outstanding: 100, overdue: true });
     expect(balances[1]).toMatchObject({ outstanding: 50, overdue: false });
+  });
+});
+
+describe("computeTransactionTotals", () => {
+  it("returns the amount unchanged when there is no tax", () => {
+    expect(computeTransactionTotals(45.5, 0, false)).toEqual({ subtotal: 45.5, tax: 0, total: 45.5 });
+  });
+
+  it("adds exclusive tax on top of the amount", () => {
+    expect(computeTransactionTotals(100, 6, false)).toEqual({ subtotal: 100, tax: 6, total: 106 });
+  });
+
+  it("splits tax out of a tax-inclusive amount", () => {
+    expect(computeTransactionTotals(106, 6, true)).toEqual({ subtotal: 100, tax: 6, total: 106 });
+  });
+
+  it("rounds a messy inclusive split to two decimals that reconcile", () => {
+    const totals = computeTransactionTotals(10, 6, true);
+    expect(totals.total).toBe(10);
+    expect(totals.subtotal).toBe(9.43);
+    expect(totals.tax).toBe(0.57);
+    expect(Math.round((totals.subtotal + totals.tax) * 100) / 100).toBe(totals.total);
+  });
+
+  it("treats invalid amounts and rates as zero", () => {
+    expect(computeTransactionTotals(Number.NaN, 6, false)).toEqual({ subtotal: 0, tax: 0, total: 0 });
+    expect(computeTransactionTotals(50, -6, false)).toEqual({ subtotal: 50, tax: 0, total: 50 });
+  });
+});
+
+describe("normalizePaymentMethod", () => {
+  it.each([
+    ["cash", "cash"],
+    ["tunai", "cash"],
+    ["bank transfer", "bank_transfer"],
+    ["online banking", "bank_transfer"],
+    ["DuitNow", "bank_transfer"],
+    ["credit card", "card"],
+    ["Visa", "card"],
+    ["card", "card"],
+    ["Touch n Go", "ewallet"],
+    ["TNG e-wallet", "ewallet"],
+    ["GrabPay", "ewallet"],
+    ["credit", "credit"],
+    ["hutang", "credit"],
+  ])("maps %s to %s", (input, expected) => {
+    expect(normalizePaymentMethod(input)).toBe(expected);
+  });
+
+  it("passes through already-normalized enum values", () => {
+    expect(normalizePaymentMethod("ewallet")).toBe("ewallet");
+    expect(normalizePaymentMethod("bank_transfer")).toBe("bank_transfer");
+  });
+
+  it("returns unknown for empty or unrecognised input", () => {
+    expect(normalizePaymentMethod("")).toBe("unknown");
+    expect(normalizePaymentMethod(null)).toBe("unknown");
+    expect(normalizePaymentMethod("banana")).toBe("unknown");
   });
 });
