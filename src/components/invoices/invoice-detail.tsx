@@ -33,6 +33,10 @@ function InvoicePrepaymentEditor({ initialAmount, grossTotal, pending, onSave }:
   return <section className="panel invoice-status-panel"><p className="section-kicker">e-Invoice totals</p><h2>Prepayment</h2><p>Record a deposit or advance payment already received. Use RM0 when there was no prepayment.</p><FormField id="invoice-prepayment-amount" name="prepaymentAmount" label="Prepayment amount (RM)" max={grossTotal} min="0" step="0.01" type="number" value={value} onChange={(event) => setValue(event.target.value)} /><button className="button button-primary button-full" disabled={pending || !Number.isFinite(amount) || amount === initialAmount} onClick={() => void onSave(amount)} type="button">{pending ? "Saving…" : "Save prepayment"}</button></section>;
 }
 
+function DraftInvoiceActions({ invoiceId }: { invoiceId: string }) {
+  return <section className="panel invoice-draft-actions" aria-labelledby="draft-actions-heading"><p className="section-kicker">Draft in progress</p><h2 id="draft-actions-heading">Finish your invoice</h2><p>Document details, starting status, and payment information stay together in the editor so you can review them before saving.</p><Link className="button button-primary button-full" href={`/invoices/${invoiceId}/edit`}><Pencil aria-hidden="true" size={17} />Continue editing</Link></section>;
+}
+
 export function InvoiceDetail({ id }: { id: string }) {
   const router = useRouter();
   const business = useBusiness().data;
@@ -95,7 +99,7 @@ export function InvoiceDetail({ id }: { id: string }) {
   return (
     <>
       <Link className="back-link" href="/invoices"><ArrowLeft aria-hidden="true" size={17} />Back to invoices</Link>
-      <header className="invoice-detail-header"><div><p className="eyebrow">Invoice detail</p><h1>{invoice.invoiceNumber}</h1><p>Issued to {invoice.customerName}</p>{invoice.status === "draft" ? <Link className="button button-primary" href={`/invoices/${invoice.id}/edit`}><Pencil aria-hidden="true" size={17} />Edit invoice and required fields</Link> : <p className="invoice-local-disclosure">Issued invoices are locked. Create a new draft to make a correction.</p>}</div><div className="invoice-detail-total"><span>Amount due</span><MoneyDisplay amount={Math.max(0, invoice.total - (invoice.prepaymentAmount ?? 0))} /></div></header>
+      <header className="invoice-detail-header"><div><p className="eyebrow">Invoice detail</p><h1>{invoice.invoiceNumber}</h1><p>Issued to {invoice.customerName}</p>{invoice.status !== "draft" ? <p className="invoice-local-disclosure">Issued invoices are locked. Create a new draft to make a correction.</p> : null}</div><div className="invoice-detail-total"><span>Amount due</span><MoneyDisplay amount={Math.max(0, invoice.total - (invoice.prepaymentAmount ?? 0))} /></div></header>
 
       {message ? <div className="inline-success" role="status"><CheckCircle2 aria-hidden="true" size={18} />{message}<button aria-label="Dismiss message" onClick={() => setMessage("")} type="button">×</button></div> : null}
       {error ? <div className="form-alert" role="alert">{error}</div> : null}
@@ -113,8 +117,7 @@ export function InvoiceDetail({ id }: { id: string }) {
         </article>
 
         <aside className="invoice-detail-sidebar">
-          {invoice.status !== "draft" ? <InvoicePrepaymentEditor key={`${invoice.id}-${invoice.updatedAt}`} grossTotal={invoice.total} initialAmount={invoice.prepaymentAmount ?? 0} pending={updateInvoice.isPending} onSave={savePrepayment} /> : null}
-          <section className="panel invoice-status-panel"><p className="section-kicker">Payment tracking</p><h2>Invoice status</h2><label htmlFor="invoice-detail-status">Update status</label><select className={`invoice-status-select ${effectiveStatus}`} disabled={updateInvoice.isPending} id="invoice-detail-status" onChange={(event) => changeStatus(event.target.value as InvoiceStatus)} value={effectiveStatus}>{effectiveStatus === "overdue" ? <option disabled value="overdue">Overdue</option> : null}{(["draft", "sent", "partially_paid", "paid", "void"] as InvoiceStatus[]).map((value) => <option key={value} value={value}>{invoiceStatusLabels[value]}</option>)}</select><p>Overdue status is automatically shown when a sent invoice passes its due date.</p></section>
+          {invoice.status === "draft" ? <DraftInvoiceActions invoiceId={invoice.id} /> : <><InvoicePrepaymentEditor key={`${invoice.id}-${invoice.updatedAt}`} grossTotal={invoice.total} initialAmount={invoice.prepaymentAmount ?? 0} pending={updateInvoice.isPending} onSave={savePrepayment} /><section className="panel invoice-status-panel"><p className="section-kicker">Payment tracking</p><h2>Invoice status</h2><label htmlFor="invoice-detail-status">Update status</label><select className={`invoice-status-select ${effectiveStatus}`} disabled={updateInvoice.isPending} id="invoice-detail-status" onChange={(event) => changeStatus(event.target.value as InvoiceStatus)} value={effectiveStatus}>{effectiveStatus === "overdue" ? <option disabled value="overdue">Overdue</option> : null}{(["draft", "sent", "partially_paid", "paid", "void"] as InvoiceStatus[]).map((value) => <option key={value} value={value}>{invoiceStatusLabels[value]}</option>)}</select><p>Overdue status is automatically shown when a sent invoice passes its due date.</p></section></>}
           <section className="panel invoice-history-panel"><p className="section-kicker">Local record</p><h2>Invoice history</h2><dl><div><dt>Created</dt><dd>{dateTimeFormatter.format(new Date(invoice.createdAt))}</dd></div><div><dt>Last updated</dt><dd>{dateTimeFormatter.format(new Date(invoice.updatedAt))}</dd></div><div><dt>Record ID</dt><dd className="record-id">{invoice.id}</dd></div></dl><button className="button button-danger button-full" onClick={() => setConfirmDelete(true)} type="button"><Trash2 aria-hidden="true" size={17} />Delete invoice</button></section>
         </aside>
       </div>

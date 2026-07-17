@@ -631,9 +631,44 @@ li {
   font-size: 1.5rem;
 }
 .einvoice-attention {
+  margin-top: 18px;
   margin-bottom: 18px;
   padding: 20px;
   border-color: #efcaca;
+}
+.einvoice-attention > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+.einvoice-attention > summary::-webkit-details-marker {
+  display: none;
+}
+.einvoice-attention > summary > span {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+.einvoice-attention > summary > span svg {
+  color: var(--danger);
+}
+.einvoice-attention > summary > strong {
+  color: var(--danger);
+}
+.einvoice-attention > summary > svg {
+  transition: transform 160ms ease;
+}
+.einvoice-attention[open] > summary > svg {
+  transform: rotate(180deg);
+}
+.einvoice-attention-content {
+  padding-top: 18px;
 }
 .einvoice-attention h2 {
   display: flex;
@@ -6386,8 +6421,15 @@ li {
   text-align: center;
 }
 .invoice-status-panel,
-.invoice-history-panel {
+.invoice-history-panel,
+.invoice-draft-actions {
   padding: 20px;
+}
+.invoice-draft-actions > p:last-of-type {
+  margin: 12px 0 20px;
+  color: var(--ink-500);
+  font-size: 0.875rem;
+  line-height: 1.55;
 }
 .invoice-status-panel label {
   display: block;

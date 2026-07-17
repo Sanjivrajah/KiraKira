@@ -40,10 +40,10 @@ beforeEach(() => {
 });
 
 describe("InvoiceDetail prepayment", () => {
-  it("links draft invoices to the complete required-field editor", () => {
+  it("links draft invoices to the complete editor", () => {
     currentInvoice = { ...invoice, status: "draft" };
     render(<InvoiceDetail id={invoice.id} />);
-    expect(screen.getByRole("link", { name: "Edit invoice and required fields" }))
+    expect(screen.getByRole("link", { name: "Continue editing" }))
       .toHaveAttribute("href", `/invoices/${invoice.id}/edit`);
   });
 
@@ -52,6 +52,8 @@ describe("InvoiceDetail prepayment", () => {
     render(<InvoiceDetail id={invoice.id} />);
     expect(screen.queryByLabelText("Prepayment amount (RM)")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save prepayment" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Update status")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Continue editing" })).toHaveAttribute("href", `/invoices/${invoice.id}/edit`);
   });
 
   it("allows a prepayment to be added to an existing sent source invoice", async () => {

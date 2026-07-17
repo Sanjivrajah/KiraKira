@@ -109,7 +109,12 @@ describe("EInvoiceWorkspace", () => {
     }];
     submissionData.attention = submissionData.submissions;
     submissionData.summary.needsAttention = 1;
-    render(<EInvoiceWorkspace />);
+    const { container } = render(<EInvoiceWorkspace />);
+    const attention = container.querySelector("#needs-attention");
+    expect(attention).not.toBeNull();
+    expect(attention).not.toHaveAttribute("open");
+    fireEvent.click(screen.getByText("Needs attention", { selector: "summary span" }));
+    expect(attention).toHaveAttribute("open");
     expect(screen.getByRole("heading", { name: "Needs attention" })).toBeVisible();
     fireEvent.click(screen.getByText("View details", { exact: false }));
     expect(screen.getByText(/IssueTime\[0\].*TimeExpected/)).toBeVisible();
