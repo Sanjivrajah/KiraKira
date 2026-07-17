@@ -11,6 +11,7 @@ import { useBusiness } from "@/hooks/use-business";
 import { createVoiceClientTools, type VoiceDraftController } from "./client-tools";
 import { kualaLumpurToday } from "./voice-finance";
 import { useVoiceDraftStore } from "./voice-draft-store";
+import { appendTranscriptTurn, type TranscriptTurn } from "./voice-transcript";
 
 // The store actions are stable, so a single controller instance stays valid for the session.
 const draftController: VoiceDraftController = {
@@ -25,14 +26,44 @@ const draftController: VoiceDraftController = {
   setLastConfirmation: (confirmation) => useVoiceDraftStore.getState().setLastConfirmation(confirmation),
 };
 
+/**
+ * The single "emotion" the UI renders. Derived from the raw SDK flags so the
+ * orb and status label never juggle overlapping booleans.
+ */
+export type VoicePhase =
+  | "idle"
+  | "connecting"
+  | "listening"
+  | "thinking"
+  | "speaking"
+  | "muted"
+  | "error";
+
+/** Human-readable label for each phase, announced via an aria-live region. */
+export const VOICE_PHASE_LABEL: Record<VoicePhase, string> = {
+  idle: "Not connected",
+  connecting: "Connecting…",
+  listening: "Listening…",
+  thinking: "Thinking…",
+  speaking: "Assistant speaking",
+  muted: "Muted",
+  error: "Something went wrong",
+};
+
 export interface UseVoiceAgentResult {
   status: "disconnected" | "connecting" | "connected" | "error";
+  phase: VoicePhase;
+  stateLabel: string;
   connecting: boolean;
   canConnect: boolean;
   isSpeaking: boolean;
   isListening: boolean;
   isMuted: boolean;
   error: string | null;
+  transcript: TranscriptTurn[];
+  /** Stable getters for the current mic / assistant output level (0–1). */
+  getInputVolume: () => number;
+  getOutputVolume: () => number;
   connect: () => Promise<void>;
   disconnect: () => void;
   toggleMute: () => void;
@@ -47,6 +78,10 @@ export function useVoiceAgent(): UseVoiceAgentResult {
 
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [transcript, setTranscript] = useState<TranscriptTurn[]>([]);
+  // Best-effort "thinking" signal: the user's turn has landed but the assistant
+  // has not started speaking yet. Cleared once the assistant replies (below).
+  const [awaitingReply, setAwaitingReply] = useState(false);
 
   // Read live inside long-lived tool closures without re-creating the session.
   const businessName = business?.name ?? "your business";
@@ -56,6 +91,11 @@ export function useVoiceAgent(): UseVoiceAgentResult {
   useEffect(() => { businessNameRef.current = businessName; }, [businessName]);
 
   const conversation = useConversation({
+    onMessage: ({ message, source }) => {
+      setTranscript((turns) => appendTranscriptTurn(turns, { message, source }));
+      // A user turn opens the "thinking" gap; an assistant turn closes it.
+      setAwaitingReply(source === "user");
+    },
     onError: (message, context) => {
       console.error("[voice] error", message, context);
       setError(typeof message === "string" && message ? message : "The voice assistant hit a problem.");
@@ -87,6 +127,8 @@ export function useVoiceAgent(): UseVoiceAgentResult {
     }
     setError(null);
     setConnecting(true);
+    setTranscript([]);
+    setAwaitingReply(false);
     try {
       const response = await fetch("/api/voice/session", { headers: { Accept: "application/json" } });
       if (!response.ok) {
@@ -167,14 +209,49 @@ export function useVoiceAgent(): UseVoiceAgentResult {
   useEffect(() => { endSessionRef.current = conversation.endSession; });
   useEffect(() => () => { endSessionRef.current(); }, []);
 
+  // Volume getters change identity every render too; expose stable wrappers so
+  // the orb's animation loop isn't torn down and rebuilt on each re-render.
+  const getInputVolumeRef = useRef(conversation.getInputVolume);
+  const getOutputVolumeRef = useRef(conversation.getOutputVolume);
+  useEffect(() => {
+    getInputVolumeRef.current = conversation.getInputVolume;
+    getOutputVolumeRef.current = conversation.getOutputVolume;
+  });
+  const getInputVolume = useCallback(() => {
+    try { return getInputVolumeRef.current(); } catch { return 0; }
+  }, []);
+  const getOutputVolume = useCallback(() => {
+    try { return getOutputVolumeRef.current(); } catch { return 0; }
+  }, []);
+
+  const { status, isSpeaking, isListening, isMuted } = conversation;
+  const phase: VoicePhase = error
+    ? "error"
+    : status === "connecting" || connecting
+      ? "connecting"
+      : status !== "connected"
+        ? "idle"
+        : isMuted
+          ? "muted"
+          : isSpeaking
+            ? "speaking"
+            : awaitingReply
+              ? "thinking"
+              : "listening"; // connected and not otherwise busy = waiting for you
+
   return {
-    status: conversation.status,
+    status,
+    phase,
+    stateLabel: VOICE_PHASE_LABEL[phase],
     connecting,
     canConnect,
-    isSpeaking: conversation.isSpeaking,
-    isListening: conversation.isListening,
-    isMuted: conversation.isMuted,
+    isSpeaking,
+    isListening,
+    isMuted,
     error,
+    transcript,
+    getInputVolume,
+    getOutputVolume,
     connect,
     disconnect,
     toggleMute,

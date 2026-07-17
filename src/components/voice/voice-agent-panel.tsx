@@ -1,11 +1,13 @@
 "use client";
 
-import { AudioLines, Mic, MicOff, PhoneOff } from "lucide-react";
+import { Mic, MicOff, PhoneOff } from "lucide-react";
 import { ConversationProvider } from "@elevenlabs/react";
 import { PageHeader } from "@/components/shared/page-header";
 import { useBusiness } from "@/hooks/use-business";
 import { useVoiceAgent } from "./use-voice-agent";
+import { VoiceCaptions } from "./voice-captions";
 import { VoiceDraftReview } from "./voice-draft-review";
+import { VoiceOrb } from "./voice-orb";
 
 const CAPABILITIES = [
   "Log a sale or an expense — “I spent RM45 on petrol today, cash.”",
@@ -17,23 +19,12 @@ const CAPABILITIES = [
 function VoiceAgentInner() {
   const agent = useVoiceAgent();
   const connected = agent.status === "connected";
-  const stateLabel = agent.status === "connecting" || agent.connecting
-    ? "Connecting…"
-    : connected
-      ? agent.isSpeaking
-        ? "Assistant speaking"
-        : agent.isListening
-          ? "Listening…"
-          : "Connected"
-      : "Not connected";
 
   return (
     <div className="voice-agent">
       <section className="voice-stage" aria-label="Voice assistant">
-        <div className={`voice-orb${connected ? " active" : ""}${agent.isSpeaking ? " speaking" : ""}`} aria-hidden="true">
-          <AudioLines size={40} />
-        </div>
-        <p className="voice-state" role="status" aria-live="polite">{stateLabel}</p>
+        <VoiceOrb phase={agent.phase} getInputVolume={agent.getInputVolume} getOutputVolume={agent.getOutputVolume} />
+        <p className="voice-state" data-phase={agent.phase} role="status" aria-live="polite">{agent.stateLabel}</p>
 
         <div className="voice-controls">
           {connected ? (
@@ -54,6 +45,7 @@ function VoiceAgentInner() {
         </div>
 
         {agent.error ? <p className="form-alert" role="alert">{agent.error}</p> : null}
+        <VoiceCaptions transcript={agent.transcript} />
         <p className="voice-privacy-note">Records are staged for your review and saved only after you confirm. This is a local demo — nothing is submitted to MyInvois or a bank.</p>
       </section>
 
