@@ -17,6 +17,11 @@
   --danger: #b33a32;
   --danger-bg: #fff0ee;
   --shadow: 0 14px 40px rgba(30, 50, 39, 0.07);
+  --glass-surface: linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.72));
+  --glass-border: rgba(255, 255, 255, 0.92);
+  --glass-edge: rgba(205, 219, 211, 0.8);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 18px 45px rgba(27, 54, 41, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   --text-caption: 0.75rem;
   --text-small: 0.875rem;
   --text-body: 1rem;
@@ -43,6 +48,11 @@
   --danger: #e8655c;
   --danger-bg: #2a1614;
   --shadow: 0 14px 40px rgba(0, 0, 0, 0.3);
+  --glass-surface: linear-gradient(145deg, rgba(35, 49, 43, 0.94), rgba(24, 35, 30, 0.8));
+  --glass-border: rgba(93, 116, 104, 0.46);
+  --glass-edge: rgba(23, 30, 27, 0.88);
+  --glass-highlight: rgba(143, 174, 158, 0.18);
+  --glass-shadow: 0 18px 45px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(143, 174, 158, 0.16);
   color-scheme: dark;
 }
 
@@ -9354,5 +9364,271 @@ li {
   .loan-readiness-workspace *,
   .loan-readiness-summary * {
     transition: none;
+  }
+}
+
+/* Liquid-glass visual layer. Static gradients create depth without per-card blur. */
+body {
+  background:
+    radial-gradient(circle at 88% 2%, rgba(216, 163, 40, 0.08), transparent 30rem),
+    radial-gradient(circle at 18% 18%, rgba(29, 128, 89, 0.1), transparent 32rem),
+    var(--canvas);
+}
+
+.app-main {
+  background:
+    radial-gradient(circle at 82% 8%, rgba(223, 243, 107, 0.08), transparent 26rem),
+    transparent;
+}
+
+.topbar {
+  border-color: rgba(255, 255, 255, 0.74);
+  background: rgba(248, 250, 247, 0.7);
+  box-shadow: 0 1px 0 rgba(207, 220, 213, 0.48), inset 0 -1px 0 rgba(255, 255, 255, 0.66);
+  backdrop-filter: saturate(1.15) blur(14px);
+}
+
+.icon-button,
+.avatar-button,
+.button-secondary,
+.user-menu,
+.mobile-more-menu {
+  border-color: var(--glass-border);
+  background: var(--glass-surface);
+  box-shadow: 0 10px 28px rgba(27, 54, 41, 0.08), inset 0 1px 0 var(--glass-highlight);
+}
+
+.button-primary {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: linear-gradient(145deg, #24875f, #176b4a 62%, #12583d);
+  box-shadow: 0 10px 26px rgba(23, 107, 74, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+.panel,
+.metric-card,
+.quick-action,
+.transaction-card,
+.invoice-card,
+.reminder-card,
+.settings-card,
+.settings-section,
+.auth-card,
+.onboarding-card,
+.capture-input-card,
+.capture-method-card,
+.review-card,
+.processing-card,
+.transaction-success-card,
+.einvoice-record-card,
+.einvoice-submission-card,
+.invoice-toolbar,
+.transaction-toolbar,
+.invoice-form-section,
+.evidence-review-card,
+.readiness-card,
+.state-card,
+.dialog-panel,
+.voice-draft-card,
+.voice-history,
+.voice-review-section,
+.loan-readiness-form-panel {
+  border-color: var(--glass-edge);
+  background: var(--glass-surface);
+  box-shadow: var(--glass-shadow);
+}
+
+.metric-card,
+.panel,
+.settings-card,
+.settings-section,
+.auth-card,
+.onboarding-card,
+.capture-input-card,
+.capture-method-card,
+.review-card,
+.processing-card,
+.transaction-success-card,
+.dialog-panel,
+.voice-review-section,
+.loan-readiness-form-panel {
+  border-radius: clamp(18px, 2vw, 24px);
+}
+
+.metric-card.brand {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: linear-gradient(145deg, #39845f, #226b4c 58%, #18583f);
+  box-shadow: 0 18px 38px rgba(23, 107, 74, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.panel.loan-preview {
+  border-color: rgba(255, 255, 255, 0.13);
+  background: linear-gradient(145deg, #1b3128, #112019 64%, #0e1915);
+  box-shadow: 0 20px 44px rgba(20, 39, 31, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.loan-preview .loan-icon {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: linear-gradient(145deg, #edfa8d, var(--lime));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 10px 24px rgba(223, 243, 107, 0.12);
+}
+
+.quick-action > span,
+.activity-icon,
+.settings-card-icon,
+.loan-icon {
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: linear-gradient(145deg, rgba(232, 247, 240, 0.94), rgba(211, 238, 225, 0.74));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 8px 18px rgba(29, 128, 89, 0.08);
+}
+
+.quick-action:hover {
+  border-color: rgba(146, 193, 170, 0.72);
+  box-shadow: 0 20px 42px rgba(27, 54, 41, 0.11), inset 0 1px 0 var(--glass-highlight);
+}
+
+.sidebar-business {
+  border-color: var(--glass-border);
+  background: var(--glass-surface);
+  box-shadow: 0 12px 28px rgba(27, 54, 41, 0.07), inset 0 1px 0 var(--glass-highlight);
+}
+
+.sidebar-link.active {
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: linear-gradient(135deg, rgba(217, 241, 229, 0.94), rgba(225, 244, 235, 0.68));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86), 0 8px 20px rgba(29, 128, 89, 0.07);
+}
+
+.sidebar-footer {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(145deg, #1c2d26, #111d18);
+  box-shadow: 0 14px 34px rgba(21, 32, 28, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.mobile-nav {
+  border-color: rgba(255, 255, 255, 0.82);
+  background: rgba(252, 253, 251, 0.78);
+  box-shadow: 0 20px 48px rgba(29, 48, 39, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  backdrop-filter: saturate(1.18) blur(14px);
+}
+
+.mobile-add > span:first-child {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: linear-gradient(145deg, #278962, #176b4a 64%, #12583d);
+  box-shadow: 0 10px 25px rgba(23, 107, 74, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at 88% 2%, rgba(228, 184, 74, 0.06), transparent 30rem),
+    radial-gradient(circle at 18% 18%, rgba(72, 201, 143, 0.08), transparent 32rem),
+    var(--canvas);
+}
+
+[data-theme="dark"] .topbar {
+  border-color: rgba(112, 139, 125, 0.28);
+  background: rgba(17, 24, 22, 0.72);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.36), inset 0 -1px 0 rgba(125, 155, 140, 0.12);
+}
+
+[data-theme="dark"] .mobile-nav {
+  border-color: rgba(112, 139, 125, 0.3);
+  background: rgba(17, 24, 22, 0.8);
+}
+
+[data-theme="dark"] :is(
+  .icon-button,
+  .avatar-button,
+  .button-secondary,
+  .user-menu,
+  .mobile-more-menu,
+  .panel,
+  .metric-card,
+  .quick-action,
+  .transaction-card,
+  .invoice-card,
+  .reminder-card,
+  .settings-card,
+  .settings-section,
+  .auth-card,
+  .onboarding-card,
+  .capture-input-card,
+  .capture-method-card,
+  .review-card,
+  .processing-card,
+  .transaction-success-card,
+  .einvoice-record-card,
+  .einvoice-submission-card,
+  .invoice-toolbar,
+  .transaction-toolbar,
+  .invoice-form-section,
+  .evidence-review-card,
+  .readiness-card,
+  .state-card,
+  .dialog-panel,
+  .voice-draft-card,
+  .voice-history,
+  .voice-review-section,
+  .loan-readiness-form-panel
+) {
+  border-color: var(--glass-edge);
+  background: var(--glass-surface);
+  box-shadow: var(--glass-shadow);
+}
+
+[data-theme="dark"] .metric-card.brand {
+  border-color: rgba(108, 176, 141, 0.28);
+  background: linear-gradient(145deg, #347c5a, #1e5f44 62%, #164735);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(137, 205, 170, 0.18);
+}
+
+[data-theme="dark"] .panel.loan-preview {
+  border-color: rgba(117, 158, 137, 0.2);
+  background: linear-gradient(145deg, #1b3128, #101f19 64%, #0d1713);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(137, 205, 170, 0.12);
+}
+
+[data-theme="dark"] .sidebar-link.active {
+  border-color: rgba(99, 155, 128, 0.24);
+  background: linear-gradient(135deg, rgba(28, 61, 47, 0.92), rgba(24, 51, 40, 0.72));
+}
+
+[data-theme="dark"] .quick-action > span,
+[data-theme="dark"] .activity-icon,
+[data-theme="dark"] .settings-card-icon,
+[data-theme="dark"] .loan-icon {
+  border-color: rgba(99, 155, 128, 0.2);
+  background: linear-gradient(145deg, rgba(31, 65, 51, 0.94), rgba(23, 50, 39, 0.74));
+  box-shadow: inset 0 1px 0 rgba(124, 177, 150, 0.12), 0 8px 18px rgba(0, 0, 0, 0.16);
+}
+
+@media (min-width: 1024px) {
+  .sidebar {
+    border-color: rgba(255, 255, 255, 0.7);
+    background: linear-gradient(165deg, rgba(250, 252, 249, 0.92), rgba(242, 247, 243, 0.78));
+    box-shadow: 1px 0 0 rgba(209, 221, 214, 0.54), inset -1px 0 0 rgba(255, 255, 255, 0.66);
+  }
+
+  [data-theme="dark"] .sidebar {
+    border-color: rgba(95, 119, 106, 0.24);
+    background: linear-gradient(165deg, rgba(27, 38, 33, 0.96), rgba(18, 27, 23, 0.9));
+    box-shadow: 1px 0 0 rgba(0, 0, 0, 0.36), inset -1px 0 0 rgba(125, 155, 140, 0.1);
+  }
+}
+
+@media (prefers-contrast: more), (forced-colors: active) {
+  .panel,
+  .metric-card,
+  .quick-action,
+  .transaction-card,
+  .invoice-card,
+  .reminder-card,
+  .settings-card,
+  .settings-section,
+  .auth-card,
+  .capture-input-card,
+  .review-card {
+    border-color: var(--line);
+    background: var(--surface);
+    box-shadow: none;
   }
 }
