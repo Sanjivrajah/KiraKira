@@ -97,7 +97,7 @@ describe("TransactionInputProcessor", () => {
     await expect(conversations.getActive("user", "chat")).resolves.toMatchObject({ mode: "awaiting_replacement", replacementInput: { text: "Sold cakes RM500 cash" } });
   });
 
-  it("clears an expired workflow so the owner's next message can start a fresh draft", async () => {
+  it("clears an expired workflow and starts a fresh draft from the current message", async () => {
     let currentTime = new Date("2026-07-15T00:00:00.000Z");
     const now = () => currentTime;
     const directory = await mkdtemp(join(tmpdir(), "niagaai-input-expired-")); directories.push(directory);
@@ -110,11 +110,9 @@ describe("TransactionInputProcessor", () => {
     await conversations.beginReview(draft);
     currentTime = new Date("2026-07-15T01:00:00.000Z");
 
-    await expect(processor.process({ text: "Sold cakes RM500", sourceType: "telegram_text", telegramUserId: "user", telegramChatId: "chat" })).resolves.toEqual({ outcome: "expired" });
-    await expect(conversations.getActive("user", "chat")).resolves.toBeNull();
+    await expect(processor.process({ text: "Sold cakes RM500", sourceType: "telegram_text", telegramUserId: "user", telegramChatId: "chat" })).resolves.toMatchObject({ outcome: "draft", restarted: true, draft: { status: "pending", originalInput: "Sold cakes RM500" } });
+    await expect(conversations.getActive("user", "chat")).resolves.toMatchObject({ mode: "awaiting_review", workflowStatus: "awaiting_confirmation" });
     await expect(repositories.drafts.findById(draft.id)).resolves.toMatchObject({ status: "cancelled" });
-
-    await expect(processor.process({ text: "Sold cakes RM500", sourceType: "telegram_text", telegramUserId: "user", telegramChatId: "chat" })).resolves.toMatchObject({ outcome: "draft", draft: { status: "pending", originalInput: "Sold cakes RM500" } });
     expect(extract).toHaveBeenCalledOnce();
   });
 });
