@@ -39,7 +39,7 @@ beforeEach(() => {
   submitMutation = vi.fn();
   submissionData = { environment: "sandbox", taxpayerIdentity: "C1234567890", productionReady: false, candidates: [], submissions: [], attention: [], summary: { needsAttention: 0, readyToSubmit: 0, inProgress: 0 } };
   data = {
-    candidates: [{ id: "invoice-1", invoiceNumber: "INV-100", documentType: "invoice", issueDate: "2026-07-17", currency: "USD", paymentStatus: "sent", revision: 1, eligible: true, ineligibilityReasons: [], preparationId: "prep-1", preparationStatus: "needs_information" }],
+    candidates: [{ id: "invoice-1", invoiceNumber: "INV-100", documentType: "invoice", issueDate: "2026-07-17", issueTime: "10:04:00", currency: "USD", paymentStatus: "sent", revision: 1, eligible: true, ineligibilityReasons: [], preparationId: "prep-1", preparationStatus: "needs_information" }],
     preparations: [{
       id: "prep-1", businessId: "business-1", sourceInvoiceId: "invoice-1", sourceInvoiceRevision: 1,
       documentType: "invoice", documentVersion: "1.0", scenario: "foreign_currency", hasCanonicalDocument: false,
@@ -66,6 +66,13 @@ describe("EInvoiceWorkspace", () => {
     expect(screen.getByText("These are internal checks, not official MyInvois validation.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Enter exchange rate here" })).toHaveAttribute("href", "#preparation-field-exchangeRate");
     expect(screen.getByRole("spinbutton", { name: /Exchange rate to MYR/ })).toHaveAttribute("id", "preparation-field-exchangeRate");
+  });
+
+  it("prefills issue time from the saved invoice without creating an override", () => {
+    render(<EInvoiceWorkspace />);
+    expect(screen.getByDisplayValue("10:04:00")).toBeInTheDocument();
+    expect(screen.getByText(/Using the saved invoice issue time\. Change only to record a document-specific correction\./)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save and recheck" })).toBeDisabled();
   });
 
   it("routes reusable supplier blockers to the editable business profile", () => {

@@ -205,7 +205,7 @@ export class SupabaseEInvoiceRepository implements EInvoiceSourceRepository, EIn
   }
 
   async listCandidates(businessId: string): Promise<EInvoiceCandidate[]> {
-    const { data, error } = await this.client.from("invoices").select("id,invoice_number,document_type,issue_date,currency,status,version,customer_id,invoice_items(id)").eq("business_id", businessId).order("issue_date", { ascending: false });
+    const { data, error } = await this.client.from("invoices").select("id,invoice_number,document_type,issue_date,issue_time,currency,status,version,customer_id,invoice_items(id)").eq("business_id", businessId).order("issue_date", { ascending: false });
     if (error) throw error;
     return data.map((row) => {
       const reasons = [
@@ -213,7 +213,7 @@ export class SupabaseEInvoiceRepository implements EInvoiceSourceRepository, EIn
         ...(!row.customer_id ? ["Add a saved buyer before preparing this invoice."] : []),
         ...(row.invoice_items.length === 0 ? ["Add at least one invoice line before preparing this invoice."] : []),
       ];
-      return { id: row.id, invoiceNumber: row.invoice_number, documentType: row.document_type as EInvoiceCandidate["documentType"], issueDate: row.issue_date, currency: row.currency, paymentStatus: row.status, revision: row.version, eligible: reasons.length === 0, ineligibilityReasons: reasons };
+      return { id: row.id, invoiceNumber: row.invoice_number, documentType: row.document_type as EInvoiceCandidate["documentType"], issueDate: row.issue_date, issueTime: row.issue_time ?? undefined, currency: row.currency, paymentStatus: row.status, revision: row.version, eligible: reasons.length === 0, ineligibilityReasons: reasons };
     });
   }
 

@@ -84,7 +84,7 @@ function legacyInvoice(item: Record<string, unknown>, businessId: string): { par
     id: buyerId,
     kind: "business",
     legalName: string(item.customerName, "Migrated customer"),
-    tin: string(item.buyerTin, "EI00000000010"),
+    tin: string(item.buyerTin, "IG40365782020"),
     registrationScheme: "brn",
     registrationValue: string(item.registrationNumber, "NA"),
     email: string(item.customerEmail),

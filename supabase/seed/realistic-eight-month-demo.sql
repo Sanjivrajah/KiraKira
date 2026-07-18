@@ -124,16 +124,21 @@ begin
   ) as source(kind, legal_name, trading_name, roles, email, phone, terms)
   where not exists (select 1 from public.parties p where p.business_id = v_business_id and p.legal_name = source.legal_name);
 
-  -- Every counterparty receives an internally consistent synthetic identity and
-  -- billing address. They are deliberately unusable for actual MyInvois calls.
+  -- Every demo customer uses the configured sandbox taxpayer TIN so generated
+  -- e-Invoice fixtures remain internally consistent with sandbox credentials.
   with numbered_parties as (
     select id, row_number() over (order by legal_name) as sequence
     from public.parties where business_id = v_business_id
   )
+  update public.party_tax_identifiers identifier
+  set value = 'IG40365782020', issuing_country_code = 'MY', description = 'Sandbox test taxpayer TIN supplied for this demo'
+  from public.parties party
+  where identifier.party_id = party.id and identifier.scheme = 'tin' and party.business_id = v_business_id and party.roles ? 'customer';
   insert into public.party_tax_identifiers (party_id, scheme, value, issuing_country_code, description)
-  select id, 'tin', 'C20' || lpad(sequence::text, 8, '0'), 'MY', 'Synthetic demo TIN — not valid for MyInvois submission'
+  select id, 'tin', 'IG40365782020', 'MY', 'Sandbox test taxpayer TIN supplied for this demo'
   from numbered_parties
-  on conflict (party_id, scheme, value) do update set issuing_country_code = excluded.issuing_country_code, description = excluded.description;
+  where exists (select 1 from public.parties party where party.id = numbered_parties.id and party.roles ? 'customer')
+    and not exists (select 1 from public.party_tax_identifiers identifier where identifier.party_id = numbered_parties.id and identifier.scheme = 'tin');
   with numbered_parties as (
     select id, row_number() over (order by legal_name) as sequence
     from public.parties where business_id = v_business_id
@@ -316,9 +321,11 @@ begin
       on conflict do nothing;
     end if;
 
-    if extract(isodow from v_activity_date) in (2, 4, 6) then
+    -- Daily paid counter sales keep this synthetic business cash-positive while
+    -- retaining regular cost-of-sales, transport, rent, payroll, and utilities.
+    if extract(isodow from v_activity_date) between 1 and 6 then
       v_sale_number := v_sale_number + 1;
-      v_amount := 7200 + ((v_sale_number % 7) * 1850);
+      v_amount := 48000 + ((v_sale_number % 7) * 6500);
       insert into public.transactions (business_id, direction, transaction_type, lifecycle, occurred_at, transaction_date, accounting_date, counterparty_name_snapshot, description, category_code, currency, subtotal_minor, discount_minor, tax_minor, total_minor, payment_status, payment_method_code, e_invoice_treatment, source_provenance, external_key, confidence_score, confirmed_at, confirmed_by, source_links, lines, totals, created_by, updated_by)
       values (v_business_id, 'income', 'sale', 'confirmed', v_activity_date::timestamptz + interval '13 hours', v_activity_date, v_activity_date, 'Walk-in customers', 'Counter sales: rice bowls, pastries and drinks', 'food_sales', 'MYR', v_amount, 0, 0, v_amount, 'paid', case when v_sale_number % 2 = 0 then 'cash' else 'duitnow' end, 'consolidated_candidate', 'manual', format('omk-demo-counter-%s', v_activity_date), 1, v_activity_date::timestamptz + interval '13 hours', v_owner_id, '[]'::jsonb, '[]'::jsonb, '{}'::jsonb, v_owner_id, v_owner_id)
       on conflict do nothing;

@@ -11,6 +11,9 @@ import type { BotEnvironment } from "@/lib/env";
 import type { Update } from "grammy/types";
 import { TransactionDraftService } from "@/features/transaction-agent/transaction-confirmation";
 import { createLocalTransactionRepositories } from "@/features/transaction-agent/transaction-repositories";
+import { ConversationService } from "@/features/transaction-agent/conversation-service";
+import { LocalConversationStateRepository } from "@/features/transaction-agent/conversation-repository";
+import { TransactionInputProcessor } from "@/features/transaction-agent/transaction-input-processor";
 import type { TransactionExtraction } from "@/features/transaction-agent/transaction.schema";
 import type { ReceiptExtraction } from "@/lib/openai/receipt-schema";
 import { TelegramReceiptFileTooLargeError } from "@/lib/telegram/download-receipt";
@@ -95,6 +98,41 @@ const receiptExtraction: ReceiptExtraction = {
   category: { value: "Supplies", evidenceText: "Shop supplies", confidence: 0.8 },
   missingFields: [], warnings: [], overallConfidence: 0.9,
 };
+
+describe("multi-intent capture end to end", () => {
+  it("splits one message into a batch, shows an e-invoice hint, and advances the queue on confirm", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "niagaai-bot-batch-")); directories.push(directory);
+    const { calls, fetchMock } = telegramFetch();
+    const repositories = createLocalTransactionRepositories(directory);
+    const service = new TransactionDraftService(repositories.drafts, repositories.transactions);
+    const conversations = new ConversationService(repositories.drafts, new LocalConversationStateRepository(directory));
+    const sale: TransactionExtraction = { type: "income", amount: 25, currency: "MYR", description: "Sale of nasi lemak", merchantOrCustomer: "Ahmad", paymentMethod: "cash", transactionDate: "2026-07-15", category: "Sales revenue", quantity: null, unit: null, missingFields: [], confidence: 0.9 };
+    const extractMultiIntent = vi.fn().mockResolvedValue({
+      actions: [
+        { actionIndex: 1, capability: "transaction_capture", transaction: sale, evidenceSummary: "sold nasi lemak", uncertainty: "none", missingFields: [] },
+        { actionIndex: 2, capability: "transaction_capture", transaction: complete, evidenceSummary: "beli stok", uncertainty: "none", missingFields: [] },
+      ],
+      globalAmbiguityNotes: [],
+    });
+    const inputProcessor = new TransactionInputProcessor({ drafts: repositories.drafts, draftService: service, conversations, apiKey: "k", model: "m", extractMultiIntent: extractMultiIntent as never });
+    const bot = createTelegramBot(environment(directory), service, { inputProcessor, telegramFetch: fetchMock as typeof fetch });
+    bot.botInfo = botInfo;
+
+    await bot.handleUpdate(update("sold nasi lemak RM25 cash and beli stok RM20 cash", 80));
+
+    const bodies = calls.filter((call) => call.method === "sendMessage").map((call) => call.body);
+    expect(bodies.some((body) => body.includes("I caught 2 transactions"))).toBe(true);
+    expect(bodies.some((body) => body.includes("MyInvois e-Invoice"))).toBe(true);
+    const confirmMatch = bodies.join("").match(/tx:confirm:([0-9a-f-]{36})/);
+    expect(confirmMatch).not.toBeNull();
+
+    await bot.handleUpdate(callbackUpdate(`tx:confirm:${confirmMatch![1]}`, 7, 81));
+
+    const afterConfirm = calls.filter((call) => call.method === "sendMessage").map((call) => call.body);
+    expect(afterConfirm.some((body) => body.includes("Next — transaction 2 of 2"))).toBe(true);
+    await expect(repositories.transactions.listByUser("7")).resolves.toHaveLength(1);
+  });
+});
 
 describe("duplicate confirmation callback data", () => {
   it("treats Telegram's already-cleared keyboard response as a harmless no-op", () => {

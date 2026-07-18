@@ -106,6 +106,19 @@ describe("clarification flow", () => {
     await expect(states.findByUser("owner")).resolves.toMatchObject({ mode: "awaiting_review", workflowStatus: "awaiting_confirmation" });
   });
 
+  it("stops asking after the clarification-turn cap and moves an incomplete draft to review", async () => {
+    const { conversations, draft, states } = await makeFlow();
+    await conversations.beginClarification(draft);
+    // The extraction stays incomplete every round, so only the turn cap can end the loop.
+    let last;
+    for (let round = 0; round < 6; round += 1) {
+      const state = (await states.findByUser("owner"))!;
+      last = await conversations.replaceDraft({ state, telegramUserId: "owner", extraction: incomplete });
+    }
+    expect(last).toMatchObject({ outcome: "updated", nextField: null });
+    await expect(states.findByUser("owner")).resolves.toMatchObject({ mode: "awaiting_review", clarificationTurns: 6 });
+  });
+
   it("enters correction mode without cancelling the pending draft", async () => {
     const { conversations, drafts, states, draft, repositories } = await makeFlow();
     const result = await drafts.act({ action: "correct", draftId: draft.id, telegramUserId: "owner" });

@@ -1,13 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   buildTransactionExtractionPrompt,
+  buildTransactionReExtractionPrompt,
   extractTransactionFromText,
   getKualaLumpurDate,
   TransactionExtractionError,
   type TransactionExtractionClient,
 } from "@/features/transaction-agent/transaction-extractor";
+import type { TransactionExtraction } from "@/features/transaction-agent/transaction.schema";
 
-const completeDraft = {
+const completeDraft: TransactionExtraction = {
   type: "expense",
   amount: 85,
   currency: "MYR",
@@ -20,7 +22,7 @@ const completeDraft = {
   unit: null,
   missingFields: [],
   confidence: 0.94,
-} as const;
+};
 
 function mockClient(outputParsed: unknown): { client: TransactionExtractionClient; parse: ReturnType<typeof vi.fn> } {
   const parse = vi.fn().mockResolvedValue({ output_parsed: outputParsed });
@@ -65,6 +67,19 @@ describe("transaction text extractor", () => {
 
   it("uses Asia/Kuala_Lumpur rather than the machine timezone", () => {
     expect(getKualaLumpurDate(new Date("2026-07-14T20:30:00.000Z"))).toBe("2026-07-15");
+  });
+
+  it("includes earlier replies in the re-extraction prompt so references resolve across turns", () => {
+    const prompt = buildTransactionReExtractionPrompt({ originalInput: "Beli barang", currentDraft: completeDraft, requestedField: "amount", reply: "make it 55 instead", currentDate: "2026-07-15", history: ["at Pasar Borong", "cash"] });
+    expect(prompt).toContain("Earlier replies in this conversation");
+    expect(prompt).toContain("1. at Pasar Borong");
+    expect(prompt).toContain("2. cash");
+    expect(prompt).toContain("make it 55 instead");
+  });
+
+  it("omits the conversation section when there is no prior history", () => {
+    const prompt = buildTransactionReExtractionPrompt({ originalInput: "Beli barang", currentDraft: completeDraft, requestedField: "amount", reply: "RM55", currentDate: "2026-07-15" });
+    expect(prompt).not.toContain("Earlier replies in this conversation");
   });
 
   it("gives the model the multilingual and anti-invention rules", () => {

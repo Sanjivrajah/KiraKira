@@ -158,6 +158,8 @@ export interface EInvoiceCandidate {
   invoiceNumber: string;
   documentType: CommercialDocument["documentType"];
   issueDate: string;
+  /** Saved source value shown as a non-persisted default during preparation. */
+  issueTime?: string;
   currency: string;
   paymentStatus: string;
   revision: number;
