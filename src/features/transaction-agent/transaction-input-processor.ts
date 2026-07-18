@@ -90,6 +90,9 @@ export class TransactionInputProcessor {
         await this.dependencies.draftService.act({ action: "cancel", draftId: expiredDraft.id, telegramUserId: input.telegramUserId });
       }
       await this.dependencies.conversations.expire(state);
+      // Expiry is terminal. Leaving the state active makes every subsequent
+      // message hit this branch, despite telling the owner to start over.
+      await this.dependencies.conversations.clearByUser(input.telegramUserId, input.telegramChatId);
       return { outcome: "expired" };
     }
 
