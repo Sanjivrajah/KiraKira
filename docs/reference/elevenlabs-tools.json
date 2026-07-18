@@ -1145,7 +1145,7 @@
   {
     "type": "client",
     "name": "get_current_context",
-    "description": "Report which business and page the owner is currently viewing, and today's date.",
+    "description": "Report which business and page the owner is currently viewing, today's date, and anything currently staged on screen for review (a draft transaction, invoice, reminder, pending delete or payment, or new customer). Call this whenever you need to know what the owner is looking at.",
     "expects_response": true,
     "response_timeout_secs": 10,
     "dynamic_variables": {

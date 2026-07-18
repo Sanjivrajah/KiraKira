@@ -270,6 +270,25 @@ describe("createVoiceClientTools", () => {
     expect(message).toContain("MSIC code");
   });
 
+  it("reports the current page with no staged state", () => {
+    const { tools } = buildDeps({ getContext: () => ({ pathname: "/invoices", businessName: "Kedai Ali" }) });
+    const message = tools.get_current_context({});
+    expect(message).toContain("Kedai Ali");
+    expect(message).toContain("invoices");
+    expect(message).not.toContain("On screen");
+  });
+
+  it("reports staged draft state as what's on screen", async () => {
+    const { tools } = buildDeps();
+    tools.create_transaction_draft({ type: "expense", amount: 45, description: "Petrol", category: "Fuel" });
+    const message = tools.get_current_context({});
+    expect(message).toContain("On screen, staged for review");
+    expect(message).toContain("Petrol");
+    tools.create_customer({ name: "Baru Trading", email: "baru@example.com" });
+    const withCustomer = tools.get_current_context({});
+    expect(withCustomer).toContain("staged new customer: Baru Trading (baru@example.com)");
+  });
+
   it("answers a profit-only finance query", async () => {
     const { tools } = buildDeps({ listTransactions: async () => [confirmedTxn({ type: "income", total: 300, date: "2026-07-10" }), confirmedTxn({ type: "expense", total: 100, date: "2026-07-11" })] });
     const message = await tools.query_finances({ metric: "profit" });

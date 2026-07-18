@@ -968,7 +968,33 @@ export function createVoiceClientTools(deps: VoiceClientToolDeps): Record<string
     get_current_context: () => {
       const { pathname, businessName } = deps.getContext();
       const page = describePath(pathname);
-      return `You're working in ${businessName} and currently viewing ${page}. Today is ${today()}.`;
+      const parts = [`You're working in ${businessName} and currently viewing ${page}. Today is ${today()}.`];
+
+      const transaction = deps.draft.getTransaction();
+      if (transaction) parts.push(`On screen, staged for review: ${describeTransaction(transaction)}.`);
+
+      const invoice = deps.draft.getInvoice();
+      if (invoice) {
+        const totals = calculateInvoiceTotals(invoice.items);
+        const lineCount = `${invoice.items.length} line item${invoice.items.length === 1 ? "" : "s"}`;
+        parts.push(`On screen, a staged invoice for ${invoice.customerName} with ${lineCount}, totalling ${rm(totals.total)}, due ${invoice.dueDate}.`);
+      }
+
+      const reminder = deps.draft.getReminder();
+      if (reminder) parts.push(`On screen, a staged reminder for ${reminder.customerName} on invoice ${reminder.invoiceNumber}: "${reminder.message}".`);
+
+      const pendingDelete = deps.draft.getPendingDelete();
+      if (pendingDelete) parts.push(`On screen, awaiting confirmation to delete ${pendingDelete.label}.`);
+
+      const pendingPayment = deps.draft.getPendingPayment();
+      if (pendingPayment) {
+        parts.push(`On screen, awaiting confirmation to record a payment of ${rm(pendingPayment.amount)} on invoice ${pendingPayment.invoiceNumber} for ${pendingPayment.customerName}.`);
+      }
+
+      const customer = deps.draft.getCustomer();
+      if (customer) parts.push(`On screen, a staged new customer: ${customer.name}${customer.email ? ` (${customer.email})` : ""}.`);
+
+      return parts.join(" ");
     },
   };
 }
