@@ -70,6 +70,7 @@ export function parseInvoice(value: unknown): Invoice | null {
     customerEmail: isString(item.customerEmail) ? item.customerEmail : null, buyerTin: isString(item.buyerTin) ? item.buyerTin : null,
     issueDate: item.issueDate, dueDate: item.dueDate, status, currency: "MYR",
     items: items.filter((line): line is InvoiceLineItem => line !== null), subtotal: item.subtotal, tax: item.tax, total: item.total,
+    prepaymentAmount: isNumber(item.prepaymentAmount) ? item.prepaymentAmount : 0,
     amountPaid: isNumber(item.amountPaid) ? item.amountPaid : status === "paid" ? item.total : 0,
     notes: isString(item.notes) ? item.notes : null, paymentTerms: isString(item.paymentTerms) ? item.paymentTerms : null,
     createdAt: item.createdAt, updatedAt: isString(item.updatedAt) ? item.updatedAt : item.createdAt,

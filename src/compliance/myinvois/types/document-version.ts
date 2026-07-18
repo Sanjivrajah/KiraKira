@@ -16,10 +16,4 @@ export const MYINVOIS_DOCUMENT_VERSIONS: readonly MyInvoisDocumentVersion[] = Ob
     signatureRequired: false,
     sourceReference: "MyInvois SDK document types v1.0",
   },
-  {
-    version: "1.1",
-    active: true,
-    signatureRequired: true,
-    sourceReference: "MyInvois SDK document types v1.1",
-  },
 ]);

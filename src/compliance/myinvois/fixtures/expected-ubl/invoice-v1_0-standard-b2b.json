@@ -1,0 +1,107 @@
+{
+  "_D": "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2",
+  "_A": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
+  "_B": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
+  "Invoice": [{
+    "ID": [{ "_": "INV-FIXTURE-001" }],
+    "IssueDate": [{ "_": "2026-07-15" }],
+    "IssueTime": [{ "_": "01:30:00Z" }],
+    "InvoiceTypeCode": [{ "_": "01", "listVersionID": "1.0" }],
+    "DocumentCurrencyCode": [{ "_": "MYR" }],
+    "Note": [{ "_": "Generated from deterministic Session 6 fixtures." }],
+    "AccountingSupplierParty": [{ "Party": [{
+      "IndustryClassificationCode": [{ "_": "01111", "name": "Growing of maize" }],
+      "PartyIdentification": [
+        { "ID": [{ "_": "C2584563222", "schemeID": "TIN" }] },
+        { "ID": [{ "_": "202601012345", "schemeID": "BRN" }] },
+        { "ID": [{ "_": "W10-1808-32000001", "schemeID": "SST" }] }
+      ],
+      "PostalAddress": [{
+        "CityName": [{ "_": "Shah Alam" }],
+        "PostalZone": [{ "_": "40100" }],
+        "CountrySubentityCode": [{ "_": "10" }],
+        "AddressLine": [
+          { "Line": [{ "_": "1 Jalan Niaga" }] },
+          { "Line": [{ "_": "Taman Perniagaan" }] }
+        ],
+        "Country": [{ "IdentificationCode": [{ "_": "MYS", "listID": "ISO3166-1", "listAgencyID": "6" }] }]
+      }],
+      "PartyLegalEntity": [{ "RegistrationName": [{ "_": "Niaga Fixture Sdn. Bhd." }] }],
+      "Contact": [{
+        "Telephone": [{ "_": "+60312345678" }],
+        "ElectronicMail": [{ "_": "billing@niaga.example" }]
+      }]
+    }] }],
+    "AccountingCustomerParty": [{ "Party": [{
+      "PartyIdentification": [
+        { "ID": [{ "_": "C2584563200", "schemeID": "TIN" }] },
+        { "ID": [{ "_": "202501012345", "schemeID": "BRN" }] }
+      ],
+      "PostalAddress": [{
+        "CityName": [{ "_": "Kuala Lumpur" }],
+        "PostalZone": [{ "_": "50480" }],
+        "CountrySubentityCode": [{ "_": "14" }],
+        "AddressLine": [{ "Line": [{ "_": "2 Jalan Pembeli" }] }],
+        "Country": [{ "IdentificationCode": [{ "_": "MYS", "listID": "ISO3166-1", "listAgencyID": "6" }] }]
+      }],
+      "PartyLegalEntity": [{ "RegistrationName": [{ "_": "Pembeli Fixture Sdn. Bhd." }] }],
+      "Contact": [{
+        "Telephone": [{ "_": "+60387654321" }],
+        "ElectronicMail": [{ "_": "accounts@pembeli.example" }]
+      }]
+    }] }],
+    "PaymentMeans": [{
+      "PaymentMeansCode": [{ "_": "03" }],
+      "PaymentID": [{ "_": "INV-FIXTURE-001" }],
+      "PaymentDueDate": [{ "_": "2026-08-14" }],
+      "PayeeFinancialAccount": [{ "ID": [{ "_": "1234567890" }] }]
+    }],
+    "PaymentTerms": [{ "Note": [{ "_": "Payment due within 30 days." }] }],
+    "TaxTotal": [{
+      "TaxAmount": [{ "_": 12, "currencyID": "MYR" }],
+      "TaxSubtotal": [{
+        "TaxableAmount": [{ "_": 200, "currencyID": "MYR" }],
+        "TaxAmount": [{ "_": 12, "currencyID": "MYR" }],
+        "Percent": [{ "_": 6 }],
+        "TaxCategory": [{
+          "ID": [{ "_": "02" }],
+          "TaxScheme": [{ "ID": [{ "_": "OTH", "schemeID": "UN/ECE 5153", "schemeAgencyID": "6" }] }]
+        }]
+      }]
+    }],
+    "LegalMonetaryTotal": [{
+      "LineExtensionAmount": [{ "_": 200, "currencyID": "MYR" }],
+      "TaxExclusiveAmount": [{ "_": 200, "currencyID": "MYR" }],
+      "TaxInclusiveAmount": [{ "_": 212, "currencyID": "MYR" }],
+      "AllowanceTotalAmount": [{ "_": 0, "currencyID": "MYR" }],
+      "ChargeTotalAmount": [{ "_": 0, "currencyID": "MYR" }],
+      "PrepaidAmount": [{ "_": 0, "currencyID": "MYR" }],
+      "PayableRoundingAmount": [{ "_": 0, "currencyID": "MYR" }],
+      "PayableAmount": [{ "_": 212, "currencyID": "MYR" }]
+    }],
+    "InvoiceLine": [{
+      "ID": [{ "_": "1" }],
+      "InvoicedQuantity": [{ "_": 2, "unitCode": "C62" }],
+      "LineExtensionAmount": [{ "_": 200, "currencyID": "MYR" }],
+      "TaxTotal": [{
+        "TaxAmount": [{ "_": 12, "currencyID": "MYR" }],
+        "TaxSubtotal": [{
+          "TaxableAmount": [{ "_": 200, "currencyID": "MYR" }],
+          "TaxAmount": [{ "_": 12, "currencyID": "MYR" }],
+          "Percent": [{ "_": 6 }],
+          "TaxCategory": [{
+            "ID": [{ "_": "02" }],
+            "TaxScheme": [{ "ID": [{ "_": "OTH", "schemeID": "UN/ECE 5153", "schemeAgencyID": "6" }] }]
+          }]
+        }]
+      }],
+      "Item": [{
+        "CommodityClassification": [{ "ItemClassificationCode": [{ "_": "022", "listID": "CLASS" }] }],
+        "Description": [{ "_": "Business consulting" }],
+        "OriginCountry": [{ "IdentificationCode": [{ "_": "MYS" }] }]
+      }],
+      "Price": [{ "PriceAmount": [{ "_": 100, "currencyID": "MYR" }] }],
+      "ItemPriceExtension": [{ "Amount": [{ "_": 200, "currencyID": "MYR" }] }]
+    }]
+  }]
+}

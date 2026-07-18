@@ -10,7 +10,7 @@ It also includes the frontend roadmap’s transaction and invoicing journeys:
 
 ```text
 Choose a source → Capture or import evidence → Review each proposed transaction → Save locally
-Create invoice → Check totals and readiness → Save locally → Preview reminder
+Create invoice → Check totals and readiness → Save locally → Review reminder
 ```
 
 ## Current Scope
@@ -30,13 +30,13 @@ Phase 0 through Phase 2 of `plan_frontend_first.md` are complete.
 - ElevenLabs Scribe v2 voice transcription followed by OpenAI transaction structuring
 - Deterministic, browser-local CSV and bank-CSV parsing for up to 100 rows
 - OpenAI PDF bank-statement extraction with strict file validation
-- WhatsApp capture preview that remains clearly labelled as a demo
+- Telegram capture flow that remains clearly labelled as a demo
 - Editable transaction review with provenance-specific extraction disclosures
 - Resilient browser-local transaction storage and completion actions
 - Searchable invoice tracking with draft, sent, paid, and derived overdue states
 - Multi-line invoice builder with automatic subtotal, tax, and total calculations
 - Transparent frontend-only e-invoice readiness checks
-- Upcoming and overdue reminder previews with locally persisted reminder history
+- Upcoming and overdue payment reminders with locally persisted reminder history
 
 Database persistence, MyInvois submission, and production financial storage remain out of scope. Receipt images and PDF bank statements use the configured OpenAI API. Voice notes use ElevenLabs for transcription and OpenAI for structured transaction extraction. CSV imports are parsed locally without an AI call.
 
@@ -56,6 +56,12 @@ The password only demonstrates form validation. It is never compared with a serv
 Supabase is available locally for development. It authenticates users only in this
 foundation session; browser-local business, transaction, invoice, and reminder
 repositories intentionally remain unchanged until the later migration sessions.
+
+For the local-to-hosted migration workflow, explicit local-data import process,
+production deployment checks, backup/rollback, and incident response, read
+[`docs/supabase-operations.md`](docs/supabase-operations.md). Browser-local
+records are exported and imported only by an explicit user action; they never
+silently migrate on page load.
 
 ### Prerequisites
 
@@ -80,11 +86,10 @@ NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<local publishable-or-anon-key>
 ```
 
-For browser-local demo mode, set `NEXT_PUBLIC_AUTH_MODE=demo`. In development,
-an omitted mode defaults to demo for compatibility; production treats an omitted
-mode as Supabase, so missing credentials produce a clear configuration failure
-rather than a silent demo fallback. Use the browser-safe Supabase publishable
-key, never a secret or service-role key.
+For browser-local demo mode, explicitly set `NEXT_PUBLIC_AUTH_MODE=demo`.
+An omitted mode defaults to Supabase in every environment, so missing credentials
+produce a clear configuration failure rather than a silent demo fallback. Use
+the browser-safe Supabase publishable key, never a secret or service-role key.
 
 Useful local commands:
 
@@ -131,7 +136,7 @@ npm run dev
 
 ## Telegram Transaction Agent (Local MVP)
 
-The Telegram transaction agent runs separately from the Next.js app using long polling. It accepts English, Bahasa Melayu, and Manglish transaction text or Telegram voice notes. Voice notes are transcribed with ElevenLabs and then use the same review flow as text. Transactions remain local and are saved only after confirmation.
+The Telegram transaction agent runs separately from the Next.js app using long polling. It accepts English, Bahasa Melayu, and Manglish transaction text, Telegram voice notes, and single receipt images. Voice notes are transcribed with ElevenLabs; JPG, PNG, and WEBP receipts use the existing OpenAI vision boundary. Every input joins the same reviewed-draft flow, and nothing is saved before confirmation.
 
 1. Create a bot through [Telegram's BotFather](https://t.me/BotFather): send `/newbot`, follow its prompts, and copy the token it provides.
 2. Copy the environment template and add the token. Never commit the resulting file.
@@ -157,30 +162,36 @@ Open your bot in Telegram and use these commands:
 - `/transactions` — your latest 10 confirmed transactions
 - `/summary` — a basic cash-movement summary
 - `/cancel` — cancel an active correction or clarification
-- `/settings` — choose an English or Bahasa Melayu interface
+- `/settings` — choose the interface language, reporting timezone, and an optional default payment method
 
-The persistent home keyboard provides **Record transaction**, **Recent transactions**, **Summary**, and **Help**, so slash commands are optional. Try text such as `Semalam beli ayam RM85 cash dekat Pasar Borong`, `Customer Ravi transfer RM450 for catering semalam`, or `Sold 10 nasi lemak RM5 each cash today`. You can also send a Telegram voice note containing the same details. NiagaAI shows temporary processing feedback, asks one contextual question at a time, and displays a concise draft. Constrained questions and correction fields have quick-answer buttons, while natural-language replies always remain available.
+The persistent home keyboard provides **Record transaction**, **Recent transactions**, **Summary**, and **Help**, so slash commands are optional. Try text such as `Semalam beli ayam RM85 cash dekat Pasar Borong`, `Customer Ravi transfer RM450 for catering semalam`, or `Sold 10 nasi lemak RM5 each cash today`. You can also send a Telegram voice note containing the same details, or one clear MYR receipt as a Telegram photo or image document. Receipt images are limited to 10 MiB and validated from their actual JPG, PNG, or WEBP bytes. PDF, non-MYR, unreadable, and multi-receipt documents are not supported in this slice. NiagaAI shows temporary processing feedback, asks one contextual question at a time, and displays a concise draft. Constrained questions and correction fields have quick-answer buttons, while natural-language replies always remain available.
 
 Before saving a likely duplicate, NiagaAI shows the matching confirmed transaction. **Save anyway** is a second explicit confirmation for legitimate repeated transactions; **Cancel** creates nothing. Only one draft can be active for a user and chat; a second transaction requires an explicit keep, discard, or cancel choice. After confirmation, **Undo last save** is available for five minutes and marks the record `voided` instead of deleting its audit evidence. `/transactions` and `/summary` omit voided records. The summary keeps customer debt repayments separate from sales income and is not an audited accounting or profit-and-loss statement.
 
 Conversation state is isolated per Telegram user and chat, so a clarification started in one chat is not consumed in another. Confirmation actions are idempotent within the local bot process: rapid button presses and safe retries do not create a second copy of the same transaction.
 
+The optional default payment method is applied only when a new transaction message does not include one. It remains visible in the review draft and can be corrected before confirmation; an explicitly stated or extracted payment method always wins. The selected timezone controls summary date boundaries.
+
 Local files are created on first use at `data/transaction-drafts.json`, `data/transactions.json`, `data/conversation-states.json`, and `data/telegram-user-preferences.json` (or inside `LOCAL_DATA_DIRECTORY`). Existing MVP transaction JSON remains readable without a destructive rewrite. To reset local development data, stop the bot, delete those generated JSON files, then restart it. Do not delete data automatically if a file is corrupt; inspect or back it up first.
 
-### Telegram Stage 1 manual checklist
+### Telegram manual checklist
 
 Verify on both phone and desktop before a demo:
 
 1. Open `/start`; use every home button and `/help`, `/transactions`, `/summary`, `/settings`, and `/cancel`.
 2. Capture English, Bahasa Melayu, and Manglish text plus short and long voice notes; confirm temporary status messages disappear.
-3. Exercise every missing-field button and answer the same prompts with natural language.
-4. Exercise every correction field, free-form correction, and cancellation from clarification and correction.
-5. Send a second transaction while reviewing a draft; test keep, discard-and-start, and cancel-new.
-6. Confirm, cancel, duplicate, undo, expired undo, repeated button, stale button, and another-user button paths.
-7. Switch both interface languages and test long descriptions, Unicode names, Telegram special characters, and 200% text scaling.
-8. Simulate OpenAI, ElevenLabs, local-storage, and Telegram failures; verify no financial record is silently saved and recoverable draft state remains available.
+3. Send clear, blurry, oversized, disguised-extension, non-MYR, and unsupported PDF receipt files; verify only a single valid JPG, PNG, or WEBP produces a reviewable draft and temporary files are removed.
+4. Exercise every missing-field button and answer the same prompts with natural language.
+5. Exercise every correction field, free-form correction, and cancellation from clarification and correction.
+6. Send a second transaction while reviewing a draft; test keep, discard-and-start, and cancel-new.
+7. Confirm, cancel, duplicate, undo, expired undo, repeated button, stale button, and another-user button paths.
+8. Switch both interface languages and test long descriptions, Unicode names, Telegram special characters, and 200% text scaling.
+9. Simulate OpenAI, ElevenLabs, local-storage, and Telegram failures; verify no financial record is silently saved and recoverable draft state remains available.
 
-This is development-only local storage, not a security boundary. Do not use it for sensitive production financial records. Receipt/image extraction, databases, WhatsApp, MyInvois submission, inventory, authentication, and production deployment are not part of this Telegram MVP. Unsupported media receives a short text-and-voice-only notice.
+This is development-only local storage, not a security boundary. Do not use it for sensitive production financial records. Receipt files are discarded after extraction; only the reviewed draft and Telegram file ID are retained for local traceability. PDF extraction, permanent receipt storage, databases, WhatsApp, MyInvois submission, inventory, authentication, and production deployment are not part of this Telegram MVP.
+
+For a repeatable hackathon walkthrough using only synthetic local records, use
+the [Telegram hardening and demo guide](docs/agent-orchestration/07-hardening-demo.md).
 
 ## Quality Checks
 
@@ -199,13 +210,13 @@ npm run build
 | `/login` | Mock sign-in |
 | `/signup` | Local demo account creation |
 | `/onboarding` | Hydration-gated business setup and review |
-| `/dashboard` | Hydration-gated Phase 1 application preview |
+| `/dashboard` | Hydration-gated Phase 1 application workspace |
 | `/transactions` | Filter, sort, review, edit, and delete local transactions |
 | `/transactions/new` | Receipt extraction, voice transcription, local CSV parsing, bank-statement import, review, and local save |
 | `/invoices` | Filterable local invoice tracking and status updates |
-| `/invoices/new` | Invoice builder, live preview, calculations, and readiness check |
+| `/invoices/new` | Invoice builder, live calculations, and readiness check |
 | `/invoices/[id]` | Reopen a saved invoice, update status, or delete it |
-| `/reminders` | Upcoming and overdue payment reminder previews |
+| `/reminders` | Upcoming and overdue payment reminders |
 
 ## Project Structure
 
@@ -218,8 +229,8 @@ src/
 │   ├── onboarding/      # Details, review, progress, and success
 │   ├── dashboard/
 │   ├── transactions/    # Capture sources, processing, review, and success
-│   ├── invoices/        # Invoice builder, live preview, and tracking
-│   ├── reminders/       # Local reminder cards and message preview
+│   ├── invoices/        # Invoice builder and tracking
+│   ├── reminders/       # Local reminder cards and messages
 │   ├── layout/
 │   └── shared/
 ├── lib/                 # Validation, CSV imports, OpenAI extraction, calculations, and local storage

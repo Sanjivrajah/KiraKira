@@ -1,11 +1,15 @@
 import { AuthGate } from "@/components/auth/auth-gate";
 import { AppShell } from "@/components/layout/app-shell";
-import { TransactionCaptureFlow } from "@/components/transactions/transaction-capture-flow";
+import { NewTransactionForm } from "./new-transaction-form";
 import type { TransactionSourceType } from "@/types";
 
 const sources = new Set<TransactionSourceType>(["receipt", "voice", "manual", "csv", "bank_statement", "whatsapp"]);
 
-export default async function NewTransactionPage({ searchParams }: PageProps<"/transactions/new">) {
+type NewTransactionPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function NewTransactionPage({ searchParams }: NewTransactionPageProps) {
   const query = await searchParams;
   const requestedMethod = typeof query.method === "string" && sources.has(query.method as TransactionSourceType)
     ? query.method as TransactionSourceType
@@ -22,7 +26,7 @@ export default async function NewTransactionPage({ searchParams }: PageProps<"/t
   return (
     <AuthGate gate="dashboard">
       <AppShell>
-        <TransactionCaptureFlow demoScenario={demoScenario} initialMethod={requestedMethod} reviewTransactionId={reviewTransactionId} />
+        <NewTransactionForm demoScenario={demoScenario} initialMethod={requestedMethod} reviewTransactionId={reviewTransactionId} />
       </AppShell>
     </AuthGate>
   );

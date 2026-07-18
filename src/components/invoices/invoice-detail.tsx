@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, FileText, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileText, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { FormField } from "@/components/forms/form-field";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { BrandMark } from "@/components/shared/brand-mark";
 import { ErrorState } from "@/components/shared/error-state";
@@ -11,19 +12,36 @@ import { LoadingState } from "@/components/shared/loading-state";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { useDeleteInvoice, useInvoice, useUpdateInvoice } from "@/hooks/use-invoices";
 import { useBusiness } from "@/hooks/use-business";
+import { useAuth } from "@/components/auth/auth-provider";
+import { DEMO_BUSINESS } from "@/data/demo";
 import { getEffectiveInvoiceStatus, parseLocalDate } from "@/lib/invoices/calculations";
 import { formatMoney } from "@/lib/format/money";
 import type { InvoiceStatus } from "@/types";
 import { invoiceStatusLabels } from "./invoice-list";
-import { DEMO_BUSINESS } from "@/data/demo";
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "long" });
 const dateTimeFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "medium", timeStyle: "short" });
 
+function InvoicePrepaymentEditor({ initialAmount, grossTotal, pending, onSave }: {
+  initialAmount: number;
+  grossTotal: number;
+  pending: boolean;
+  onSave: (amount: number) => Promise<void>;
+}) {
+  const [value, setValue] = useState(String(initialAmount));
+  const amount = Number(value);
+  return <section className="panel invoice-status-panel"><p className="section-kicker">e-Invoice totals</p><h2>Prepayment</h2><p>Record a deposit or advance payment already received. Use RM0 when there was no prepayment.</p><FormField id="invoice-prepayment-amount" name="prepaymentAmount" label="Prepayment amount (RM)" max={grossTotal} min="0" step="0.01" type="number" value={value} onChange={(event) => setValue(event.target.value)} /><button className="button button-primary button-full" disabled={pending || !Number.isFinite(amount) || amount === initialAmount} onClick={() => void onSave(amount)} type="button">{pending ? "Saving…" : "Save prepayment"}</button></section>;
+}
+
+function DraftInvoiceActions({ invoiceId }: { invoiceId: string }) {
+  return <section className="panel invoice-draft-actions" aria-labelledby="draft-actions-heading"><p className="section-kicker">Draft in progress</p><h2 id="draft-actions-heading">Finish your invoice</h2><p>Document details, starting status, and payment information stay together in the editor so you can review them before saving.</p><Link className="button button-primary button-full" href={`/invoices/${invoiceId}/edit`}><Pencil aria-hidden="true" size={17} />Continue editing</Link></section>;
+}
+
 export function InvoiceDetail({ id }: { id: string }) {
   const router = useRouter();
   const business = useBusiness().data;
-  const businessId = business?.id || DEMO_BUSINESS.id;
+  const { mode } = useAuth();
+  const businessId = business?.id ?? (mode === "demo" ? DEMO_BUSINESS.id : "");
   const invoiceQuery = useInvoice(businessId, id);
   const updateInvoice = useUpdateInvoice();
   const deleteInvoice = useDeleteInvoice();
@@ -64,10 +82,24 @@ export function InvoiceDetail({ id }: { id: string }) {
     }
   };
 
+  const savePrepayment = async (amount: number) => {
+    setMessage("");
+    setError("");
+    if (!Number.isFinite(amount) || amount < 0) return setError("Enter a valid prepayment amount of RM0 or more.");
+    if (amount > invoice.total) return setError("Prepayment cannot exceed the invoice total.");
+    try {
+      await updateInvoice.mutateAsync({ ...invoice, prepaymentAmount: amount, updatedAt: new Date().toISOString() });
+      setMessage(amount > 0 ? `Prepayment of ${formatMoney(amount)} saved.` : "Prepayment cleared.");
+    } catch (caught) {
+      const providerMessage = caught && typeof caught === "object" && "message" in caught && typeof caught.message === "string" ? caught.message : null;
+      setError(caught instanceof Error ? caught.message : providerMessage ?? "We could not save the prepayment amount.");
+    }
+  };
+
   return (
     <>
       <Link className="back-link" href="/invoices"><ArrowLeft aria-hidden="true" size={17} />Back to invoices</Link>
-      <header className="invoice-detail-header"><div><p className="eyebrow">Invoice detail</p><h1>{invoice.invoiceNumber}</h1><p>Issued to {invoice.customerName}</p></div><div className="invoice-detail-total"><span>Total due</span><MoneyDisplay amount={invoice.total} /></div></header>
+      <header className="invoice-detail-header"><div><p className="eyebrow">Invoice detail</p><h1>{invoice.invoiceNumber}</h1><p>Issued to {invoice.customerName}</p>{invoice.status !== "draft" ? <p className="invoice-local-disclosure">Issued invoices are locked. Create a new draft to make a correction.</p> : null}</div><div className="invoice-detail-total"><span>Amount due</span><MoneyDisplay amount={Math.max(0, invoice.total - (invoice.prepaymentAmount ?? 0))} /></div></header>
 
       {message ? <div className="inline-success" role="status"><CheckCircle2 aria-hidden="true" size={18} />{message}<button aria-label="Dismiss message" onClick={() => setMessage("")} type="button">×</button></div> : null}
       {error ? <div className="form-alert" role="alert">{error}</div> : null}
@@ -80,12 +112,12 @@ export function InvoiceDetail({ id }: { id: string }) {
 
           <div className="saved-invoice-items"><div className="saved-item-row saved-item-heading"><span>Description</span><span>Qty</span><span>Unit price</span><span>Tax</span><span>Amount</span></div>{invoice.items.map((item) => <div className="saved-item-row" key={item.id}><span><strong>{item.description}</strong><small>{item.quantity} × {formatMoney(item.unitPrice)} · {item.taxRate}% tax</small></span><span>{item.quantity}</span><MoneyDisplay amount={item.unitPrice} /><span>{item.taxRate}%</span><MoneyDisplay amount={item.quantity * item.unitPrice} /></div>)}</div>
 
-          <div className="saved-invoice-footer"><div>{invoice.notes ? <section><h3>Notes</h3><p>{invoice.notes}</p></section> : null}{invoice.paymentTerms ? <section><h3>Payment terms</h3><p>{invoice.paymentTerms}</p></section> : null}</div><dl><div><dt>Subtotal</dt><dd><MoneyDisplay amount={invoice.subtotal} /></dd></div><div><dt>Tax</dt><dd><MoneyDisplay amount={invoice.tax} /></dd></div><div className="invoice-total"><dt>Total</dt><dd><MoneyDisplay amount={invoice.total} /></dd></div></dl></div>
-          <p className="invoice-local-disclosure">Browser-local invoice preview only. This invoice has not been submitted to MyInvois.</p>
+          <div className="saved-invoice-footer"><div>{invoice.notes ? <section><h3>Notes</h3><p>{invoice.notes}</p></section> : null}{invoice.paymentTerms ? <section><h3>Payment terms</h3><p>{invoice.paymentTerms}</p></section> : null}</div><dl><div><dt>Subtotal</dt><dd><MoneyDisplay amount={invoice.subtotal} /></dd></div><div><dt>Tax</dt><dd><MoneyDisplay amount={invoice.tax} /></dd></div>{(invoice.prepaymentAmount ?? 0) > 0 ? <div><dt>Prepayment</dt><dd>−<MoneyDisplay amount={invoice.prepaymentAmount ?? 0} /></dd></div> : null}<div className="invoice-total"><dt>Amount due</dt><dd><MoneyDisplay amount={Math.max(0, invoice.total - (invoice.prepaymentAmount ?? 0))} /></dd></div></dl></div>
+          <p className="invoice-local-disclosure">This invoice is stored in your browser only and has not been submitted to MyInvois.</p>
         </article>
 
         <aside className="invoice-detail-sidebar">
-          <section className="panel invoice-status-panel"><p className="section-kicker">Payment tracking</p><h2>Invoice status</h2><label htmlFor="invoice-detail-status">Update status</label><select className={`invoice-status-select ${effectiveStatus}`} disabled={updateInvoice.isPending} id="invoice-detail-status" onChange={(event) => changeStatus(event.target.value as InvoiceStatus)} value={effectiveStatus}>{effectiveStatus === "overdue" ? <option disabled value="overdue">Overdue</option> : null}{(["draft", "sent", "partially_paid", "paid", "void"] as InvoiceStatus[]).map((value) => <option key={value} value={value}>{invoiceStatusLabels[value]}</option>)}</select><p>Overdue status is automatically shown when a sent invoice passes its due date.</p></section>
+          {invoice.status === "draft" ? <DraftInvoiceActions invoiceId={invoice.id} /> : <><InvoicePrepaymentEditor key={`${invoice.id}-${invoice.updatedAt}`} grossTotal={invoice.total} initialAmount={invoice.prepaymentAmount ?? 0} pending={updateInvoice.isPending} onSave={savePrepayment} /><section className="panel invoice-status-panel"><p className="section-kicker">Payment tracking</p><h2>Invoice status</h2><label htmlFor="invoice-detail-status">Update status</label><select className={`invoice-status-select ${effectiveStatus}`} disabled={updateInvoice.isPending} id="invoice-detail-status" onChange={(event) => changeStatus(event.target.value as InvoiceStatus)} value={effectiveStatus}>{effectiveStatus === "overdue" ? <option disabled value="overdue">Overdue</option> : null}{(["draft", "sent", "partially_paid", "paid", "void"] as InvoiceStatus[]).map((value) => <option key={value} value={value}>{invoiceStatusLabels[value]}</option>)}</select><p>Overdue status is automatically shown when a sent invoice passes its due date.</p></section></>}
           <section className="panel invoice-history-panel"><p className="section-kicker">Local record</p><h2>Invoice history</h2><dl><div><dt>Created</dt><dd>{dateTimeFormatter.format(new Date(invoice.createdAt))}</dd></div><div><dt>Last updated</dt><dd>{dateTimeFormatter.format(new Date(invoice.updatedAt))}</dd></div><div><dt>Record ID</dt><dd className="record-id">{invoice.id}</dd></div></dl><button className="button button-danger button-full" onClick={() => setConfirmDelete(true)} type="button"><Trash2 aria-hidden="true" size={17} />Delete invoice</button></section>
         </aside>
       </div>

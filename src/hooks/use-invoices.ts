@@ -12,7 +12,6 @@ async function invalidateInvoiceDependents(queryClient: ReturnType<typeof useQue
     queryClient.invalidateQueries({ queryKey: queryKeys.invoices.list(businessId) }),
     queryClient.invalidateQueries({ queryKey: queryKeys.reminders.list(businessId) }),
     queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(businessId) }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.loanReadiness(businessId) }),
   ]);
 }
 
@@ -20,6 +19,7 @@ export function useInvoices(businessId: string) {
   return useQuery({
     queryKey: queryKeys.invoices.list(businessId),
     queryFn: () => services.invoices.initializeDemo(businessId),
+    enabled: Boolean(businessId),
   });
 }
 
@@ -30,6 +30,7 @@ export function useInvoice(businessId: string, invoiceId: string) {
       await services.invoices.initializeDemo(businessId);
       return services.invoices.getById(businessId, invoiceId);
     },
+    enabled: Boolean(businessId && invoiceId),
   });
 }
 

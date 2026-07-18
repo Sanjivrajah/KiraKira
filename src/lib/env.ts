@@ -12,9 +12,13 @@ const botEnvironmentSchema = z.object({
   ELEVENLABS_STT_MODEL: z.string().trim().min(1).default("scribe_v2"),
   MAX_VOICE_FILE_BYTES: z.coerce.number().int().positive().default(20 * 1024 * 1024),
   LOCAL_DATA_DIRECTORY: z.string().trim().min(1).default("./data"),
+  BOT_PERSISTENCE_MODE: z.enum(["local", "supabase"]).default("supabase"),
 });
 
-export type BotEnvironment = z.infer<typeof botEnvironmentSchema>;
+export type BotEnvironment = Omit<z.infer<typeof botEnvironmentSchema>, "BOT_PERSISTENCE_MODE"> & {
+  /** Optional only for injected test environments; runtime parsing fills Supabase. */
+  BOT_PERSISTENCE_MODE?: "local" | "supabase";
+};
 
 export class EnvironmentValidationError extends Error {
   constructor(messages: string[]) {

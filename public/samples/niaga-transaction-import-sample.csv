@@ -1,0 +1,37 @@
+Date,Type,Amount,Description,Merchant,Category,Payment Method
+2026-02-04,income,3200.00,February food stall sales,Walk-in customers,Sales,Cash
+2026-02-12,income,1850.00,Office lunch catering,Teras Digital,Catering,Bank transfer
+2026-02-23,income,2400.00,Weekend market sales,Market customers,Sales,DuitNow QR
+2026-02-06,expense,1280.50,Wholesale rice and cooking oil,Maju Grocer,Inventory,Bank transfer
+2026-02-15,expense,740.00,Food containers and carrier bags,Pek Plastik,Packaging,Debit card
+2026-02-26,expense,680.00,Stall rental and utilities,Majlis Niaga,Premises,Bank transfer
+2026-03-03,income,3650.00,March food stall sales,Walk-in customers,Sales,Cash
+2026-03-11,income,2100.00,School event catering,SK Seri Murni,Catering,Bank transfer
+2026-03-24,income,2750.00,Ramadan preorder sales,Online customers,Sales,DuitNow QR
+2026-03-05,expense,1420.00,Fresh ingredients restock,Pasar Borong Selayang,Inventory,Debit card
+2026-03-16,expense,820.00,Disposable containers and labels,Pek Plastik,Packaging,Bank transfer
+2026-03-27,expense,760.00,Gas electricity and water,Utility providers,Utilities,Auto debit
+2026-04-02,income,4200.00,April food stall sales,Walk-in customers,Sales,Cash
+2026-04-10,income,2450.00,Corporate breakfast order,Suria Events,Catering,Bank transfer
+2026-04-22,income,3100.00,Hari Raya preorder sales,Online customers,Sales,DuitNow QR
+2026-04-04,expense,1650.00,Meat vegetables and dry goods,Pasar Borong Selayang,Inventory,Debit card
+2026-04-14,expense,930.00,Printed packaging and stickers,Cetak Maju,Packaging,Bank transfer
+2026-04-25,expense,810.00,Stall rental and utilities,Majlis Niaga,Premises,Bank transfer
+2026-05-05,income,4500.00,May food stall sales,Walk-in customers,Sales,Cash
+2026-05-13,income,2800.00,Community event catering,Persatuan Penduduk,Catering,Bank transfer
+2026-05-26,income,3350.00,Online family meal orders,Online customers,Sales,DuitNow QR
+2026-05-07,expense,1720.00,Monthly ingredient restock,Maju Grocer,Inventory,Debit card
+2026-05-17,expense,960.00,Food boxes cups and cutlery,Pek Plastik,Packaging,Bank transfer
+2026-05-28,expense,845.00,Mobile internet gas and electricity,Utility providers,Utilities,Auto debit
+2026-06-03,income,4850.00,June food stall sales,Walk-in customers,Sales,Cash
+2026-06-12,income,3200.00,Company training lunch order,Teras Digital,Catering,Bank transfer
+2026-06-24,income,3600.00,Weekend bazaar sales,Bazaar customers,Sales,DuitNow QR
+2026-06-06,expense,1880.00,Protein produce and pantry stock,Pasar Borong Selayang,Inventory,Debit card
+2026-06-16,expense,1040.00,Branded takeaway packaging,Cetak Maju,Packaging,Bank transfer
+2026-06-27,expense,890.00,Stall rental and utilities,Majlis Niaga,Premises,Bank transfer
+2026-07-02,income,5200.00,July food stall sales,Walk-in customers,Sales,Cash
+2026-07-11,income,3500.00,Office lunch subscription,Teras Digital,Catering,Bank transfer
+2026-07-23,income,3950.00,Online catering deposits,Online customers,Sales,DuitNow QR
+2026-07-05,expense,2050.00,Monthly food stock purchase,Maju Grocer,Inventory,Debit card
+2026-07-15,expense,1120.00,Containers labels and paper bags,Pek Plastik,Packaging,Bank transfer
+2026-07-26,expense,940.00,Mobile internet gas and electricity,Utility providers,Utilities,Auto debit

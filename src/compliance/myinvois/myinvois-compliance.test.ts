@@ -113,7 +113,7 @@ function validate(overrides: Partial<MyInvoisValidationContext> = {}) {
     referenceData: catalog,
     asOfDate,
     validatedAt,
-    documentVersion: "1.1",
+    documentVersion: "1.0",
     ...overrides,
   });
 }
@@ -202,6 +202,30 @@ describe("MyInvois readiness scenarios", () => {
 });
 
 describe("reference data validation", () => {
+  it("rejects a supplier state name before it can reach UBL", () => {
+    const supplierWithStateName = partySchema.parse({
+      ...supplier,
+      billingAddress: { ...supplier.billingAddress!, stateCode: "Selangor" },
+    });
+    const result = validate({ supplier: supplierWithStateName });
+    expect(result.allIssues).toContainEqual(expect.objectContaining({
+      ruleId: "supplier.address.valid",
+      fieldPath: "supplier.billingAddress.stateCode",
+    }));
+  });
+
+  it("rejects state 17 for a standard Malaysian buyer", () => {
+    const buyerWithNotApplicableState = partySchema.parse({
+      ...buyer,
+      billingAddress: { ...buyer.billingAddress!, stateCode: "17" },
+    });
+    const result = validate({ buyer: buyerWithNotApplicableState });
+    expect(result.allIssues).toContainEqual(expect.objectContaining({
+      ruleId: "buyer.address.valid",
+      fieldPath: "buyer.billingAddress.stateCode",
+    }));
+  });
+
   it("rejects an unknown tax code at its line path", () => {
     const document = compliantDocument();
     const lines = document.lines.map((line) => ({
@@ -238,7 +262,7 @@ describe("MyInvois immutable snapshots", () => {
       id: "snapshot_001",
       commercialDocumentId: compliantDocument().id,
       documentTypeCode: "01",
-      documentVersion: "1.1",
+      documentVersion: "1.0",
       format: "json",
       unsignedPayload: { Invoice: [{ ID: [{ _: "INV-001" }] }] },
       payloadHash: "a".repeat(64),

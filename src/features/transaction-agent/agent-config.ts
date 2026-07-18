@@ -5,3 +5,11 @@ export const DUPLICATE_LOOKBACK_COUNT = 50;
 export const CONVERSATION_STATE_EXPIRY_MS = 30 * 60 * 1000;
 export const TELEGRAM_MESSAGE_LIMIT = 4_096;
 export const UNDO_WINDOW_MS = 5 * 60 * 1000;
+export const MAX_AGENT_ACTIONS_PER_MESSAGE = 3;
+export const MAX_AGENT_CLARIFICATION_TURNS = 6;
+export const MAX_PROVIDER_CALLS_PER_RUN = 2;
+export const PROVIDER_TIMEOUT_MS = 20_000;
+export const PROVIDER_RETRY_COUNT = 1;
+/** Per Telegram user/chat window for calls that can consume external provider quota. */
+export const PROVIDER_RATE_LIMIT_WINDOW_MS = 60_000;
+export const PROVIDER_RATE_LIMIT_MAX_REQUESTS = 6;

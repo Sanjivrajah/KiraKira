@@ -1,7 +1,24 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseTransactionCsv } from "./transaction-csv";
 
 describe("parseTransactionCsv", () => {
+  it("keeps the downloadable six-month sample compatible with the importer", () => {
+    const sample = readFileSync("public/samples/niaga-transaction-import-sample.csv", "utf8");
+    const result = parseTransactionCsv(sample, "csv");
+    const monthlyCounts = result.drafts.reduce<Record<string, { income: number; expense: number }>>((counts, draft) => {
+      const month = draft.date.slice(0, 7);
+      counts[month] ??= { income: 0, expense: 0 };
+      counts[month][draft.type] += 1;
+      return counts;
+    }, {});
+
+    expect(result.failures).toEqual([]);
+    expect(result.drafts).toHaveLength(36);
+    expect(Object.keys(monthlyCounts)).toHaveLength(6);
+    expect(Object.values(monthlyCounts)).toEqual(Array.from({ length: 6 }, () => ({ income: 3, expense: 3 })));
+  });
+
   it("parses a generic transaction CSV with quoted values", () => {
     const result = parseTransactionCsv(
       'Date,Type,Amount,Description,Counterparty,Category\n14/07/2026,expense,"1,240.50","Stock, drinks",Maju Mart,Inventory',

@@ -2,6 +2,7 @@
 
 import { FormField } from "@/components/forms/form-field";
 import { SelectField } from "@/components/forms/select-field";
+import { MALAYSIA_ADDRESS_STATE_OPTIONS } from "@/compliance/myinvois/reference-data/malaysia-states";
 import type { BusinessOnboardingViewModel } from "@/frontend/view-models";
 
 const businessTypes = [
@@ -35,7 +36,7 @@ export function StagedBusinessForm({ step, values, onChange, onBack, onNext }: {
   const valid = step === 1
     ? values.legalName.trim().length >= 2
     : step === 2
-      ? Boolean(values.addressLine1.trim() && values.city.trim() && (values.email.trim() || values.phone.trim()))
+      ? Boolean(values.addressLine1.trim() && values.city.trim() && (values.countryCode !== "MY" || values.stateCode) && (values.email.trim() || values.phone.trim()))
       : true;
   return (
     <form onSubmit={(event) => { event.preventDefault(); if (valid) onNext(); }}>
@@ -51,7 +52,7 @@ export function StagedBusinessForm({ step, values, onChange, onBack, onNext }: {
         <FormField label="Address line 2" {...field("addressLine2")} />
         <FormField autoComplete="address-level2" label="City" required {...field("city")} />
         <FormField autoComplete="postal-code" label="Postcode" {...field("postcode")} />
-        <SelectField label="State" options={[{ value: "10", label: "Selangor" }, { value: "14", label: "Kuala Lumpur" }, { value: "17", label: "Not applicable" }]} {...field("stateCode")} />
+        <SelectField label="State" required={values.countryCode === "MY"} options={[{ value: "", label: "Choose a state" }, ...MALAYSIA_ADDRESS_STATE_OPTIONS]} {...field("stateCode")} />
         <FormField label="Country code" maxLength={2} {...field("countryCode")} />
         <FormField autoComplete="email" label="Business email" type="email" {...field("email")} />
         <FormField autoComplete="tel" label="Business phone" {...field("phone")} />
@@ -72,4 +73,3 @@ export function StagedBusinessForm({ step, values, onChange, onBack, onNext }: {
     </form>
   );
 }
-

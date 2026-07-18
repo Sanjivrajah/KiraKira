@@ -5,7 +5,6 @@ export * from "./demo-customers";
 export * from "./demo-extractions";
 export * from "./demo-financial-transactions";
 export * from "./demo-invoices";
-export * from "./demo-loan-readiness";
 export * from "./demo-reminders";
 export * from "./demo-transactions";
 export * from "./demo-user";

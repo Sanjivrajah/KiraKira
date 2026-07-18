@@ -12,7 +12,7 @@ export const lineRules: MyInvoisValidationRule[] = [
     validate: ({ document }) => document.lines.flatMap((line, index) => line.description.trim() ? [] : [{ fieldPath: `document.lines[${index}].description` }]),
     fieldPath: "document.lines",
     message: "Every line requires a product or service description.",
-    sourceReferenceLabel: "MyInvois Invoice v1.1 Line Description",
+    sourceReferenceLabel: "MyInvois Invoice v1.0 Line Description",
   },
   {
     ruleId: "line.classification.active",

@@ -5,7 +5,7 @@ import { BrandWordmark } from "@/components/shared/brand-mark";
 import { usePathname } from "next/navigation";
 import { isNavigationItemActive, primaryNavigation } from "./navigation";
 
-export function Sidebar({ businessName = "Your business", businessType = "Local business" }: { businessName?: string; businessType?: string }) {
+export function Sidebar({ businessName = "Your business", businessType = "Local business", mode = "demo" }: { businessName?: string; businessType?: string; mode?: "demo" | "supabase" }) {
   const pathname = usePathname();
 
   return (
@@ -20,7 +20,7 @@ export function Sidebar({ businessName = "Your business", businessType = "Local 
       </div>
 
       <nav className="sidebar-nav">
-        {primaryNavigation.map(({ label, href, icon: Icon, availability }) => {
+        {primaryNavigation.map(({ label, href, icon: Icon }) => {
           const active = isNavigationItemActive(pathname, href);
           return (
             <Link
@@ -31,15 +31,14 @@ export function Sidebar({ businessName = "Your business", businessType = "Local 
             >
               <Icon aria-hidden="true" size={18} />
               <span>{label}</span>
-              {availability === "preview" ? <small className="nav-preview-badge">Preview</small> : null}
             </Link>
           );
         })}
       </nav>
 
       <div className="sidebar-footer">
-        <strong>Demo workspace</strong>
-        <span>Local sample data only. No external services connected.</span>
+        <strong>{mode === "supabase" ? "Connected workspace" : "Demo workspace"}</strong>
+        <span>{mode === "supabase" ? "Supabase records are available in this workspace." : "Local sample data only. No external services connected."}</span>
       </div>
     </aside>
   );

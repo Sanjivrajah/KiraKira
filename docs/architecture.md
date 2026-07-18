@@ -87,6 +87,25 @@ migration:
 validation, mapping, UBL output, and reference data. It is not proof of a live
 submission or official approval.
 
+### Loan-readiness boundary
+
+The loan-readiness API is server-side and reads confirmed, non-voided Supabase
+transactions for the active business. It produces an indicative cash-flow
+assessment and does not mutate the transaction ledger. Future saved scenarios,
+reviewed inferred debt, and exports should pin the source snapshot and ruleset
+version before they are persisted. The browser-local dashboard score is not a
+production readiness source.
+
+### Telegram orchestration boundary
+
+The Telegram transport normalizes supported inbound transaction updates into a
+small envelope and passes them to `TransactionOrchestrationService`. The
+service records redacted run and step metadata, enforces inbound-update
+idempotency, then invokes the existing transaction input or draft-confirmation
+service. It does not own user-facing copy, Telegram SDK behavior, or financial
+write rules. The existing explicit review and confirmation boundary remains the
+only route to a confirmed financial record.
+
 ### External extraction boundaries
 
 Route Handlers validate raw input, call focused providers under `src/lib`, and
@@ -107,8 +126,10 @@ user-facing errors without provider payloads, stack traces, or evidence.
 | Web demo session and records | Browser `localStorage` | Current browser | Not an auth/security boundary |
 | Canonical web migration data | Versioned browser keys | Current browser | Retain legacy data during migration |
 | Telegram drafts, records, conversation state | JSON files in `LOCAL_DATA_DIRECTORY` | Local bot process | Never auto-delete corrupt data |
+| Web voice text transcripts (Supabase mode) | `voice_conversations` + `voice_conversation_turns` | Signed-in speaker and active business | Private per user, no raw audio, 90-day retention target |
 | API credentials | `.env.local` / runtime env | Server/process | Never expose or commit |
 | Supabase evidence (prepared Session 4 boundary) | Private Storage + `evidence_files` metadata | Active business membership | Server-only orchestration; browser-local capture remains active until Session 5 |
+| E-Invoice preparation | Supabase `e_invoice_documents` | Active business membership | Separate from payment status; approved canonical and party snapshots are immutable |
 
 ## Private evidence storage boundary
 
@@ -127,6 +148,24 @@ malware scanning; a scanning worker can be attached to the queue before moving
 files from `queued` to `processing`. Deletion requests are soft-marked as
 `delete_pending` for a scheduled cleanup worker, avoiding unaudited object
 removal and orphaned metadata.
+
+## Voice transcript storage boundary
+
+The live web voice assistant keeps captions in browser memory for immediate
+feedback. In Supabase mode, `app/api/voice/conversations` also writes the
+signed-in speaker's text turns to `voice_conversations` and
+`voice_conversation_turns`. RLS requires both the transcript owner and an
+active membership in the selected business; coworkers cannot read one
+another's transcripts merely because they share a business.
+
+The app stores no call audio in this path. Provider conversation identifiers
+are operational metadata, not user-facing content. Turns are upserted by their
+session-local index because the voice provider can send progressively fuller
+text for the same turn. Users can inspect and delete their recent history from
+the voice page. Rows carry a 90-day `retention_delete_after` timestamp; a
+deployment must run a scheduled cleanup job before claiming automatic expiry.
+Transcript persistence never bypasses the existing explicit confirmation
+boundary for transactions or invoices.
 
 ## Testing topology
 

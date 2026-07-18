@@ -16,6 +16,7 @@ Rules:
 - Monetary values must be numeric and must not include currency symbols.
 - Use MYR for RM or Malaysian ringgit. Otherwise copy the visible ISO currency code or return null.
 - Category is a short owner-facing expense category based only on visible purchased items; use null when unclear.
+- If the image contains more than one receipt, invoice, or separately totaled transaction, do not combine them. Add the warning "Multiple receipts or separately totaled transactions were detected."
 - List ambiguous, unreadable, missing, or contradictory fields. Do not repair arithmetic silently.
 - Confidence is review priority only, not proof that a value is true.`;
 

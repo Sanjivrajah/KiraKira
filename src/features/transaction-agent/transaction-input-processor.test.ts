@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConversationService } from "./conversation-service";
 import { LocalConversationStateRepository } from "./conversation-repository";
 import { TransactionDraftService } from "./transaction-confirmation";
-import { TransactionInputProcessor } from "./transaction-input-processor";
+import { applyDirectClarification, TransactionInputProcessor } from "./transaction-input-processor";
 import { createLocalTransactionRepositories } from "./transaction-repositories";
 import type { TransactionExtraction } from "./transaction.schema";
 
@@ -35,16 +35,41 @@ describe("TransactionInputProcessor", () => {
     await expect(repositories.transactions.listByUser("user")).resolves.toEqual([]);
   });
 
-  it("uses a voice transcript as the reply to an active clarification", async () => {
+  it("prefills a configured payment method only when a new extraction does not specify one", async () => {
+    const withoutPayment: TransactionExtraction = { ...complete, paymentMethod: "unknown", missingFields: ["paymentMethod"] };
+    const { processor } = await makeProcessor(vi.fn().mockResolvedValue(withoutPayment));
+
+    const result = await processor.process({ text: "Bought inventory RM300", sourceType: "telegram_text", telegramUserId: "user", telegramChatId: "chat", defaultPaymentMethod: "bank_transfer" });
+
+    expect(result).toMatchObject({ outcome: "draft", draft: { paymentMethod: "bank_transfer", missingFields: [], status: "pending" } });
+  });
+
+  it("keeps an explicitly extracted payment method instead of overwriting it with the default", async () => {
+    const { processor } = await makeProcessor(vi.fn().mockResolvedValue(complete));
+
+    const result = await processor.process({ text: "Bought inventory RM300 cash", sourceType: "telegram_text", telegramUserId: "user", telegramChatId: "chat", defaultPaymentMethod: "bank_transfer" });
+
+    expect(result).toMatchObject({ outcome: "draft", draft: { paymentMethod: "cash" } });
+  });
+
+  it("uses a voice transcript as the reply to an active clarification without another model call for a purpose", async () => {
     const reextract = vi.fn().mockResolvedValue(complete);
     const { processor, repositories, conversations } = await makeProcessor(vi.fn().mockResolvedValue(incomplete), reextract);
     const first = await processor.process({ text: "Paid Ali RM300", sourceType: "telegram_text", telegramUserId: "user", telegramChatId: "chat" });
     expect(first).toMatchObject({ outcome: "clarification" });
     const result = await processor.process({ text: "It was for shop inventory", sourceType: "telegram_voice", transcript: "It was for shop inventory", telegramUserId: "user", telegramChatId: "chat" });
-    expect(result).toMatchObject({ outcome: "draft", draft: { description: "Shop inventory", sourceType: "telegram_text" } });
-    expect(reextract).toHaveBeenCalledWith(expect.objectContaining({ reply: "It was for shop inventory" }));
+    expect(result).toMatchObject({ outcome: "draft", draft: { description: "It was for shop inventory", sourceType: "telegram_text" } });
+    expect(reextract).not.toHaveBeenCalled();
     await expect(conversations.getActive("user")).resolves.toMatchObject({ mode: "awaiting_review" });
     await expect(repositories.transactions.listByUser("user")).resolves.toEqual([]);
+  });
+
+  it("accepts a short purpose reply such as the screenshot example instead of asking again", () => {
+    expect(applyDirectClarification({ ...incomplete, id: "00000000-0000-4000-8000-000000000001", telegramUserId: "user", telegramChatId: "chat", sourceType: "telegram_text", originalInput: "Paid Amir RM100", status: "pending", createdAt: "2026-07-17T00:00:00.000Z", updatedAt: "2026-07-17T00:00:00.000Z" }, "purpose", "for flowers")).toMatchObject({ description: "flowers", missingFields: [] });
+  });
+
+  it("accepts a payment-method button value without re-extracting the draft", () => {
+    expect(applyDirectClarification({ ...incomplete, paymentMethod: "unknown", missingFields: ["paymentMethod"], id: "00000000-0000-4000-8000-000000000001", telegramUserId: "user", telegramChatId: "chat", sourceType: "telegram_text", originalInput: "Paid Amir RM100", status: "pending", createdAt: "2026-07-17T00:00:00.000Z", updatedAt: "2026-07-17T00:00:00.000Z" }, "paymentMethod", "Bank transfer")).toMatchObject({ paymentMethod: "bank_transfer", missingFields: [] });
   });
 
   it("does not apply one chat's clarification state to another chat for the same user", async () => {
@@ -70,5 +95,22 @@ describe("TransactionInputProcessor", () => {
     expect(second).toEqual({ outcome: "unavailable" });
     expect(extract).toHaveBeenCalledOnce();
     await expect(conversations.getActive("user", "chat")).resolves.toMatchObject({ mode: "awaiting_replacement", replacementInput: { text: "Sold cakes RM500 cash" } });
+  });
+
+  it("does not resume an expired workflow or create a replacement draft from that message", async () => {
+    let currentTime = new Date("2026-07-15T00:00:00.000Z");
+    const now = () => currentTime;
+    const directory = await mkdtemp(join(tmpdir(), "niagaai-input-expired-")); directories.push(directory);
+    const repositories = createLocalTransactionRepositories(directory);
+    const drafts = new TransactionDraftService(repositories.drafts, repositories.transactions, now);
+    const conversations = new ConversationService(repositories.drafts, new LocalConversationStateRepository(directory), now);
+    const processor = new TransactionInputProcessor({ drafts: repositories.drafts, draftService: drafts, conversations, apiKey: "key", model: "model", extract: vi.fn().mockResolvedValue(complete) as never, reextract: vi.fn().mockResolvedValue(complete) as never });
+    const draft = await drafts.createDraft({ extraction: complete, telegramUserId: "user", telegramChatId: "chat", originalInput: "Bought stock" });
+    await conversations.beginReview(draft);
+    currentTime = new Date("2026-07-15T01:00:00.000Z");
+
+    await expect(processor.process({ text: "Sold cakes RM500", sourceType: "telegram_text", telegramUserId: "user", telegramChatId: "chat" })).resolves.toEqual({ outcome: "expired" });
+    await expect(conversations.getActive("user", "chat")).resolves.toMatchObject({ workflowStatus: "expired" });
+    await expect(repositories.drafts.findById(draft.id)).resolves.toMatchObject({ status: "cancelled" });
   });
 });

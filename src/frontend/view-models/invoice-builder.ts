@@ -36,12 +36,13 @@ export const invoiceBuilderViewModelSchema = z.object({
   originalDocumentReference: z.string().trim().max(200),
   paymentModeCode: z.string().trim().min(1),
   bankAccountIdentifier: z.string().trim().max(200),
+  prepaymentAmount: decimalInput.default("0"),
   paymentTerms: z.string().trim().max(1000),
   notes: z.string().trim().max(1000),
   lines: z.array(invoiceLineViewModelSchema).min(1).max(50),
 });
 
-export type InvoiceBuilderViewModel = z.infer<typeof invoiceBuilderViewModelSchema>;
+export type InvoiceBuilderViewModel = z.input<typeof invoiceBuilderViewModelSchema>;
 
 export function invoiceBuilderToDomain(input: InvoiceBuilderViewModel, metadata: {
   id: string;
@@ -87,7 +88,11 @@ export function invoiceBuilderToDomain(input: InvoiceBuilderViewModel, metadata:
     });
   });
   const taxTotals = groupDocumentTaxes(lines);
-  const monetaryTotals = calculateDocumentMonetaryTotals({ lines, taxTotals });
+  const monetaryTotals = calculateDocumentMonetaryTotals({
+    lines,
+    taxTotals,
+    prepaidAmount: { amount: decimalStringSchema.parse(values.prepaymentAmount), currency },
+  });
   const adjustment = values.documentType.includes("credit_note") || values.documentType.includes("debit_note") || values.documentType.includes("refund_note");
   return commercialDocumentSchema.parse({
     id: metadata.id,
@@ -121,4 +126,3 @@ export function invoiceBuilderToDomain(input: InvoiceBuilderViewModel, metadata:
     updatedAt: metadata.now,
   });
 }
-

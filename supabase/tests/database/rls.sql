@@ -1,5 +1,5 @@
 begin;
-select plan(18);
+select plan(21);
 
 -- This pgTAP suite switches to the authenticated role and sets real JWT claims;
 -- it never tests RLS through the database owner or service role.
@@ -19,6 +19,9 @@ insert into public.business_members (business_id, user_id, role, status, accepte
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '44444444-4444-4444-4444-444444444444', 'admin', 'active', now()),
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '55555555-5555-5555-5555-555555555555', 'staff', 'active', now()),
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '22222222-2222-2222-2222-222222222222', 'owner', 'active', now());
+-- Session 5's transaction audit trigger correctly requires an authenticated
+-- actor. Seed the fixture with the owning user's claim before inserting it.
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
 insert into public.transactions (id, business_id, direction, transaction_type, transaction_date, accounting_date, description, category_code, currency, subtotal_minor, total_minor, payment_status, e_invoice_treatment, lifecycle)
 values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'expense', 'expense', current_date, current_date, 'Test transaction', 'general', 'MYR', 0, 0, 'unpaid', 'not_required', 'proposed');
 insert into public.products_services (id, business_id, name) values
@@ -49,6 +52,12 @@ select lives_ok($$select public.upsert_business_member('aaaaaaaa-aaaa-aaaa-aaaa-
 select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
 select is((select count(*) from public.businesses where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'), 0::bigint, 'suspended member loses access');
 
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+select lives_ok($$insert into public.data_import_batches (business_id, source_kind, source_batch_id, status, requested_by) values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'browser_local', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 'running', '11111111-1111-1111-1111-111111111111')$$, 'authorized member can create an import batch');
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+select is((select count(*) from public.data_import_batches), 0::bigint, 'business B cannot read business A import batches');
+select set_config('request.jwt.claim.sub', '33333333-3333-3333-3333-333333333333', true);
+select throws_ok($$insert into public.data_import_batches (business_id, source_kind, source_batch_id, status, requested_by) values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'browser_local', 'dddddddd-dddd-dddd-dddd-dddddddddddd', 'running', '33333333-3333-3333-3333-333333333333')$$, '42501', null, 'viewer cannot create an import batch');
 select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
 select lives_ok($$insert into storage.objects (bucket_id, name, owner_id) values ('transaction-evidence', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/transaction/aaaaaaaa-0000-0000-0000-000000000000/aaaaaaaa-1111-1111-1111-111111111111.png', '11111111-1111-1111-1111-111111111111')$$, 'business member can upload to its private evidence prefix');
 select throws_ok($$insert into storage.objects (bucket_id, name, owner_id) values ('transaction-evidence', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/transaction/aaaaaaaa-0000-0000-0000-000000000000/bbbbbbbb-1111-1111-1111-111111111111.png', '11111111-1111-1111-1111-111111111111')$$, '42501', null, 'cross-business evidence upload is denied');

@@ -28,9 +28,10 @@ async function startBot() {
     { command: "help", description: "See examples and bot help" },
     { command: "transactions", description: "View your recent confirmed transactions" },
     { command: "summary", description: "View your basic transaction summary" },
+    { command: "insights", description: "Ask a financial insight question" },
     { command: "search", description: "Search your confirmed transactions" },
     { command: "export", description: "Export a local CSV for a date range" },
-    { command: "settings", description: "Choose English or Bahasa Melayu" },
+    { command: "settings", description: "Set language, timezone, and payment defaults" },
     { command: "cancel", description: "Cancel an active correction or clarification" },
   ]);
 

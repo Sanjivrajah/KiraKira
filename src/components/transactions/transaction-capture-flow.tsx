@@ -2,7 +2,7 @@
 
 import { ArrowLeft, LockKeyhole } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { useCreateTransaction, useTransaction, useUpdateTransaction } from "@/hooks/use-transactions";
 import type { ReceiptExtraction } from "@/lib/openai/receipt-schema";
@@ -10,6 +10,7 @@ import { useBusiness } from "@/hooks/use-business";
 import { useAuth } from "@/components/auth/auth-provider";
 import type { ValidTransactionFormValues } from "@/lib/validation/transaction";
 import type { Transaction, TransactionSourceType } from "@/types";
+import { DEMO_BUSINESS, DEMO_USER } from "@/data/demo";
 import { DemoSourceInput, type TransactionFileImportResult } from "./demo-source-input";
 import { InputMethodSelector } from "./input-method-selector";
 import { ProcessingState } from "./processing-state";
@@ -17,7 +18,6 @@ import { ReceiptUploader, type ReceiptBatchResult } from "./receipt-uploader";
 import { TransactionReviewForm, type TransactionDraft, type TransactionReviewHints } from "./transaction-review-form";
 import { TransactionSuccessState } from "./transaction-success-state";
 import { VoiceRecorder, type VoiceTransactionResult } from "./voice-recorder";
-import { DEMO_BUSINESS, DEMO_USER } from "@/data/demo";
 import {
   DEMO_REVIEW_RECEIPT_EXTRACTION,
   DEMO_REVIEW_EXTRACTION_RUN,
@@ -41,7 +41,7 @@ const sourceLabels: Record<TransactionSourceType, string> = {
   manual: "Manual entry",
   csv: "CSV import",
   bank_statement: "Bank statement",
-  whatsapp: "WhatsApp order",
+  whatsapp: "Telegram order",
 };
 
 function localDate() {
@@ -89,31 +89,40 @@ function makeReceiptDraft(extraction: ReceiptExtraction): TransactionDraft {
   };
 }
 
-export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTransactionId }: {
+export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTransactionId, voicePrefill }: {
   initialMethod?: TransactionSourceType;
   demoScenario?: "ambiguous-receipt";
   reviewTransactionId?: string;
+  /** Voice-staged draft: opens straight into review with the fields filled in. */
+  voicePrefill?: TransactionDraft;
 }) {
   const createTransaction = useCreateTransaction();
   const updateTransaction = useUpdateTransaction();
-  const businessId = useBusiness().data?.id || DEMO_BUSINESS.id;
+  const { mode, session } = useAuth();
+  const businessId = useBusiness().data?.id ?? (mode === "demo" ? DEMO_BUSINESS.id : "");
   const reviewedTransaction = useTransaction(businessId, reviewTransactionId);
-  const userId = useAuth().session?.user.id || DEMO_USER.id;
-  const [source, setSource] = useState<TransactionSourceType | null>(initialMethod ?? null);
-  const [stage, setStage] = useState<Stage>(demoScenario ? "review" : initialMethod === "manual" ? "review" : initialMethod ? "input" : "select");
-  const [draft, setDraft] = useState<TransactionDraft>(() => demoScenario
-    ? makeReceiptDraft(DEMO_REVIEW_RECEIPT_EXTRACTION)
-    : makeDraft(initialMethod ?? "manual"));
+  const userId = session?.user.id ?? (mode === "demo" ? DEMO_USER.id : "");
+  const [source, setSource] = useState<TransactionSourceType | null>(initialMethod ?? voicePrefill?.source ?? null);
+  const [stage, setStage] = useState<Stage>(demoScenario || reviewTransactionId || voicePrefill ? "review" : initialMethod === "manual" ? "review" : initialMethod ? "input" : "select");
+  const [draft, setDraft] = useState<TransactionDraft>(() => voicePrefill
+    ? voicePrefill
+    : demoScenario
+      ? makeReceiptDraft(DEMO_REVIEW_RECEIPT_EXTRACTION)
+      : makeDraft(initialMethod ?? "manual"));
   const [saved, setSaved] = useState<Transaction | null>(null);
   const [saveError, setSaveError] = useState("");
   const [receiptExtractions, setReceiptExtractions] = useState<ReceiptExtraction[]>([]);
   const [receiptIndex, setReceiptIndex] = useState(0);
   const [importDrafts, setImportDrafts] = useState<TransactionDraft[]>([]);
+  const [importTransactions, setImportTransactions] = useState<Transaction[]>([]);
   const [importIndex, setImportIndex] = useState(0);
   const [batchNotice, setBatchNotice] = useState("");
   const [reviewDisclosure, setReviewDisclosure] = useState<{ title: string; description: string } | undefined>(demoScenario ? {
     title: "Prepared from your receipt.",
     description: "Compare the prepared draft with the evidence before approving.",
+  } : voicePrefill ? {
+    title: "Prepared from your voice request.",
+    description: "Check the details below, then save the record when they look right.",
   } : undefined);
   const [sourceEvidence, setSourceEvidence] = useState<{ label: string; text: string } | undefined>(demoScenario ? {
     label: "Receipt text",
@@ -130,17 +139,18 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
     extractionRun: DEMO_REVIEW_EXTRACTION_RUN,
   } : null);
   const [approvalTimeline, setApprovalTimeline] = useState<ApprovalAuditEvent[]>([]);
+  const loadedReviewId = useRef<string | null>(null);
 
   const sourceNotice = source === null
     ? <><strong>Private by default:</strong> choose an evidence source to see how it will be handled before anything is saved.</>
     : source === "receipt"
     ? <><strong>Receipt review:</strong> we prepare a draft from each image. Nothing is saved until you approve it.</>
     : source === "csv"
-      ? <><strong>Spreadsheet import:</strong> rows are prepared on this device and remain drafts until you approve them.</>
+      ? <><strong>Spreadsheet import:</strong> imported rows are saved as Needs your check, so you can safely continue reviewing them later.</>
       : source === "voice"
         ? <><strong>Voice review:</strong> we prepare a draft from your recording. Nothing is saved until you approve it.</>
         : source === "bank_statement"
-          ? <><strong>Statement import:</strong> we prepare transactions for you to check before saving.</>
+          ? <><strong>Statement import:</strong> imported transactions are saved as Needs your check, so you can safely continue reviewing them later.</>
           : source === "whatsapp"
             ? <><strong>Message review:</strong> this demo turns an order message into a draft for you to check.</>
             : <><strong>Private by default:</strong> your manual entry stays in this browser until you save it.</>;
@@ -148,6 +158,29 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [stage]);
+
+  useEffect(() => {
+    const transaction = reviewedTransaction.data;
+    if (demoScenario || !reviewTransactionId || !transaction || loadedReviewId.current === transaction.id) return;
+    loadedReviewId.current = transaction.id;
+    setSource(transaction.sourceType);
+    setDraft({
+      type: transaction.type,
+      date: transaction.date,
+      amount: transaction.total,
+      category: transaction.category,
+      description: transaction.description,
+      counterpartyName: transaction.counterpartyName,
+      paymentMethod: transaction.paymentMethod || "",
+      source: transaction.sourceType,
+      eInvoiceTreatment: "undetermined",
+    });
+    setReviewDisclosure({
+      title: "Saved record awaiting your approval.",
+      description: "Check and edit the fields below, then approve the record when they match your evidence.",
+    });
+    setStage("review");
+  }, [demoScenario, reviewTransactionId, reviewedTransaction.data]);
 
   const selectSource = (nextSource: TransactionSourceType) => {
     setSource(nextSource);
@@ -172,6 +205,7 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
     setReceiptExtractions([]);
     setReceiptIndex(0);
     setImportDrafts([]);
+    setImportTransactions([]);
     setImportIndex(0);
     setBatchNotice("");
     setReviewDisclosure(undefined);
@@ -186,6 +220,7 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
     setReceiptExtractions(extractions);
     setReceiptIndex(0);
     setImportDrafts([]);
+    setImportTransactions([]);
     setBatchNotice(failures.length ? `${failures.length} receipt${failures.length === 1 ? "" : "s"} could not be extracted. You can upload them again after this batch.` : "");
     setReviewDisclosure({ title: "Prepared from your receipt.", description: "We read the image and created this draft. Compare it with the receipt before approving." });
     const first = extractions[0];
@@ -218,8 +253,29 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
     setStage("review");
   };
 
-  const reviewImportedTransactions = ({ drafts, failures, warnings, method }: TransactionFileImportResult) => {
+  const reviewImportedTransactions = async ({ drafts, failures, warnings, method }: TransactionFileImportResult) => {
+    if (!businessId || !userId) {
+      throw new Error("Your workspace is still loading. Please try again.");
+    }
+    const transactions = await Promise.all(drafts.map((importDraft) => createTransaction.mutateAsync({
+      businessId,
+      createdBy: userId,
+      type: importDraft.type,
+      subtotal: importDraft.amount,
+      tax: 0,
+      total: importDraft.amount,
+      currency: "MYR",
+      date: importDraft.date,
+      category: importDraft.category,
+      description: importDraft.description,
+      counterpartyName: importDraft.counterpartyName,
+      paymentMethod: importDraft.paymentMethod || null,
+      sourceType: importDraft.source,
+      status: "needs_review",
+      items: [],
+    })));
     setImportDrafts(drafts);
+    setImportTransactions(transactions);
     setImportIndex(0);
     setReceiptExtractions([]);
     setReceiptIndex(0);
@@ -242,6 +298,7 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
     setReceiptExtractions([]);
     setReceiptIndex(0);
     setImportDrafts([]);
+    setImportTransactions([]);
     setImportIndex(0);
     const hints: TransactionReviewHints = {};
     const remainingWarnings: string[] = [];
@@ -291,6 +348,10 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
 
   const confirm = async (values: ValidTransactionFormValues) => {
     setSaveError("");
+    if (!businessId || !userId) {
+      setSaveError("Your workspace is still loading. Please try again.");
+      return;
+    }
     if (reviewTransactionId && !reviewedTransaction.data) {
       setSaveError("We couldn’t load this record. Return to Records and open it again.");
       return;
@@ -313,14 +374,15 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
         status: "confirmed",
         items: [],
       } satisfies Omit<Transaction, "id" | "createdAt" | "updatedAt">;
-      const transaction = reviewedTransaction.data
+      const existingTransaction = reviewedTransaction.data || importTransactions[importIndex];
+      const transaction = existingTransaction
         ? await updateTransaction.mutateAsync({
-            ...reviewedTransaction.data,
+            ...existingTransaction,
             ...transactionValues,
-            sourceDocumentId: reviewedTransaction.data.sourceDocumentId,
+            sourceDocumentId: existingTransaction.sourceDocumentId,
           })
         : await createTransaction.mutateAsync(transactionValues);
-      const reviewedAt = reviewedTransaction.data ? transaction.updatedAt : transaction.createdAt;
+      const reviewedAt = existingTransaction ? transaction.updatedAt : transaction.createdAt;
       const approvedRun = activeProvenance
         ? approveExtractionRun(activeProvenance.extractionRun, {
             type: values.type,
@@ -342,7 +404,7 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
         now: reviewedAt,
         ...(approvedRun ? { extractionRun: approvedRun } : {}),
       });
-      if (activeProvenance && approvedRun) {
+      if (mode === "demo" && activeProvenance && approvedRun) {
         persistReviewProvenance(activeProvenance.sourceDocument, approvedRun);
         setApprovalTimeline(deriveApprovalAuditTimeline({
           sourceDocument: activeProvenance.sourceDocument,
@@ -360,6 +422,16 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
     }
   };
 
+  const stageContent =
+    stage === "select" ? <InputMethodSelector onSelect={selectSource} />
+    : stage === "input" && source === "receipt" ? <ReceiptUploader onBack={restart} onExtracted={reviewReceiptExtractions} />
+    : stage === "input" && source === "voice" ? <VoiceRecorder onBack={restart} onExtracted={reviewVoiceTransaction} />
+    : stage === "input" && (source === "csv" || source === "bank_statement" || source === "whatsapp") ? <DemoSourceInput onBack={restart} onContinue={() => setStage("processing")} onImported={reviewImportedTransactions} source={source} />
+    : stage === "processing" ? <ProcessingState onCancel={restart} onComplete={() => setStage("review")} />
+    : stage === "review" ? <TransactionReviewForm batchNotice={batchNotice || undefined} batchProgress={source === "receipt" && receiptExtractions.length > 1 ? { current: receiptIndex + 1, total: receiptExtractions.length, label: "receipt" } : importDrafts.length > 1 ? { current: importIndex + 1, total: importDrafts.length, label: "transaction" } : undefined} disclosure={reviewDisclosure} draft={draft} onBack={restart} onConfirm={confirm} onReject={restart} reviewHints={reviewHints} saveError={saveError} saving={createTransaction.isPending || updateTransaction.isPending || (Boolean(reviewTransactionId) && reviewedTransaction.isPending)} sourceEvidence={sourceEvidence} />
+    : stage === "success" && saved ? <TransactionSuccessState approvalTimeline={approvalTimeline} onAddAnother={restart} onNextItem={receiptExtractions.length ? reviewNextReceipt : importDrafts.length ? reviewNextImport : undefined} remainingItems={receiptExtractions.length ? Math.max(0, receiptExtractions.length - receiptIndex - 1) : Math.max(0, importDrafts.length - importIndex - 1)} nextItemLabel={receiptExtractions.length ? "receipt" : "transaction"} transaction={saved} />
+    : null;
+
   return (
     <>
       <PageHeader
@@ -372,13 +444,9 @@ export function TransactionCaptureFlow({ initialMethod, demoScenario, reviewTran
       <div className="capture-demo-banner"><LockKeyhole aria-hidden="true" size={17} /><span>{sourceNotice}</span></div>
 
       <div className="capture-workspace">
-        {stage === "select" ? <InputMethodSelector onSelect={selectSource} /> : null}
-        {stage === "input" && source === "receipt" ? <ReceiptUploader onBack={restart} onExtracted={reviewReceiptExtractions} /> : null}
-        {stage === "input" && source === "voice" ? <VoiceRecorder onBack={restart} onExtracted={reviewVoiceTransaction} /> : null}
-        {stage === "input" && (source === "csv" || source === "bank_statement" || source === "whatsapp") ? <DemoSourceInput onBack={restart} onContinue={() => setStage("processing")} onImported={reviewImportedTransactions} source={source} /> : null}
-        {stage === "processing" ? <ProcessingState onCancel={restart} onComplete={() => setStage("review")} /> : null}
-        {stage === "review" ? <TransactionReviewForm batchNotice={batchNotice || undefined} batchProgress={source === "receipt" && receiptExtractions.length > 1 ? { current: receiptIndex + 1, total: receiptExtractions.length, label: "receipt" } : importDrafts.length > 1 ? { current: importIndex + 1, total: importDrafts.length, label: "transaction" } : undefined} disclosure={reviewDisclosure} draft={draft} onBack={restart} onConfirm={confirm} onReject={restart} reviewHints={reviewHints} saveError={saveError} saving={createTransaction.isPending || updateTransaction.isPending || (Boolean(reviewTransactionId) && reviewedTransaction.isPending)} sourceEvidence={sourceEvidence} /> : null}
-        {stage === "success" && saved ? <TransactionSuccessState approvalTimeline={approvalTimeline} onAddAnother={restart} onNextItem={receiptExtractions.length ? reviewNextReceipt : importDrafts.length ? reviewNextImport : undefined} remainingItems={receiptExtractions.length ? Math.max(0, receiptExtractions.length - receiptIndex - 1) : Math.max(0, importDrafts.length - importIndex - 1)} nextItemLabel={receiptExtractions.length ? "receipt" : "transaction"} transaction={saved} /> : null}
+        <div className="capture-stage" data-stage={stage} key={stage}>
+          {stageContent}
+        </div>
       </div>
     </>
   );

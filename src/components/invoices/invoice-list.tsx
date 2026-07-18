@@ -9,9 +9,10 @@ import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { useInvoices, useUpdateInvoice } from "@/hooks/use-invoices";
 import { useBusiness } from "@/hooks/use-business";
+import { useAuth } from "@/components/auth/auth-provider";
+import { DEMO_BUSINESS } from "@/data/demo";
 import { getEffectiveInvoiceStatus, parseLocalDate } from "@/lib/invoices/calculations";
 import type { EffectiveInvoiceStatus, Invoice, InvoiceStatus } from "@/types";
-import { DEMO_BUSINESS } from "@/data/demo";
 
 export const invoiceStatusLabels: Record<EffectiveInvoiceStatus, string> = {
   draft: "Draft", sent: "Sent", partially_paid: "Partially paid", paid: "Paid", void: "Void", overdue: "Overdue",
@@ -23,7 +24,8 @@ const displayDate = (date: string) => dateFormatter.format(parseLocalDate(date))
 const noInvoices: Invoice[] = [];
 
 export function InvoiceList({ initialMessage = "" }: { initialMessage?: string }) {
-  const businessId = useBusiness().data?.id || DEMO_BUSINESS.id;
+  const { mode } = useAuth();
+  const businessId = useBusiness().data?.id ?? (mode === "demo" ? DEMO_BUSINESS.id : "");
   const invoicesQuery = useInvoices(businessId);
   const updateInvoice = useUpdateInvoice();
   const invoices = invoicesQuery.data ?? noInvoices;
@@ -65,7 +67,7 @@ export function InvoiceList({ initialMessage = "" }: { initialMessage?: string }
         <label><span>Status</span><select onChange={(event) => setStatus(event.target.value as EffectiveInvoiceStatus | "all")} value={status}><option value="all">All statuses</option>{Object.entries(invoiceStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       </section>
 
-      <div className="transaction-results-heading"><p><strong>{visible.length}</strong> {visible.length === 1 ? "invoice" : "invoices"}</p><span className="all-reviewed">Stored on this device</span></div>
+      <div className="transaction-results-heading"><p><strong>{visible.length}</strong> {visible.length === 1 ? "invoice" : "invoices"}</p><span className="all-reviewed">{mode === "supabase" ? "Stored securely for this business" : "Stored on this device"}</span></div>
       {visible.length === 0 ? (
         <section className="transaction-empty panel"><h2>{invoices.length ? "No matching invoices" : "No invoices yet"}</h2><p>{invoices.length ? "Try changing the customer or status filter." : "Create your first invoice to start tracking customer payments."}</p>{invoices.length ? <button className="button button-secondary" onClick={() => { setCustomer(""); setStatus("all"); }} type="button">Clear filters</button> : <Link className="button button-primary" href="/invoices/new">Create invoice</Link>}</section>
       ) : (

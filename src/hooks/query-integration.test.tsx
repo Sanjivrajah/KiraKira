@@ -9,6 +9,10 @@ import { queryKeys } from "@/lib/query/query-keys";
 import { services } from "@/services";
 import { createQueryWrapper } from "@/test/render";
 
+// AppProviders now owns the persistent voice session, which reads route context.
+// This suite exercises the query client only, so a minimal App Router is enough.
+vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard", useRouter: () => ({ push: vi.fn() }) }));
+
 const fixture = DEMO_TRANSACTIONS[0];
 const createInput = fixture;
 
@@ -26,6 +30,15 @@ describe("TanStack Query integration", () => {
     view.rerender(<AppProviders><Probe /></AppProviders>);
     expect(screen.getByText("Provider ready")).toBeInTheDocument();
     expect(clients[0]).toBe(clients.at(-1));
+  });
+
+  it("does not keep workspace records fresh indefinitely", () => {
+    const client = createQueryClient();
+    const { staleTime, refetchOnReconnect, refetchOnWindowFocus } = client.getDefaultOptions().queries ?? {};
+
+    expect(staleTime).toBe(0);
+    expect(refetchOnReconnect).toBe(true);
+    expect(refetchOnWindowFocus).toBe(true);
   });
 
   it("loads a successful collection and preserves an empty collection", async () => {

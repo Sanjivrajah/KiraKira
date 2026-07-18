@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { calculateInvoiceTotals, daysFromDueDate, getEffectiveInvoiceStatus, getInvoiceReadinessChecks } from "./calculations";
+import { calculateInvoiceTotals, calculateInvoiceTotalsMinor, daysFromDueDate, getEffectiveInvoiceStatus, getInvoiceReadinessChecks } from "./calculations";
 
 describe("invoice calculations", () => {
+  it("calculates persistence totals in integer minor units with rounded tax", () => {
+    expect(calculateInvoiceTotalsMinor([{ quantity: 3, unitPrice: 19.99, taxRate: 6, discountAmount: 0.01 }]))
+      .toEqual({ subtotalMinor: 5996, taxMinor: 360, totalMinor: 6356 });
+  });
+
   it("calculates subtotal, line taxes, and total to cents", () => {
     expect(calculateInvoiceTotals([
       { quantity: 2, unitPrice: 10.25, taxRate: 8 },

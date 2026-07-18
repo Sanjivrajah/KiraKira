@@ -2,10 +2,14 @@ import { AuthGate } from "@/components/auth/auth-gate";
 import { InvoiceList } from "@/components/invoices/invoice-list";
 import { AppShell } from "@/components/layout/app-shell";
 
-export default async function InvoicesPage({ searchParams }: PageProps<"/invoices">) {
+type InvoicesPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function InvoicesPage({ searchParams }: InvoicesPageProps) {
   const query = await searchParams;
   const initialMessage = query.created === "1"
-    ? "Invoice saved to this browser."
+    ? "Invoice saved successfully."
     : query.deleted === "1"
       ? "Invoice deleted successfully."
       : "";

@@ -12,7 +12,7 @@ export const partyRules: MyInvoisValidationRule[] = [
     validate: ({ buyer }) => buyer?.legalName ? [] : [{}],
     fieldPath: "buyer.legalName",
     message: "Buyer legal name is required.",
-    sourceReferenceLabel: "MyInvois Invoice v1.1 Buyer",
+    sourceReferenceLabel: "MyInvois Invoice v1.0 Buyer",
   },
   {
     ruleId: "buyer.tin.present",
@@ -22,7 +22,7 @@ export const partyRules: MyInvoisValidationRule[] = [
     validate: ({ buyer }) => buyer?.taxIdentifiers.some((identifier) => identifier.scheme === "tin") ? [] : [{}],
     fieldPath: "buyer.taxIdentifiers",
     message: "Buyer TIN is required for this scenario.",
-    sourceReferenceLabel: "MyInvois Invoice v1.1 Buyer TIN",
+    sourceReferenceLabel: "MyInvois Invoice v1.0 Buyer TIN",
   },
   {
     ruleId: "buyer.registration.present",
@@ -32,7 +32,7 @@ export const partyRules: MyInvoisValidationRule[] = [
     validate: ({ buyer }) => buyer?.registrationIdentifiers.length ? [] : [{}],
     fieldPath: "buyer.registrationIdentifiers",
     message: "Buyer registration or identification number is required.",
-    sourceReferenceLabel: "MyInvois Invoice v1.1 Buyer Identification",
+    sourceReferenceLabel: "MyInvois Invoice v1.0 Buyer Identification",
   },
   {
     ruleId: "buyer.address.valid",
@@ -46,13 +46,13 @@ export const partyRules: MyInvoisValidationRule[] = [
       const failures = !countryCode || !referenceData.isActive("country", countryCode, asOfDate)
         ? [{ fieldPath: "buyer.billingAddress.countryCode", message: "Buyer country is not available in current MyInvois reference data." }]
         : [];
-      if (address.countryCode === "MY" && (!address.stateCode || !referenceData.isActive("state", address.stateCode, asOfDate))) {
-        failures.push({ fieldPath: "buyer.billingAddress.stateCode", message: "Malaysian buyer requires an active MyInvois state code." });
+      if (address.countryCode === "MY" && (!address.stateCode || !referenceData.isActive("state", address.stateCode, asOfDate) || address.stateCode === "17")) {
+        failures.push({ fieldPath: "buyer.billingAddress.stateCode", message: "Malaysian buyer requires an active state code from 01 to 16; state 17 is reserved for consolidated or non-Malaysian addresses." });
       }
       return failures;
     },
     fieldPath: "buyer.billingAddress",
     message: "Buyer address is required and must use active country/state codes.",
-    sourceReferenceLabel: "MyInvois Invoice v1.1 Address",
+    sourceReferenceLabel: "MyInvois Invoice v1.0 Address",
   },
 ];

@@ -5,6 +5,7 @@ import { reextractTransactionDraft, extractTransactionFromText } from "@/feature
 import { TransactionDraftService } from "@/features/transaction-agent/transaction-confirmation";
 import type { TransactionDraft } from "@/features/transaction-agent/transaction-record.schema";
 import type { DraftRepository } from "@/features/transaction-agent/transaction-repositories";
+import type { TransactionExtraction } from "@/features/transaction-agent/transaction.schema";
 
 export type TransactionInput = {
   text: string;
@@ -13,15 +14,55 @@ export type TransactionInput = {
   sourceType: TransactionDraft["sourceType"];
   transcript?: string;
   telegramFileId?: string;
+  defaultPaymentMethod?: Exclude<TransactionExtraction["paymentMethod"], "unknown"> | null;
 };
 
 export type TransactionInputResult =
   | { outcome: "clarification"; question: string; draft: TransactionDraft; requestedField: NonNullable<Awaited<ReturnType<ConversationService["beginClarification"]>>>; restarted: boolean }
   | { outcome: "draft"; draft: TransactionDraft; restarted: boolean }
+  | { outcome: "expired" }
   | { outcome: "unavailable" };
 
 type Extract = typeof extractTransactionFromText;
 type Reextract = typeof reextractTransactionDraft;
+
+export function applyDefaultPaymentMethod(
+  extraction: TransactionExtraction,
+  defaultPaymentMethod: TransactionInput["defaultPaymentMethod"],
+): TransactionExtraction {
+  return extraction.paymentMethod === "unknown" && defaultPaymentMethod
+    ? {
+        ...extraction,
+        paymentMethod: defaultPaymentMethod,
+        missingFields: extraction.missingFields.filter((field) => field !== "paymentMethod"),
+      }
+    : extraction;
+}
+
+/** Simple answers to a targeted prompt are user-confirmed values, not a new extraction task. */
+export function applyDirectClarification(
+  currentDraft: TransactionDraft,
+  requestedField: string | undefined,
+  reply: string,
+): TransactionExtraction | null {
+  const value = reply.trim();
+  if (!value) return null;
+  if (requestedField === "purpose") {
+    const description = value.replace(/^for\s+/i, "").trim();
+    if (!description) return null;
+    return { ...currentDraft, description, missingFields: currentDraft.missingFields.filter((field) => field !== "purpose" && field !== "description") };
+  }
+  if (requestedField === "merchantOrCustomer") {
+    return { ...currentDraft, merchantOrCustomer: value, missingFields: currentDraft.missingFields.filter((field) => field !== "merchantOrCustomer") };
+  }
+  if (requestedField === "paymentMethod") {
+    const normalized = value.toLocaleLowerCase().replace(/[\s_-]+/g, "");
+    const paymentMethod = ({ cash: "cash", banktransfer: "bank_transfer", card: "card", ewallet: "ewallet", credit: "credit" } as const)[normalized];
+    if (!paymentMethod) return null;
+    return { ...currentDraft, paymentMethod, missingFields: currentDraft.missingFields.filter((field) => field !== "paymentMethod") };
+  }
+  return null;
+}
 
 /** Single entry point for text and transcribed voice transaction input. */
 export class TransactionInputProcessor {
@@ -48,11 +89,13 @@ export class TransactionInputProcessor {
       if (expiredDraft?.status === "pending" && expiredDraft.telegramUserId === input.telegramUserId) {
         await this.dependencies.draftService.act({ action: "cancel", draftId: expiredDraft.id, telegramUserId: input.telegramUserId });
       }
-      await this.dependencies.conversations.clearByUser(input.telegramUserId, input.telegramChatId);
-      state = null;
-      restarted = true;
+      await this.dependencies.conversations.expire(state);
+      return { outcome: "expired" };
     }
 
+    if (state) {
+      if (["completed", "cancelled", "failed"].includes(state.workflowStatus)) state = null;
+    }
     if (state) {
       const currentDraft = await this.dependencies.drafts.findById(state.draftId);
       if (!currentDraft || currentDraft.telegramUserId !== input.telegramUserId || currentDraft.status !== "pending") {
@@ -69,7 +112,7 @@ export class TransactionInputProcessor {
           });
           return { outcome: "unavailable" };
         }
-        const extraction = await reextract({
+        const extraction = applyDirectClarification(currentDraft, state.requestedField, input.text) ?? await reextract({
           originalInput: currentDraft.originalInput,
           currentDraft,
           requestedField: state.requestedField,
@@ -85,7 +128,8 @@ export class TransactionInputProcessor {
       }
     }
 
-    const extraction = await extract({ input: input.text, apiKey: this.dependencies.apiKey, model: this.dependencies.model });
+    const extracted = await extract({ input: input.text, apiKey: this.dependencies.apiKey, model: this.dependencies.model });
+    const extraction = applyDefaultPaymentMethod(extracted, input.defaultPaymentMethod);
     const draft = await this.dependencies.draftService.createDraft({
       extraction,
       telegramUserId: input.telegramUserId,

@@ -2,12 +2,11 @@ import type { RegistrationIdentifier, TaxIdentifier } from "../parties";
 
 export type MyInvoisEnvironment = "sandbox" | "production";
 
-/** Opaque references resolved by a future secrets provider; never raw credential values. */
+/** Opaque OAuth references resolved server-side; never raw credential values. */
 export interface MyInvoisIntegrationConfiguration {
   environment: MyInvoisEnvironment;
   clientIdSecretRef: string;
   clientSecretSecretRef: string;
-  certificateSecretRef?: string;
 }
 
 export interface BusinessComplianceProfile {

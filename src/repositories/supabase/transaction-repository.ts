@@ -3,9 +3,10 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 import { financialTransactionSchema } from "@/domain/transactions/transaction.schema";
 import type { z } from "zod";
 import { RepositoryError } from "@/repositories/contracts";
+import { normalizeSupabaseTimestamp } from "@/lib/supabase/timestamp";
 
 export type FinancialTransaction = z.infer<typeof financialTransactionSchema>;
-export type NewFinancialTransaction = Omit<FinancialTransaction, "id" | "createdAt" | "updatedAt"> & { id?: string };
+export type NewFinancialTransaction = Omit<FinancialTransaction, "id"> & { id?: string };
 
 export type TransactionPage = { items: FinancialTransaction[]; nextCursor: string | null };
 export type TransactionListOptions = {
@@ -16,20 +17,70 @@ export type TransactionListOptions = {
   search?: string;
 };
 
-const transactionColumns = "id,business_id,direction,lifecycle,transaction_date,accounting_date,counterparty_id,counterparty_name_snapshot,source_links,description,category_code,currency,exchange_rate_to_myr,lines,totals,payment_status,payment_method_code,e_invoice_treatment,confidence_score,confirmation,void_metadata,created_at,updated_at,created_by,updated_by,version";
+const transactionColumns = "id,business_id,direction,lifecycle,transaction_date,accounting_date,counterparty_id,counterparty_name_snapshot,source_links,description,category_code,currency,exchange_rate_to_myr,subtotal_minor,discount_minor,tax_minor,total_minor,lines,totals,payment_status,payment_method_code,e_invoice_treatment,confidence_score,confirmation,void_metadata,confirmed_at,confirmed_by,voided_at,voided_by,void_reason,created_at,updated_at,created_by,updated_by,version";
 type TransactionRow = Pick<Database["public"]["Tables"]["transactions"]["Row"],
   "id" | "business_id" | "direction" | "lifecycle" | "transaction_date" | "accounting_date" |
   "counterparty_id" | "counterparty_name_snapshot" | "source_links" | "description" | "category_code" |
-  "currency" | "exchange_rate_to_myr" | "lines" | "totals" | "payment_status" |
+  "currency" | "exchange_rate_to_myr" | "subtotal_minor" | "discount_minor" | "tax_minor" | "total_minor" | "lines" | "totals" | "payment_status" |
   "payment_method_code" | "e_invoice_treatment" | "confidence_score" | "confirmation" |
-  "void_metadata" | "created_at" | "updated_at" | "created_by" | "updated_by" | "version"
+  "void_metadata" | "confirmed_at" | "confirmed_by" | "voided_at" | "voided_by" | "void_reason" | "created_at" | "updated_at" | "created_by" | "updated_by" | "version"
 >;
 
-function toRepositoryError(error: { code?: string; message: string }, operation: "read" | "write") {
+type SupabaseRepositoryFailure = {
+  code?: string;
+  details?: string | null;
+  hint?: string | null;
+  message: string;
+};
+
+function toRepositoryError(error: SupabaseRepositoryFailure, operation: "read" | "write") {
+  // Keep the customer-facing message safe, but make local development failures
+  // diagnosable without logging transaction values or authentication tokens.
+  if (process.env.NODE_ENV !== "production") {
+    console.warn("[transactions] Supabase request failed", {
+      code: error.code ?? null,
+      details: error.details ?? null,
+      hint: error.hint ?? null,
+      message: error.message,
+      operation,
+    });
+  }
   if (error.code === "PGRST116") return new RepositoryError("The requested transaction was not found.", "NOT_FOUND");
   if (error.code === "42501" || error.code === "PGRST301") return new RepositoryError("You do not have permission to access this business.", "FORBIDDEN");
   if (error.code === "23505") return new RepositoryError("This transaction was already saved.", "CONFLICT");
   return new RepositoryError(operation === "read" ? "We could not load transactions. Please try again." : "We could not save this transaction. Please try again.", operation === "read" ? "READ_FAILED" : "WRITE_FAILED", { cause: error });
+}
+
+function toMinorUnits(value: string) {
+  const match = /^(\d+)(?:\.(\d+))?$/.exec(value);
+  if (!match) throw new RepositoryError("The transaction amount is invalid.", "INVALID_DATA");
+  const fraction = match[2] ?? "";
+  let minor = BigInt(match[1]) * BigInt(100) + BigInt((fraction + "00").slice(0, 2));
+  if (Number(fraction[2] ?? "0") >= 5) minor += BigInt(1);
+  if (minor > BigInt(Number.MAX_SAFE_INTEGER)) throw new RepositoryError("The transaction amount is outside the supported range.", "INVALID_DATA");
+  return Number(minor);
+}
+
+function normalizedAmounts(transaction: Pick<FinancialTransaction, "totals">) {
+  const totalMinor = toMinorUnits(transaction.totals.payableAmount.amount);
+  const discountMinor = toMinorUnits(transaction.totals.allowanceTotal.amount);
+  const taxMinor = toMinorUnits(transaction.totals.taxTotal.amount);
+  // The current database constraint is total = subtotal - discount + tax.
+  // Deriving subtotal from the canonical payable amount also supports records
+  // with charges or rounding until those columns are normalized separately.
+  return { subtotalMinor: totalMinor + discountMinor - taxMinor, discountMinor, taxMinor, totalMinor };
+}
+
+function decimalFromMinor(value: number): string {
+  return (value / 100).toFixed(2);
+}
+
+function hasCanonicalLines(value: Json): value is Json[] {
+  return Array.isArray(value) && value.length > 0;
+}
+
+function hasCanonicalTotals(value: Json): value is Record<string, Json> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value) && "payableAmount" in value);
 }
 
 export class SupabaseTransactionRepository {
@@ -77,7 +128,7 @@ export class SupabaseTransactionRepository {
     return this.mapFromDatabase(data);
   }
 
-  async create(transaction: FinancialTransaction): Promise<FinancialTransaction> {
+  async create(transaction: NewFinancialTransaction): Promise<FinancialTransaction> {
     const { data, error } = await this.client
       .from("transactions")
       .insert([this.mapToDatabase(transaction)])
@@ -104,6 +155,13 @@ export class SupabaseTransactionRepository {
     if (changes.exchangeRateToMYR !== undefined) dbChanges.exchange_rate_to_myr = changes.exchangeRateToMYR;
     if (changes.lines) dbChanges.lines = changes.lines;
     if (changes.totals) dbChanges.totals = changes.totals;
+    if (changes.totals) {
+      const amounts = normalizedAmounts({ ...changes, totals: changes.totals } as FinancialTransaction);
+      dbChanges.subtotal_minor = amounts.subtotalMinor;
+      dbChanges.discount_minor = amounts.discountMinor;
+      dbChanges.tax_minor = amounts.taxMinor;
+      dbChanges.total_minor = amounts.totalMinor;
+    }
     if (changes.paymentStatus) dbChanges.payment_status = changes.paymentStatus;
     if (changes.paymentMethodCode !== undefined) dbChanges.payment_method_code = changes.paymentMethodCode;
     if (changes.eInvoiceTreatment) dbChanges.e_invoice_treatment = changes.eInvoiceTreatment;
@@ -144,6 +202,30 @@ export class SupabaseTransactionRepository {
     // Helper to strip nulls
     const notNull = (value: unknown) => (value === null ? undefined : value);
 
+    const subtotal = decimalFromMinor(row.subtotal_minor);
+    const tax = decimalFromMinor(row.tax_minor);
+    const total = decimalFromMinor(row.total_minor);
+    const lines = hasCanonicalLines(row.lines) ? row.lines : [{
+      id: row.id,
+      description: row.description,
+      quantity: "1",
+      unitCode: "unit",
+      unitPrice: { amount: subtotal, currency: row.currency },
+      taxTreatment: { taxTypeCode: "02", taxRate: "0", taxableAmount: { amount: subtotal, currency: row.currency }, taxAmount: { amount: tax, currency: row.currency } },
+      subtotal: { amount: subtotal, currency: row.currency },
+      totalExcludingTax: { amount: subtotal, currency: row.currency },
+      totalIncludingTax: { amount: total, currency: row.currency },
+    }];
+    const totals = hasCanonicalTotals(row.totals) ? row.totals : {
+      lineExtensionAmount: { amount: subtotal, currency: row.currency },
+      allowanceTotal: { amount: decimalFromMinor(row.discount_minor), currency: row.currency },
+      chargeTotal: { amount: "0.00", currency: row.currency },
+      taxExclusiveAmount: { amount: subtotal, currency: row.currency },
+      taxTotal: { amount: tax, currency: row.currency },
+      taxInclusiveAmount: { amount: total, currency: row.currency },
+      roundingAmount: { amount: "0.00", currency: row.currency },
+      payableAmount: { amount: total, currency: row.currency },
+    };
     const obj = {
       id: row.id,
       businessId: row.business_id,
@@ -158,16 +240,16 @@ export class SupabaseTransactionRepository {
       categoryCode: row.category_code,
       currency: row.currency,
       exchangeRateToMYR: notNull(row.exchange_rate_to_myr)?.toString(),
-      lines: row.lines,
-      totals: row.totals,
+      lines,
+      totals,
       paymentStatus: row.payment_status,
       paymentMethodCode: notNull(row.payment_method_code),
       eInvoiceTreatment: row.e_invoice_treatment,
       confidenceScore: notNull(row.confidence_score),
-      confirmation: notNull(row.confirmation),
-      voidMetadata: notNull(row.void_metadata),
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      confirmation: row.lifecycle === "confirmed" && row.confirmed_at && row.confirmed_by ? { confirmedBy: row.confirmed_by, confirmedAt: normalizeSupabaseTimestamp(row.confirmed_at) } : undefined,
+      voidMetadata: row.lifecycle === "voided" && row.voided_at && row.voided_by && row.void_reason ? { voidedBy: row.voided_by, voidedAt: normalizeSupabaseTimestamp(row.voided_at), reason: row.void_reason } : undefined,
+      createdAt: normalizeSupabaseTimestamp(row.created_at),
+      updatedAt: normalizeSupabaseTimestamp(row.updated_at),
       createdBy: notNull(row.created_by),
       updatedBy: notNull(row.updated_by),
       version: notNull(row.version),
@@ -176,9 +258,9 @@ export class SupabaseTransactionRepository {
   }
 
   // Maps camelCase domain model to database snake_case row
-  private mapToDatabase(txn: FinancialTransaction): Database["public"]["Tables"]["transactions"]["Insert"] {
-    return {
-      id: txn.id,
+  mapToDatabase(txn: NewFinancialTransaction | FinancialTransaction): Database["public"]["Tables"]["transactions"]["Insert"] {
+    const amounts = normalizedAmounts(txn);
+    const row: Database["public"]["Tables"]["transactions"]["Insert"] = {
       business_id: txn.businessId,
       direction: txn.direction,
       lifecycle: txn.lifecycle,
@@ -191,6 +273,10 @@ export class SupabaseTransactionRepository {
       category_code: txn.categoryCode,
       currency: txn.currency,
       exchange_rate_to_myr: txn.exchangeRateToMYR ? Number(txn.exchangeRateToMYR) : undefined,
+      subtotal_minor: amounts.subtotalMinor,
+      discount_minor: amounts.discountMinor,
+      tax_minor: amounts.taxMinor,
+      total_minor: amounts.totalMinor,
       lines: txn.lines as Json,
       totals: txn.totals as Json,
       payment_status: txn.paymentStatus,
@@ -203,7 +289,13 @@ export class SupabaseTransactionRepository {
       updated_at: txn.updatedAt,
       created_by: txn.createdBy,
       updated_by: txn.updatedBy,
-      version: txn.version,
+    };
+    // PostgREST serializes explicit `undefined` values as SQL NULL. Omit
+    // server-generated fields so PostgreSQL can apply their column defaults.
+    return {
+      ...row,
+      ...(txn.id ? { id: txn.id } : {}),
+      ...(txn.version !== undefined ? { version: txn.version } : {}),
     };
   }
 }

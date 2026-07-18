@@ -1,4 +1,5 @@
 import { messages, type BotLocale } from "@/bot/messages";
+import type { TelegramUserPreference } from "@/bot/user-preferences";
 import type { ConversationRequestedField } from "@/features/transaction-agent/conversation-state";
 
 const idButton = (text: string, action: string, id: string) => ({ text, callback_data: `tx:${action}:${id}` });
@@ -40,5 +41,40 @@ export function replacementKeyboard(id: string, locale: BotLocale) {
 }
 
 export function undoKeyboard(id: string, locale: BotLocale) { return { inline_keyboard: [[idButton(locale === "ms" ? "Batalkan simpanan terakhir" : "Undo last save", "undo", id)]] }; }
-export function settingsKeyboard() { return { inline_keyboard: [[{ text: "English", callback_data: "locale:en" }, { text: "Bahasa Melayu", callback_data: "locale:ms" }]] }; }
+export function settingsKeyboard(preference?: TelegramUserPreference, locale: BotLocale = preference?.locale ?? "en") {
+  const ms = locale === "ms";
+  const timezone = preference?.timezone ?? "Asia/Kuala_Lumpur";
+  const paymentMethod = preference?.defaultPaymentMethod ?? "none";
+  const paymentLabel = {
+    none: ms ? "Tiada" : "None",
+    cash: ms ? "Tunai" : "Cash",
+    bank_transfer: ms ? "Pindahan bank" : "Bank transfer",
+    card: ms ? "Kad" : "Card",
+    ewallet: "E-wallet",
+    credit: ms ? "Kredit" : "Credit",
+  }[paymentMethod];
+  return { inline_keyboard: [
+    [{ text: `${locale === "en" ? "✓ " : ""}English`, callback_data: "locale:en" }, { text: `${locale === "ms" ? "✓ " : ""}Bahasa Melayu`, callback_data: "locale:ms" }],
+    [{ text: `${ms ? "Zon waktu" : "Timezone"}: ${timezone === "Asia/Kuala_Lumpur" ? "Malaysia" : "UTC"}`, callback_data: "settings:menu:timezone" }],
+    [{ text: `${ms ? "Cara bayaran lalai" : "Default payment"}: ${paymentLabel}`, callback_data: "settings:menu:payment" }],
+  ] };
+}
+
+export function timezoneSettingsKeyboard(locale: BotLocale) {
+  return { inline_keyboard: [
+    [{ text: "Malaysia (Asia/Kuala_Lumpur)", callback_data: "settings:timezone:malaysia" }],
+    [{ text: "UTC", callback_data: "settings:timezone:utc" }],
+    [{ text: locale === "ms" ? "Kembali" : "Back", callback_data: "settings:menu:main" }],
+  ] };
+}
+
+export function paymentSettingsKeyboard(locale: BotLocale) {
+  const labels = locale === "ms"
+    ? [["Tiada", "none"], ["Tunai", "cash"], ["Pindahan bank", "bank_transfer"], ["Kad", "card"], ["E-wallet", "ewallet"], ["Kredit", "credit"]]
+    : [["None", "none"], ["Cash", "cash"], ["Bank transfer", "bank_transfer"], ["Card", "card"], ["E-wallet", "ewallet"], ["Credit", "credit"]];
+  return { inline_keyboard: [
+    ...labels.map(([text, value]) => [{ text, callback_data: `settings:payment:${value}` }]),
+    [{ text: locale === "ms" ? "Kembali" : "Back", callback_data: "settings:menu:main" }],
+  ] };
+}
 export function duplicateKeyboard(id: string, locale: BotLocale) { return { inline_keyboard: [[idButton(locale === "ms" ? "Simpan juga" : "Save anyway", "save_anyway", id)], [idButton(messages(locale).cancel, "cancel", id)]] }; }

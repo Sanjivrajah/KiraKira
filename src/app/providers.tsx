@@ -5,6 +5,9 @@ import { useState, type ReactNode } from "react";
 import { useEffect } from "react";
 import { createQueryClient } from "@/lib/query/query-client";
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { ThemeProvider } from "@/components/settings/theme-provider";
+import { VoiceAgentLauncher } from "@/components/voice/voice-agent-launcher";
+import { VoiceAgentProvider } from "@/components/voice/voice-agent-provider";
 import { runFrontendStorageMigration } from "@/frontend/storage";
 
 export function AppProviders({ children }: { children: ReactNode }) {
@@ -12,5 +15,5 @@ export function AppProviders({ children }: { children: ReactNode }) {
   useEffect(() => {
     runFrontendStorageMigration();
   }, []);
-  return <QueryClientProvider client={queryClient}><AuthProvider>{children}</AuthProvider></QueryClientProvider>;
+  return <QueryClientProvider client={queryClient}><AuthProvider><VoiceAgentProvider><ThemeProvider>{children}<VoiceAgentLauncher /></ThemeProvider></VoiceAgentProvider></AuthProvider></QueryClientProvider>;
 }

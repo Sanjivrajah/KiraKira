@@ -45,6 +45,6 @@ Avoid neon gradients, glassmorphism, decorative chatbot language, excessive roun
 - Transaction capture and review from manual entry, receipt, voice, CSV and bank statement sources.
 - Owner-reviewed transaction history.
 - Invoice and commercial-note creation with readiness guidance.
-- Dashboard, reminders, cash-flow preview, inventory preview and loan-readiness preview.
+- Dashboard, reminders, cash flow, inventory, and loan readiness.
 
 MyInvois submission and lender qualification remain future integrations unless a screen explicitly states otherwise.

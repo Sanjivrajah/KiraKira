@@ -5,10 +5,17 @@ export interface MyInvoisMappingContext {
   supplier: Party;
   buyer: Party;
   business: Business;
+  shippingRecipient?: Party;
+  supplementalFields?: Readonly<Record<string, unknown>>;
 }
 
 export interface MyInvoisMappingDiagnostic {
   code: string;
+  /** Canonical source path that could not be translated. */
+  canonicalPath: string;
+  /** Intended UBL destination path. */
+  ublPath: string;
+  /** @deprecated Use canonicalPath. Kept for callers created before Stage 3. */
   fieldPath: string;
   message: string;
   documentVersion: string;
@@ -31,4 +38,3 @@ export interface MyInvoisDocumentMapper<Payload = unknown> {
   supports(documentType: CommercialDocumentType): boolean;
   map(document: CommercialDocument, context: MyInvoisMappingContext): Payload;
 }
-

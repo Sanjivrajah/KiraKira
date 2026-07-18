@@ -26,7 +26,7 @@ export const taxRules: MyInvoisValidationRule[] = [
     validate: ({ document }) => document.taxTotals.length > 0 ? [] : [{}],
     fieldPath: "document.taxTotals",
     message: "Grouped tax totals are required.",
-    sourceReferenceLabel: "MyInvois Invoice v1.1 Tax Total",
+    sourceReferenceLabel: "MyInvois Invoice v1.0 Tax Total",
   },
   {
     ruleId: "document.payable.nonnegative",

@@ -3,17 +3,38 @@ import type { MyInvoisCodeSetName, MyInvoisReferenceCode } from "./reference-cod
 
 export interface MyInvoisReferenceCatalog {
   readonly entries: readonly MyInvoisReferenceCode[];
+  readonly version: string;
+  readonly retrievedAt: ISODate;
+  readonly expiresAt?: ISODate;
+  readonly sourceUrls: readonly string[];
   find(codeSet: MyInvoisCodeSetName, code: string): MyInvoisReferenceCode | undefined;
   isActive(codeSet: MyInvoisCodeSetName, code: string, asOfDate: ISODate): boolean;
+  assertUsable(requiredCodeSets: readonly MyInvoisCodeSetName[], asOfDate: ISODate): void;
+}
+
+export interface MyInvoisReferenceCatalogMetadata {
+  version: string;
+  retrievedAt: ISODate;
+  expiresAt?: ISODate;
+  sourceUrls: readonly string[];
 }
 
 export function createMyInvoisReferenceCatalog(
   entries: readonly MyInvoisReferenceCode[],
+  metadata: MyInvoisReferenceCatalogMetadata = {
+    version: entries[0]?.sourceVersion ?? "unversioned",
+    retrievedAt: (entries[0]?.syncedAt.slice(0, 10) ?? "1970-01-01") as ISODate,
+    sourceUrls: [],
+  },
 ): MyInvoisReferenceCatalog {
   const frozenEntries = Object.freeze(entries.map((entry) => Object.freeze({ ...entry })));
   const index = new Map(frozenEntries.map((entry) => [`${entry.codeSet}:${entry.code}`, entry]));
   return Object.freeze({
     entries: frozenEntries,
+    version: metadata.version,
+    retrievedAt: metadata.retrievedAt,
+    expiresAt: metadata.expiresAt,
+    sourceUrls: Object.freeze([...metadata.sourceUrls]),
     find: (codeSet: MyInvoisCodeSetName, code: string) => index.get(`${codeSet}:${code}`),
     isActive: (codeSet: MyInvoisCodeSetName, code: string, asOfDate: ISODate) => {
       const entry = index.get(`${codeSet}:${code}`);
@@ -22,6 +43,16 @@ export function createMyInvoisReferenceCatalog(
         (!entry.effectiveFrom || entry.effectiveFrom <= asOfDate) &&
         (!entry.effectiveTo || entry.effectiveTo >= asOfDate),
       );
+    },
+    assertUsable: (requiredCodeSets: readonly MyInvoisCodeSetName[], asOfDate: ISODate) => {
+      if (metadata.expiresAt && metadata.expiresAt < asOfDate) {
+        throw new Error(`MyInvois reference data ${metadata.version} expired on ${metadata.expiresAt}.`);
+      }
+      for (const codeSet of requiredCodeSets) {
+        if (!frozenEntries.some((entry) => entry.codeSet === codeSet && entry.active)) {
+          throw new Error(`MyInvois reference data ${metadata.version} is missing ${codeSet}.`);
+        }
+      }
     },
   });
 }

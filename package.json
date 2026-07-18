@@ -15,9 +15,13 @@
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
     "supabase:reset": "supabase db reset",
-    "supabase:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts"
+    "supabase:types": "supabase gen types typescript --linked > src/lib/supabase/database.types.ts",
+    "data:import:telegram": "tsx scripts/import-telegram-json.ts",
+    "data:import:myinvois": "node scripts/import-myinvois-reference-data.mjs",
+    "demo:agent": "tsx scripts/demo-agent.ts"
   },
   "dependencies": {
+    "@elevenlabs/react": "^1.10.0",
     "@hookform/resolvers": "^5.4.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "2.80.0",
@@ -29,6 +33,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.81.0",
+    "server-only": "^0.0.1",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },

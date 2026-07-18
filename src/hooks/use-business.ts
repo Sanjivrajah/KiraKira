@@ -4,8 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth/auth-provider";
 import { queryKeys } from "@/lib/query/query-keys";
 import { services } from "@/services";
-import { createSupabaseBusiness, getSupabaseBusinessesForUser } from "@/services/business-context-service";
-import type { BusinessInput } from "@/types";
+import { createSupabaseBusiness, getSupabaseBusinessesForUser, updateSupabaseBusinessCompliance, type BusinessComplianceUpdate } from "@/services/business-context-service";
+import type { Business, BusinessInput } from "@/types";
 
 export function useBusiness() {
   const { activeBusinessId, mode, session } = useAuth();
@@ -54,6 +54,26 @@ export function useSaveBusiness() {
     onSuccess: (business) => {
       if (!session) return;
       queryClient.setQueryData(queryKeys.businessForUser(session.user.id), [business]);
+      queryClient.setQueryData(queryKeys.business(business.id), business);
+    },
+  });
+}
+
+export function useUpdateBusinessCompliance() {
+  const { mode, session } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: BusinessComplianceUpdate) => {
+      if (!session) throw new Error("You must be signed in to update business details.");
+      if (mode !== "supabase") throw new Error("Business compliance editing requires a connected Supabase workspace.");
+      return updateSupabaseBusinessCompliance(input);
+    },
+    onSuccess: (business) => {
+      if (!session) return;
+      queryClient.setQueryData<Business[]>(queryKeys.businessForUser(session.user.id), (current) => {
+        if (!current) return [business];
+        return current.map((item) => item.id === business.id ? business : item);
+      });
       queryClient.setQueryData(queryKeys.business(business.id), business);
     },
   });

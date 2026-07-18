@@ -9,7 +9,7 @@ const sourceLabels: Record<TransactionSourceType, string> = {
   manual: "Manual",
   csv: "CSV",
   bank_statement: "Bank",
-  whatsapp: "WhatsApp",
+  whatsapp: "Telegram",
 };
 
 const statusLabels: Record<TransactionStatus, string> = {

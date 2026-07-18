@@ -11,6 +11,11 @@ export const queryKeys = {
     list: (businessId: string) => ["invoices", businessId, "list"] as const,
     detail: (businessId: string, invoiceId: string) => ["invoices", businessId, "detail", invoiceId] as const,
   },
+  eInvoices: {
+    all: ["e-invoices"] as const,
+    workspace: (businessId: string) => ["e-invoices", businessId, "workspace"] as const,
+    submissions: (businessId: string) => ["e-invoices", businessId, "submissions"] as const,
+  },
   reminders: {
     all: ["reminders"] as const,
     list: (businessId: string) => ["reminders", businessId, "list"] as const,

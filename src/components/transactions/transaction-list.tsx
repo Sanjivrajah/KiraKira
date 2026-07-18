@@ -9,13 +9,14 @@ import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { useTransactions } from "@/hooks/use-transactions";
 import { useBusiness } from "@/hooks/use-business";
+import { useAuth } from "@/components/auth/auth-provider";
+import { DEMO_BUSINESS } from "@/data/demo";
 import { emptyTransactionFilters, filterAndSortTransactions, type TransactionFilters, type TransactionSort } from "@/lib/transactions/query";
 import type { Transaction, TransactionSourceType, TransactionStatus } from "@/types";
-import { DEMO_BUSINESS } from "@/data/demo";
 
 export const sourceLabels: Record<TransactionSourceType, string> = {
   receipt: "Receipt", voice: "Voice", manual: "Manual", csv: "CSV",
-  bank_statement: "Bank statement", whatsapp: "WhatsApp",
+  bank_statement: "Bank statement", whatsapp: "Telegram",
 };
 export const statusLabels: Record<TransactionStatus, string> = {
   draft: "Draft", needs_review: "Needs your check", confirmed: "Owner-approved", failed: "Needs attention",
@@ -27,12 +28,18 @@ function displayDate(date: string) {
   return dateFormatter.format(new Date(`${date}T00:00:00`));
 }
 
+function reviewHref(transaction: Transaction) {
+  if (transaction.id === "txn_002") return "/transactions/new?method=receipt&demo=ambiguous&reviewId=txn_002";
+  return `/transactions/new?method=${transaction.sourceType}&reviewId=${transaction.id}`;
+}
+
 function Counterparty({ transaction }: { transaction: Transaction }) {
   return <>{transaction.counterpartyName || "—"}</>;
 }
 
 export function TransactionList() {
-  const businessId = useBusiness().data?.id || DEMO_BUSINESS.id;
+  const { mode } = useAuth();
+  const businessId = useBusiness().data?.id ?? (mode === "demo" ? DEMO_BUSINESS.id : "");
   const transactionsQuery = useTransactions(businessId);
   const transactions = transactionsQuery.data ?? noTransactions;
   const [filters, setFilters] = useState<TransactionFilters>(emptyTransactionFilters);
@@ -82,10 +89,10 @@ export function TransactionList() {
       ) : <>
         <div className="transaction-table-wrap panel">
           <table className="transaction-table"><thead><tr><th>Date</th><th>Description</th><th>Merchant / customer</th><th>Category</th><th>Source</th><th>Status</th><th>Amount</th><th><span className="sr-only">Actions</span></th></tr></thead>
-            <tbody>{visible.map((transaction) => <tr key={transaction.id}><td>{displayDate(transaction.date)}</td><td><Link href={`/transactions/${transaction.id}`}><strong>{transaction.description}</strong><span className={`type-label ${transaction.type}`}>{transaction.type}</span></Link></td><td><Counterparty transaction={transaction} /></td><td>{transaction.category}</td><td>{sourceLabels[transaction.sourceType]}</td><td><span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span></td><td><MoneyDisplay amount={transaction.total} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} /></td><td>{transaction.status === "needs_review" ? <Link className="review-button" href={transaction.id === "txn_002" ? "/transactions/new?method=receipt&demo=ambiguous&reviewId=txn_002" : `/transactions/${transaction.id}`}>Check record</Link> : <Link className="row-link" href={`/transactions/${transaction.id}`} aria-label={`View ${transaction.description}`}><ChevronRight aria-hidden="true" size={18} /></Link>}</td></tr>)}</tbody>
+            <tbody>{visible.map((transaction) => <tr key={transaction.id}><td>{displayDate(transaction.date)}</td><td><Link href={`/transactions/${transaction.id}`}><strong>{transaction.description}</strong><span className={`type-label ${transaction.type}`}>{transaction.type}</span></Link></td><td><Counterparty transaction={transaction} /></td><td>{transaction.category}</td><td>{sourceLabels[transaction.sourceType]}</td><td><span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span></td><td><MoneyDisplay amount={transaction.total} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} /></td><td>{transaction.status === "needs_review" ? <Link className="review-button" href={reviewHref(transaction)}>Check record</Link> : <Link className="row-link" href={`/transactions/${transaction.id}`} aria-label={`View ${transaction.description}`}><ChevronRight aria-hidden="true" size={18} /></Link>}</td></tr>)}</tbody>
           </table>
         </div>
-        <div className="transaction-cards">{visible.map((transaction) => <article className="transaction-card" key={transaction.id}><Link className="transaction-card-link" href={`/transactions/${transaction.id}`}><div className="transaction-card-top"><span className={`type-label ${transaction.type}`}>{transaction.type}</span><MoneyDisplay amount={transaction.total} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} /></div><h2>{transaction.description}</h2><p>{displayDate(transaction.date)} · <Counterparty transaction={transaction} /></p><div className="transaction-card-meta"><span>{transaction.category}</span><span>{sourceLabels[transaction.sourceType]}</span><span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span></div></Link>{transaction.status === "needs_review" ? <Link className="review-button" href={transaction.id === "txn_002" ? "/transactions/new?method=receipt&demo=ambiguous&reviewId=txn_002" : `/transactions/${transaction.id}`}><CheckCircle2 aria-hidden="true" size={16} />Check record</Link> : null}</article>)}</div>
+        <div className="transaction-cards">{visible.map((transaction) => <article className="transaction-card" key={transaction.id}><Link className="transaction-card-link" href={`/transactions/${transaction.id}`}><div className="transaction-card-top"><span className={`type-label ${transaction.type}`}>{transaction.type}</span><MoneyDisplay amount={transaction.total} className={transaction.type} prefix={transaction.type === "income" ? "+" : "−"} /></div><h2>{transaction.description}</h2><p>{displayDate(transaction.date)} · <Counterparty transaction={transaction} /></p><div className="transaction-card-meta"><span>{transaction.category}</span><span>{sourceLabels[transaction.sourceType]}</span><span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span></div></Link>{transaction.status === "needs_review" ? <Link className="review-button" href={reviewHref(transaction)}><CheckCircle2 aria-hidden="true" size={16} />Check record</Link> : null}</article>)}</div>
       </>}</> : null}
     </>
   );

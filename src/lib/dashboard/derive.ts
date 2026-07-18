@@ -1,4 +1,4 @@
-import { DEMO_CASH_FLOW_WINDOW_MONTHS, LOAN_READINESS_WEIGHTS } from "@/data/demo";
+import { DEMO_CASH_FLOW_WINDOW_MONTHS } from "@/data/demo";
 import { formatMoney } from "@/lib/format/money";
 import type { Business, Invoice, Transaction } from "@/types";
 
@@ -27,11 +27,6 @@ export interface DashboardInsight {
   description: string;
   tone: InsightTone;
   href: string;
-}
-
-export interface LoanReadinessPreview {
-  score: number;
-  summary: string;
 }
 
 function malaysiaDateParts(referenceDate: Date) {
@@ -161,33 +156,4 @@ export function deriveDashboardInsights({
     });
   }
   return insights;
-}
-
-export function deriveLoanReadiness({
-  transactions,
-  invoices,
-  metrics,
-  reviewCount,
-  business,
-}: {
-  transactions: Transaction[];
-  invoices: Invoice[];
-  metrics: DashboardMetrics;
-  reviewCount: number;
-  business: Business | null;
-}): LoanReadinessPreview {
-  let score = LOAN_READINESS_WEIGHTS.startingScore;
-  if (transactions.length >= 3) score += LOAN_READINESS_WEIGHTS.transactionHistory;
-  if (transactions.some((item) => item.type === "income") && transactions.some((item) => item.type === "expense")) score += LOAN_READINESS_WEIGHTS.incomeAndExpenses;
-  if (transactions.length > 0 && reviewCount === 0) score += LOAN_READINESS_WEIGHTS.reviewedRecords;
-  if (invoices.length > 0) score += LOAN_READINESS_WEIGHTS.invoiceHistory;
-  if (invoices.length > 0 && metrics.overdueInvoiceCount === 0) score += LOAN_READINESS_WEIGHTS.noOverdueInvoices;
-  if (business?.registrationNumber) score += LOAN_READINESS_WEIGHTS.registrationNumber;
-  if (business?.tin) score += LOAN_READINESS_WEIGHTS.taxIdentificationNumber;
-  const summary = reviewCount > 0
-    ? `Review ${reviewCount} transaction${reviewCount === 1 ? "" : "s"} to make your local records more complete.`
-    : metrics.overdueInvoiceCount > 0
-      ? "Following up on overdue invoices may improve the completeness of your cash records."
-      : "Your current local records cover several useful financing-preparation basics.";
-  return { score: Math.min(100, score), summary };
 }

@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { primaryNavigation } from "./navigation";
 
-describe("judged navigation", () => {
-  it("keeps the evidence workflow focused on four destinations", () => {
+describe("primary navigation", () => {
+  it("includes the dashboard as the home destination", () => {
     expect(primaryNavigation.map(({ label, href }) => ({ label, href }))).toEqual([
-      { label: "Evidence inbox", href: "/dashboard" },
+      { label: "Dashboard", href: "/dashboard" },
       { label: "Records", href: "/transactions" },
-      { label: "e-Invoice preparation", href: "/invoices" },
+      { label: "Voice assistant", href: "/voice" },
+      { label: "Invoices", href: "/invoices" },
+      { label: "e-Invoice preparation", href: "/e-invoices" },
       { label: "Business details", href: "/settings" },
     ]);
   });

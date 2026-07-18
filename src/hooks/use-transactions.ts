@@ -19,6 +19,7 @@ export function useTransactions(businessId: string) {
   return useQuery({
     queryKey: queryKeys.transactions.list(businessId),
     queryFn: () => services.transactions.initializeDemo(businessId),
+    enabled: Boolean(businessId),
   });
 }
 
@@ -30,7 +31,7 @@ export function useTransaction(businessId: string, transactionId?: string) {
       await services.transactions.initializeDemo(businessId);
       return services.transactions.getById(businessId, transactionId);
     },
-    enabled: Boolean(transactionId),
+    enabled: Boolean(businessId && transactionId),
   });
 }
 

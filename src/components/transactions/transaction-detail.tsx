@@ -16,9 +16,10 @@ import { LoadingState } from "@/components/shared/loading-state";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { useDeleteTransaction, useTransaction, useUpdateTransaction } from "@/hooks/use-transactions";
 import { useBusiness } from "@/hooks/use-business";
+import { useAuth } from "@/components/auth/auth-provider";
+import { DEMO_BUSINESS } from "@/data/demo";
 import { transactionFormSchema } from "@/lib/validation/transaction";
 import type { Transaction } from "@/types";
-import { DEMO_BUSINESS } from "@/data/demo";
 import { sourceLabels, statusLabels } from "./transaction-list";
 
 const editSchema = transactionFormSchema.omit({ source: true }).extend({
@@ -33,7 +34,8 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-MY", { dateStyle: "medium"
 
 export function TransactionDetail({ id }: { id: string }) {
   const router = useRouter();
-  const businessId = useBusiness().data?.id || DEMO_BUSINESS.id;
+  const { mode } = useAuth();
+  const businessId = useBusiness().data?.id ?? (mode === "demo" ? DEMO_BUSINESS.id : "");
   const transactionQuery = useTransaction(businessId, id);
   const updateTransaction = useUpdateTransaction();
   const deleteTransaction = useDeleteTransaction();
@@ -130,7 +132,7 @@ export function TransactionDetail({ id }: { id: string }) {
           </div><div className="detail-form-actions"><button className="button button-secondary" disabled={updateTransaction.isPending} onClick={() => { setEditing(false); setError(""); reset(); }} type="button">Cancel</button><button className="button button-primary" disabled={isSubmitting || updateTransaction.isPending} type="submit"><CheckCircle2 aria-hidden="true" size={18} />Save changes</button></div></form>
         </section>
       ) : (
-        <div className="transaction-detail-grid"><section className="panel structured-fields"><div className="panel-heading"><div><p className="section-kicker">Record details</p><h2>Transaction information</h2></div><button className="button button-secondary compact-button" onClick={() => { setEditing(true); setMessage(""); }} type="button"><Pencil aria-hidden="true" size={16} />Edit</button></div>
+        <div className="transaction-detail-grid"><section className="panel structured-fields"><div className="panel-heading"><div><p className="section-kicker">Record details</p><h2>Transaction information</h2></div>{transaction.status === "needs_review" ? <Link className="button button-primary compact-button" href={`/transactions/new?method=${transaction.sourceType}&reviewId=${transaction.id}`}><CheckCircle2 aria-hidden="true" size={16} />Review &amp; approve</Link> : <button className="button button-secondary compact-button" onClick={() => { setEditing(true); setMessage(""); }} type="button"><Pencil aria-hidden="true" size={16} />Edit</button>}</div>
           <dl><div><dt>Type</dt><dd><span className={`type-label ${transaction.type}`}>{transaction.type}</span></dd></div><div><dt>Amount</dt><dd><MoneyDisplay amount={transaction.total} /></dd></div><div><dt>Date</dt><dd>{dateFormatter.format(new Date(`${transaction.date}T00:00:00`))}</dd></div><div><dt>Category</dt><dd>{transaction.category}</dd></div><div className="detail-wide"><dt>Description</dt><dd>{transaction.description}</dd></div><div><dt>{transaction.type === "income" ? "Customer" : "Merchant"}</dt><dd>{transaction.counterpartyName || "Not provided"}</dd></div><div><dt>Payment method</dt><dd>{transaction.paymentMethod || "Not provided"}</dd></div><div><dt>Review status</dt><dd><span className={`status-badge ${transaction.status}`}>{statusLabels[transaction.status]}</span></dd></div></dl>
         </section>
         <aside className="panel transaction-source-panel"><p className="section-kicker">Record history</p><h2>Source information</h2><dl><div><dt>Captured via</dt><dd>{sourceLabels[transaction.sourceType]}</dd></div><div><dt>Created</dt><dd>{dateTimeFormatter.format(new Date(transaction.createdAt))}</dd></div><div><dt>Record ID</dt><dd className="record-id">{transaction.id}</dd></div></dl><button className="button button-danger button-full" onClick={() => setConfirmDelete(true)} type="button"><Trash2 aria-hidden="true" size={17} />Void transaction</button></aside></div>

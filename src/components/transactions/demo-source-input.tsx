@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FileSpreadsheet, Landmark, MessageCircle, UploadCloud } from "lucide-react";
+import { Download, FileSpreadsheet, Landmark, MessageCircle, UploadCloud } from "lucide-react";
 import { TextareaField } from "@/components/forms/textarea-field";
 import { DEMO_WHATSAPP_ORDER_MESSAGE } from "@/data/demo";
 import { parseTransactionCsv, type ImportedTransactionDraft } from "@/lib/imports/transaction-csv";
@@ -35,7 +35,7 @@ const sourceCopy = {
 export function DemoSourceInput({ source, onContinue, onImported, onBack }: {
   source: "csv" | "bank_statement" | "whatsapp";
   onContinue: () => void;
-  onImported: (result: TransactionFileImportResult) => void;
+  onImported: (result: TransactionFileImportResult) => void | Promise<void>;
   onBack: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
@@ -58,7 +58,7 @@ export function DemoSourceInput({ source, onContinue, onImported, onBack }: {
       if (isCsv) {
         const result = parseTransactionCsv(await file.text(), source);
         if (result.drafts.length === 0) throw new Error(result.failures[0] || "No complete transactions were found in this CSV.");
-        onImported({
+        await onImported({
           drafts: result.drafts,
           failures: result.failures,
           warnings: result.truncated ? ["Only the first 100 rows were imported."] : [],
@@ -85,7 +85,7 @@ export function DemoSourceInput({ source, onContinue, onImported, onBack }: {
         if (response.status === 503) throw new Error("Statement extraction is not configured right now.");
         throw new Error(body.error || `Could not read this statement (${response.status}).`);
       }
-      onImported({ drafts: body.drafts, failures: [], warnings: body.warnings || [], method: "openai_pdf" });
+      await onImported({ drafts: body.drafts, failures: [], warnings: body.warnings || [], method: "openai_pdf" });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "We could not import this file.");
     } finally {
@@ -96,9 +96,9 @@ export function DemoSourceInput({ source, onContinue, onImported, onBack }: {
   if (source === "whatsapp") {
     return (
       <section className="capture-input-card" aria-labelledby="whatsapp-input-title">
-        <p className="section-kicker">WhatsApp order · Step 1 of 3</p>
+        <p className="section-kicker">Telegram order · Step 1 of 3</p>
         <h2 id="whatsapp-input-title">Paste an order message</h2>
-        <p className="capture-help">This is only a text preview. The demo does not connect to WhatsApp.</p>
+        <p className="capture-help">Paste an order from Telegram to prepare the record Niaga would create. This web demo does not connect to your Telegram account.</p>
         <div className="message-preview-icon"><MessageCircle aria-hidden="true" size={24} /></div>
         <TextareaField label="Order message" onChange={(event) => setMessage(event.target.value)} rows={6} value={message} />
         <div className="capture-actions">
@@ -116,6 +116,18 @@ export function DemoSourceInput({ source, onContinue, onImported, onBack }: {
       <p className="section-kicker">{copy.eyebrow} · Step 1 of 3</p>
       <h2 id="file-input-title">{copy.title}</h2>
       <p className="capture-help">{copy.help}</p>
+      {source === "csv" ? (
+        <div className="csv-template-help">
+          <div>
+            <strong>Not sure how to format your file?</strong>
+            <span>Start with a ready-to-fill template that matches this importer.</span>
+          </div>
+          <a className="button button-secondary" download href="/samples/niaga-transaction-import-sample.csv">
+            <Download aria-hidden="true" size={18} />
+            Download sample CSV
+          </a>
+        </div>
+      ) : null}
       <button className="upload-dropzone" onClick={() => fileRef.current?.click()} type="button">
         <span className="upload-icon"><Icon aria-hidden="true" size={26} /></span>
         <strong>{file?.name || "Select a file"}</strong>
