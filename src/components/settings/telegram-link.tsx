@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, Link2, Send, ShieldCheck } from "lucide-react";
+import { Check, Copy, Link2, Send, ShieldCheck } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 
 type Business = { id: string; name: string };
 type LinkCode = { code: string; expiresAt: string };
+type CopyStatus = "idle" | "copied" | "failed";
 
 export function TelegramLink() {
   const { mode, status } = useAuth();
@@ -13,6 +14,7 @@ export function TelegramLink() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [businessId, setBusinessId] = useState("");
   const [link, setLink] = useState<LinkCode | null>(null);
+  const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -39,6 +41,7 @@ export function TelegramLink() {
     setLoading(true);
     setMessage(null);
     setLink(null);
+    setCopyStatus("idle");
     try {
       const response = await fetch("/api/telegram/link-code", {
         method: "POST",
@@ -50,6 +53,16 @@ export function TelegramLink() {
       setLink({ code: body.code, expiresAt: body.expiresAt });
     } catch { setMessage("Could not create a Telegram link code. Please try again."); }
     finally { setLoading(false); }
+  }
+
+  async function copyLinkMessage() {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(`/link ${link.code}`);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("failed");
+    }
   }
 
   const expiry = link ? new Intl.DateTimeFormat("en-MY", { dateStyle: "medium", timeStyle: "short" }).format(new Date(link.expiresAt)) : null;
@@ -69,7 +82,7 @@ export function TelegramLink() {
       {businesses.length === 0 && status === "authenticated" ? <p role="status" className="settings-notice">You need an active business membership with transaction access before linking Telegram.</p> : null}
 
       {!link ? <div className="telegram-link-action"><div><strong>Get a one-time link code</strong><span>It expires after 10 minutes for your privacy.</span></div><button type="button" onClick={issueCode} disabled={loading || !businessId} className="button button-primary">{loading ? "Creating code…" : <><Link2 aria-hidden="true" size={18} />Create link code</>}</button></div> : null}
-      {link ? <div className="telegram-link-code" role="status"><div className="telegram-link-code-heading"><span><Check aria-hidden="true" size={17} />Code ready</span><small>Expires {expiry}</small></div><p>Open a private chat with the bot and send this message:</p><code>/link {link.code}</code><button type="button" onClick={issueCode} disabled={loading} className="button button-secondary">{loading ? "Creating code…" : "Create a new code"}</button></div> : null}
+      {link ? <div className="telegram-link-code" role="status"><div className="telegram-link-code-heading"><span><Check aria-hidden="true" size={17} />Code ready</span><small>Expires {expiry}</small></div><p>Open a private chat with the bot and send this message:</p><div className="telegram-link-command"><code>/link {link.code}</code><button type="button" onClick={copyLinkMessage} className="button button-secondary" aria-label={copyStatus === "copied" ? "Link message copied" : "Copy link message"}>{copyStatus === "copied" ? <><Check aria-hidden="true" size={17} />Copied</> : <><Copy aria-hidden="true" size={17} />Copy</>}</button></div>{copyStatus === "failed" ? <p className="settings-error">Could not copy the link message. Select and copy it manually.</p> : null}<button type="button" onClick={issueCode} disabled={loading} className="button button-secondary">{loading ? "Creating code…" : "Create a new code"}</button></div> : null}
       {message ? <p role="status" className="settings-error">{message}</p> : null}
     </div>
   </section>;
