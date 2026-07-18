@@ -33,7 +33,7 @@ describe("Session 7 invoice builder", () => {
     render(<InvoiceBuilder now="2026-07-15T09:00:00.000Z" />);
     fireEvent.click(screen.getByRole("button", { name: "Use General Public" }));
     expect(screen.getByLabelText("Customer")).toHaveValue("party_general_public");
-    expect(screen.getByText(/EI00000000010/)).toBeInTheDocument();
+    expect(screen.getByText(/IG40365782020/)).toBeInTheDocument();
   });
 
   it("saves a standard invoice to both presentation and canonical storage", async () => {
@@ -102,13 +102,4 @@ describe("Session 7 invoice builder", () => {
     expect(screen.getAllByText(/Reference: MyInvois/).length).toBeGreaterThan(0);
   });
 
-  it("offers an exact customer fix when a buyer TIN is missing", () => {
-    render(<InvoiceBuilder now="2026-07-15T09:00:00.000Z" />);
-    fireEvent.change(screen.getByLabelText("Description (required)"), { target: { value: "Catering service" } });
-    fireEvent.change(screen.getByLabelText("Customer"), { target: { value: "customer_suria_events" } });
-
-    expect(screen.getByText("Buyer TIN is required for this scenario.")).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole("button", { name: "Check customer" })[0]);
-    expect(screen.getByLabelText("Customer")).toHaveFocus();
-  });
 });

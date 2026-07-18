@@ -11,6 +11,7 @@ import { ConversationService } from "@/features/transaction-agent/conversation-s
 import { isConversationStateExpired, type ConversationRequestedField } from "@/features/transaction-agent/conversation-state";
 import { getRequiredMissingFields } from "@/features/transaction-agent/clarification";
 import { applyDefaultPaymentMethod, TransactionInputProcessor, type TransactionInput, type TransactionInputResult } from "@/features/transaction-agent/transaction-input-processor";
+import { extractMultiIntentFromText } from "@/features/transaction-agent/multi-intent-extractor";
 import { hasMultipleReceiptTransactions, receiptToTransactionExtraction } from "@/features/transaction-agent/receipt-input";
 import { downloadTelegramAudio, TelegramVoiceFileTooLargeError, type DownloadedTelegramAudio } from "@/lib/telegram/download-file";
 import { downloadTelegramReceipt, TelegramReceiptFileTooLargeError, TelegramReceiptUnsupportedTypeError, type DownloadedTelegramReceipt } from "@/lib/telegram/download-receipt";
@@ -20,7 +21,7 @@ import type { ReceiptExtraction } from "@/lib/openai/receipt-schema";
 import type { BotEnvironment } from "@/lib/env";
 import { createTelegramSupabaseAdminClient } from "@/bot/supabase-admin";
 import { TelegramLinkService } from "@/features/transaction-agent/telegram-linking";
-import { MAX_TEXT_MESSAGE_LENGTH, MAX_TRANSACTIONS_RETURNED } from "@/features/transaction-agent/agent-config";
+import { LOW_CONFIDENCE_REVIEW_THRESHOLD, MAX_TEXT_MESSAGE_LENGTH, MAX_TRANSACTIONS_RETURNED } from "@/features/transaction-agent/agent-config";
 import { ProviderRateLimiter } from "@/features/transaction-agent/provider-rate-limit";
 import { formatRecentTransactions, formatTransactionSummary, splitTelegramMessage } from "@/features/transaction-agent/telegram-command-formatters";
 import { paginateTransactions, periodFor, searchTransactions, summaryForPeriod, transactionsToCsv, validatePeriod } from "@/features/transaction-agent/daily-bookkeeping";
@@ -30,13 +31,15 @@ import type { AgentInputEnvelope, OrchestrationRun } from "@/features/transactio
 import { LocalReceivableRepository } from "@/features/transaction-agent/receivables";
 import { calculateFinancialInsight, formatFinancialInsight, parseFinancialInsightQuery } from "@/features/transaction-agent/financial-insights";
 import { formatSafeTrace } from "@/features/transaction-agent/agent-observability";
+import { formatEInvoiceHint } from "@/features/transaction-agent/einvoice-hint";
+import { buildPostConfirmInsight } from "@/features/transaction-agent/post-confirm-insights";
 
 type VoiceDependencies = {
   downloadAudio?: (input: Parameters<typeof downloadTelegramAudio>[0]) => Promise<DownloadedTelegramAudio>;
   transcribeAudio?: (input: { filePath: string; filename: string; mediaType: string }) => Promise<AudioTranscription>;
   preferences?: UserPreferenceRepository;
   now?: () => Date;
-  inputProcessor?: Pick<TransactionInputProcessor, "process">;
+  inputProcessor?: Pick<TransactionInputProcessor, "process"> & Partial<Pick<TransactionInputProcessor, "advanceBatch">>;
   telegramFetch?: typeof fetch;
   linkService?: Pick<TelegramLinkService, "consume">;
   downloadReceipt?: (input: Parameters<typeof downloadTelegramReceipt>[0]) => Promise<DownloadedTelegramReceipt>;
@@ -83,7 +86,7 @@ export function createTelegramBot(environment: BotEnvironment, draftService?: Tr
   const service = draftService ?? new TransactionDraftService(repositories.drafts, repositories.transactions, voiceDependencies.now);
   const conversations = new ConversationService(repositories.drafts, supabase && accountResolver ? new SupabaseTelegramConversationRepository(supabase, accountResolver, voiceDependencies.now) : new LocalConversationStateRepository(LOCAL_DATA_DIRECTORY), voiceDependencies.now);
   const preferences = voiceDependencies.preferences ?? (supabase ? new SupabaseTelegramPreferenceRepository(supabase) : new LocalUserPreferenceRepository(LOCAL_DATA_DIRECTORY, voiceDependencies.now));
-  const inputProcessor = voiceDependencies.inputProcessor ?? new TransactionInputProcessor({ drafts: repositories.drafts, draftService: service, conversations, apiKey: OPENAI_API_KEY, model: OPENAI_TRANSACTION_MODEL });
+  const inputProcessor = voiceDependencies.inputProcessor ?? new TransactionInputProcessor({ drafts: repositories.drafts, draftService: service, conversations, apiKey: OPENAI_API_KEY, model: OPENAI_TRANSACTION_MODEL, extractMultiIntent: extractMultiIntentFromText });
   const orchestrationRepository = supabase && accountResolver
     ? new SupabaseOrchestrationRepository(supabase, (userId, chatId) => accountResolver.require(userId, chatId).then((account) => account.id))
     : new LocalOrchestrationRepository(LOCAL_DATA_DIRECTORY);
@@ -213,11 +216,31 @@ export function createTelegramBot(environment: BotEnvironment, draftService?: Tr
       return context.reply(text.unavailable);
     }
     if (result.restarted) await context.reply(text.restarted);
+    if (result.batch) {
+      if (result.batch.index === 1) await context.reply(text.batchIntro(result.batch.total));
+      else await context.reply(text.batchNext(result.batch.index, result.batch.total));
+    }
+    for (const note of result.notes ?? []) await context.reply(note);
     if (result.outcome === "clarification") {
       const remaining = getRequiredMissingFields(result.draft).length;
       return attachKeyboard(context, await context.reply(clarificationMessage(locale, result.draft, result.requestedField, remaining), { reply_markup: clarificationKeyboard(result.requestedField, result.draft.id, locale) }));
     }
-    return attachKeyboard(context, await context.reply(formatDraft(result.draft, locale), { reply_markup: reviewKeyboard(result.draft.id, locale, Boolean(result.draft.transcript)) }));
+    if (result.draft.confidence < LOW_CONFIDENCE_REVIEW_THRESHOLD) await context.reply(text.lowConfidenceHint);
+    const review = await attachKeyboard(context, await context.reply(formatDraft(result.draft, locale), { reply_markup: reviewKeyboard(result.draft.id, locale, Boolean(result.draft.transcript)) }));
+    const einvoiceHint = formatEInvoiceHint(result.draft, locale);
+    if (einvoiceHint) await context.reply(einvoiceHint);
+    return review;
+  }
+
+  /** After a batch item resolves, present the next queued multi-intent draft, if any. */
+  async function presentNextBatchItem(context: Context, userId: string, chatId: string, locale: BotLocale) {
+    if (!inputProcessor.advanceBatch) return;
+    try {
+      const next = await inputProcessor.advanceBatch({ telegramUserId: userId, telegramChatId: chatId });
+      if (next) await presentResult(context, next, locale);
+    } catch (error) {
+      console.warn("Unable to advance transaction batch.", error instanceof Error ? error.message : "Unknown error");
+    }
   }
 
   async function processTransactionInput(context: Context, input: Omit<TransactionInput, "telegramUserId" | "telegramChatId">, locale: BotLocale) {
@@ -239,7 +262,7 @@ export function createTelegramBot(environment: BotEnvironment, draftService?: Tr
       ...(input.telegramFileId ? { mediaReference: input.telegramFileId } : {}),
       receivedAt: now().toISOString(),
     };
-    const execution = await orchestration.execute(envelope, () => inputProcessor.process({ ...input, telegramUserId, telegramChatId, defaultPaymentMethod: preference.defaultPaymentMethod }));
+    const execution = await orchestration.execute(envelope, () => inputProcessor.process({ ...input, telegramUserId, telegramChatId, defaultPaymentMethod: preference.defaultPaymentMethod, locale }));
     if (execution.outcome === "duplicate") return;
     if (execution.outcome === "failed") throw new Error(`Transaction orchestration failed: ${execution.errorCode}`);
     const result = execution.value;
@@ -527,8 +550,20 @@ export function createTelegramBot(environment: BotEnvironment, draftService?: Tr
     if (result.outcome === "missing" || result.outcome === "expired") { await clearConversation(callback.draftId); return context.reply(text.expiredDraft); }
     if (result.outcome === "not_owner") return context.reply(text.foreignDraft);
     if (result.outcome === "incomplete") return context.reply(text.incomplete);
-    if (result.outcome === "cancelled") { if (activeState?.draftId === callback.draftId) await conversations.cancel(activeState); return context.reply(text.cancelled); }
-    if (result.outcome === "confirmed") { if (activeState?.draftId === callback.draftId) await conversations.complete(activeState); return context.reply(`${messages(locale).saved(result.transaction.type)}\n\n${formatDraft(result.transaction, locale)}`, { reply_markup: undoKeyboard(result.transaction.id, locale) }); }
+    if (result.outcome === "cancelled") {
+      if (activeState?.draftId === callback.draftId) await conversations.cancel(activeState);
+      await context.reply(text.cancelled);
+      return presentNextBatchItem(context, userId, chatId, locale);
+    }
+    if (result.outcome === "confirmed") {
+      if (activeState?.draftId === callback.draftId) await conversations.complete(activeState);
+      await context.reply(`${messages(locale).saved(result.transaction.type)}\n\n${formatDraft(result.transaction, locale)}`, { reply_markup: undoKeyboard(result.transaction.id, locale) });
+      try {
+        const insight = buildPostConfirmInsight(result.transaction, await repositories.transactions.listByUser(userId), locale);
+        if (insight) await context.reply(insight);
+      } catch (error) { console.warn("Unable to compute post-confirm insight.", error instanceof Error ? error.message : "Unknown error"); }
+      return presentNextBatchItem(context, userId, chatId, locale);
+    }
     return context.reply(text.staleAction);
   });
 

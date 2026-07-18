@@ -24,7 +24,7 @@ export const GENERAL_PUBLIC_PARTY_VIEW_MODEL: PartyEditorViewModel = {
   id: "party_general_public",
   kind: "general_public",
   legalName: "General Public",
-  tin: "EI00000000010",
+  tin: "IG40365782020",
   registrationScheme: "brn",
   registrationValue: "NA",
   email: "",

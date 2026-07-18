@@ -3,7 +3,7 @@ import type { ConversationRequestedField } from "@/features/transaction-agent/co
 
 const questions: Record<ConversationRequestedField, string> = {
   amount: "What was the transaction amount?",
-  type: "What was this payment or transaction for?",
+  type: "Was this money in, money out, or a customer payment?",
   purpose: "What was this payment or transaction for?",
   transactionDate: "When did this transaction happen?",
   paymentMethod: "How was it paid — cash, bank transfer, card, e-wallet, or credit?",

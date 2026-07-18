@@ -112,6 +112,15 @@ export function interfaceText(locale: BotLocale) {
     foreignDraft: ms ? "Draf ini milik pengguna lain." : "This draft belongs to another user.",
     incomplete: ms ? "Transaksi ini belum lengkap." : "This transaction is not ready to save.",
     actionFailed: ms ? "Tindakan itu gagal. Keadaan transaksi anda dikekalkan." : "I couldn't complete that action. Your transaction state is preserved.",
+    batchIntro: (total: number) => ms
+      ? `Saya kesan ${total} transaksi dalam mesej itu. Mari semak satu demi satu.`
+      : `I caught ${total} transactions in that message. Let's review them one at a time.`,
+    batchNext: (index: number, total: number) => ms
+      ? `Seterusnya — transaksi ${index} daripada ${total}.`
+      : `Next — transaction ${index} of ${total}.`,
+    lowConfidenceHint: ms
+      ? "Saya kurang pasti dengan yang ini — sila semak butirannya sebelum sahkan."
+      : "I'm not fully sure about this one — please double-check the details before saving.",
   };
 }
 

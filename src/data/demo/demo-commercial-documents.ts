@@ -134,9 +134,9 @@ const documentInputs: DemoDocumentInput[] = [
 export const DEMO_COMMERCIAL_DOCUMENTS = documentInputs.map(makeDocument);
 
 export const DEMO_DOCUMENT_CUSTOMER_SNAPSHOTS = {
-  inv_1024: { name: "Kedai Murni", email: "accounts@kedaimurni.demo", tin: "EI00000000010" },
-  inv_1023: { name: "Teras Digital", email: "finance@terasdigital.demo", tin: "EI00000000020" },
-  inv_1022: { name: "Suria Events" },
+  inv_1024: { name: "Kedai Murni", email: "accounts@kedaimurni.demo", tin: "IG40365782020" },
+  inv_1023: { name: "Teras Digital", email: "finance@terasdigital.demo", tin: "IG40365782020" },
+  inv_1022: { name: "Suria Events", tin: "IG40365782020" },
 } as const;
 
 export const DEMO_DOMAIN_PAYMENTS = [

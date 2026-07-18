@@ -14,6 +14,7 @@ afterEach(async () => { await Promise.all(directories.splice(0).map((directory) 
 
 const incomplete: TransactionExtraction = { type: "expense", amount: 300, currency: "MYR", description: "", merchantOrCustomer: "Ali", paymentMethod: "cash", transactionDate: "2026-07-15", category: null, quantity: null, unit: null, missingFields: ["purpose"], confidence: 0.6 };
 const complete: TransactionExtraction = { ...incomplete, description: "Shop inventory", missingFields: [], confidence: 0.9 };
+const sale: TransactionExtraction = { type: "income", amount: 25, currency: "MYR", description: "Sale of nasi lemak", merchantOrCustomer: null, paymentMethod: "cash", transactionDate: "2026-07-18", category: "Sales revenue", quantity: null, unit: null, missingFields: [], confidence: 0.92 };
 
 async function makeProcessor(extract = vi.fn().mockResolvedValue(complete), reextract = vi.fn().mockResolvedValue(complete)) {
   const directory = await mkdtemp(join(tmpdir(), "niagaai-input-")); directories.push(directory);
@@ -95,6 +96,61 @@ describe("TransactionInputProcessor", () => {
     expect(second).toEqual({ outcome: "unavailable" });
     expect(extract).toHaveBeenCalledOnce();
     await expect(conversations.getActive("user", "chat")).resolves.toMatchObject({ mode: "awaiting_replacement", replacementInput: { text: "Sold cakes RM500 cash" } });
+  });
+
+  it("records owner replies and feeds prior turns back into the next re-extraction", async () => {
+    // amount and date both route through re-extraction (not the local clarification shortcut).
+    const initial: TransactionExtraction = { ...complete, amount: null, transactionDate: null, missingFields: ["amount", "transactionDate"], confidence: 0.6 };
+    const afterAmount: TransactionExtraction = { ...initial, amount: 300, missingFields: ["transactionDate"] };
+    const reextract = vi.fn().mockResolvedValueOnce(afterAmount).mockResolvedValueOnce(complete);
+    const { processor, conversations } = await makeProcessor(vi.fn().mockResolvedValue(initial), reextract);
+
+    await processor.process({ text: "Bought stock at Ali", sourceType: "telegram_text", telegramUserId: "user", telegramChatId: "chat" });
+    await processor.process({ text: "RM300", sourceType: "telegram_text", telegramUserId: "user", telegramChatId: "chat" });
+    await processor.process({ text: "yesterday", sourceType: "telegram_text", telegramUserId: "user", telegramChatId: "chat" });
+
+    // The second re-extraction should see the first reply as prior history.
+    expect(reextract.mock.calls[0]?.[0].history).toBeUndefined();
+    expect(reextract.mock.calls[1]?.[0].history).toEqual(["RM300"]);
+    await expect(conversations.getActive("user", "chat")).resolves.toMatchObject({ history: [{ role: "user", text: "RM300" }, { role: "user", text: "yesterday" }] });
+  });
+
+  it("splits a multi-intent message into an active draft plus a queue and advances on resolution", async () => {
+    const multiExtraction = {
+      actions: [
+        { actionIndex: 1, capability: "transaction_capture" as const, transaction: sale, evidenceSummary: "sold nasi lemak", uncertainty: "none" as const, missingFields: [] },
+        { actionIndex: 2, capability: "transaction_capture" as const, transaction: complete, evidenceSummary: "beli stok", uncertainty: "none" as const, missingFields: [] },
+      ],
+      globalAmbiguityNotes: [],
+    };
+    const directory = await mkdtemp(join(tmpdir(), "niagaai-input-batch-")); directories.push(directory);
+    const repositories = createLocalTransactionRepositories(directory);
+    const drafts = new TransactionDraftService(repositories.drafts, repositories.transactions);
+    const conversations = new ConversationService(repositories.drafts, new LocalConversationStateRepository(directory));
+    const processor = new TransactionInputProcessor({ drafts: repositories.drafts, draftService: drafts, conversations, apiKey: "key", model: "model", extractMultiIntent: vi.fn().mockResolvedValue(multiExtraction) as never });
+
+    const first = await processor.process({ text: "sold nasi lemak RM25 cash and beli stok RM300 cash", sourceType: "telegram_text", telegramUserId: "user", telegramChatId: "chat" });
+    expect(first).toMatchObject({ outcome: "draft", draft: { description: "Sale of nasi lemak" }, batch: { index: 1, total: 2 } });
+    await expect(conversations.getActive("user", "chat")).resolves.toMatchObject({ batchIndex: 1, batchSize: 2, queuedActions: [{ extraction: { description: "Shop inventory" } }] });
+
+    const next = await processor.advanceBatch({ telegramUserId: "user", telegramChatId: "chat" });
+    expect(next).toMatchObject({ outcome: "draft", draft: { description: "Shop inventory" }, batch: { index: 2, total: 2 } });
+    await expect(conversations.getActive("user", "chat")).resolves.toMatchObject({ batchIndex: 2, batchSize: 2, queuedActions: [] });
+
+    await expect(processor.advanceBatch({ telegramUserId: "user", telegramChatId: "chat" })).resolves.toBeNull();
+  });
+
+  it("treats a single-intent multi-intent result as one draft without batch metadata", async () => {
+    const singleExtraction = { actions: [{ actionIndex: 1, capability: "transaction_capture" as const, transaction: complete, evidenceSummary: "beli stok", uncertainty: "none" as const, missingFields: [] }], globalAmbiguityNotes: [] };
+    const directory = await mkdtemp(join(tmpdir(), "niagaai-input-single-")); directories.push(directory);
+    const repositories = createLocalTransactionRepositories(directory);
+    const drafts = new TransactionDraftService(repositories.drafts, repositories.transactions);
+    const solo = new TransactionInputProcessor({ drafts: repositories.drafts, draftService: drafts, conversations: new ConversationService(repositories.drafts, new LocalConversationStateRepository(directory)), apiKey: "key", model: "model", extractMultiIntent: vi.fn().mockResolvedValue(singleExtraction) as never });
+
+    const result = await solo.process({ text: "beli stok RM300 cash", sourceType: "telegram_text", telegramUserId: "user", telegramChatId: "chat" });
+    expect(result).toMatchObject({ outcome: "draft" });
+    expect(result).not.toHaveProperty("batch");
+    await expect(solo.advanceBatch({ telegramUserId: "user", telegramChatId: "chat" })).resolves.toBeNull();
   });
 
   it("clears an expired workflow and starts a fresh draft from the current message", async () => {
