@@ -1,6 +1,6 @@
 # E-Invoice persistence and assembly
 
-Stage 1 introduces a Supabase preparation boundary for unsigned Invoice v1.0. It does not generate UBL or contact MyInvois.
+This layer introduces the Supabase preparation boundary for unsigned Invoice v1.0. Assembly itself does not generate UBL or contact MyInvois—the payload and submission services consume its approved output.
 
 ## Ownership
 
@@ -8,7 +8,7 @@ Stage 1 introduces a Supabase preparation boundary for unsigned Invoice v1.0. It
 - `parties` and its identifier and address child tables own live buyers and shipping recipients.
 - `invoices` and `invoice_items` own payment-oriented source records plus the compliance fields captured with a draft.
 - `e_invoice_documents` owns a tenant-scoped preparation revision. It stores the canonical document when assembly succeeds, exact supplier and buyer snapshots, supplemental fields, provenance, and readiness diagnostics.
-- `src/compliance/myinvois/field-registry.ts` and `plan/e-invoice/REFERENCE_INVOICE_V1_0_FIELD_REQUIREMENTS.md` are the field-coverage contract. The registry records known gaps without supplying placeholder values.
+- `src/compliance/myinvois/field-registry.ts` and `docs/reference/myinvois-invoice-v1.0-fields.md` are the field-coverage contract. The registry records known gaps without supplying placeholder values.
 
 ## Assembly boundary
 
@@ -27,6 +27,6 @@ The unique `(business_id, source_invoice_id, source_invoice_revision)` key makes
 
 RLS derives reads from active business membership. Owners, admins, and accountants may prepare or update records; approval is limited to owners and admins. The Supabase adapter has no browser-local fallback.
 
-## Stage boundary
+## Downstream boundary
 
-Stage 2 can consume `EInvoicePreparationRecord`. It must not begin submission work unless Stage 1 returns either a complete `CommercialDocument` or explicit missing-field diagnostics. UBL mapping, credentials, submission, polling, cancellation, and an `/e-invoices` UI remain out of scope.
+The preparation workspace consumes `EInvoicePreparationRecord`. Payload generation must not begin unless assembly returns a complete `CommercialDocument` and the active revision passes readiness checks. UBL mapping, credentials, submission, polling, and cancellation remain separate services so preparation cannot acquire external side effects.

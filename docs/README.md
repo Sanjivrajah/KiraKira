@@ -1,75 +1,71 @@
 # NiagaAI documentation
 
-This folder is the entry point for people and AI agents working in NiagaAI.
-Read this page before exploring broadly, then use the guide for the area you
-intend to change.
+Use this directory as the repository map. The short guides explain how the running system fits together; the specialist runbooks cover Supabase and MyInvois work in more detail.
 
-## What this project is
+## First reads
 
-NiagaAI is a mobile-first financial workspace for Malaysian micro-business
-owners. It turns everyday evidence into **owner-reviewed** financial records.
-The product is deliberately conservative: an extraction is a proposal, local
-guidance is not compliance approval, and a readiness check is not a submission
-to MyInvois or a lender.
-
-Today the repository contains two runnable, local-first applications:
-
-1. A Next.js App Router workspace for onboarding, transaction capture/review,
-   invoices, reminders, and dashboards.
-2. A Telegram transaction agent that accepts text and voice notes, asks for
-   missing information, presents a draft, and persists only explicitly
-   confirmed records to local JSON files.
-
-Neither is production financial storage. The web app stores demo records in
-the browser; the bot stores development data in `LOCAL_DATA_DIRECTORY`.
-
-## Start here
-
-| If you need to… | Read |
+| Need | Guide |
 | --- | --- |
-| Understand layers, ownership, and data flow | [Architecture](architecture.md) |
-| Add or modify code while following project patterns | [Engineering conventions](engineering-conventions.md) |
-| Change Telegram commands, conversation flow, or its local persistence | [Telegram agent](telegram-agent.md) |
-| Prepare and approve persisted e-Invoice revisions | [e-Invoice preparation](e-invoice-preparation.md) |
-| Operate the controlled MyInvois v1.0 production rollout | [e-Invoice production operations](backend/09-e-invoice-production-operations.md) |
-| Understand the readiness calculation and data boundary | [Loan readiness implementation](loan-readiness-implementation.md) |
-| Understand the purpose and current product claims | [`PRODUCT.md`](../PRODUCT.md) |
-| Run the project, configure integrations, or use the demo | [`README.md`](../README.md) |
-| See the documentation scope and upkeep rules | [Documentation plan](documentation-plan.md) |
+| Install and run the project locally | [Getting started](getting-started.md) |
+| Understand the runtimes, layers, and trust boundaries | [Architecture](architecture.md) |
+| Know where each environment variable belongs | [Configuration](configuration.md) |
+| Deploy the web app, Telegram worker, and database | [Deployment](deployment.md) |
+| Find a page, feature, or client-side data flow | [Web application](web-application.md) |
+| Work with the HTTP Route Handlers | [HTTP API](http-api.md) |
+| Understand the Supabase schema and record ownership | [Data model](data-model.md) |
+| Change the Telegram worker or its persistence | [Telegram agent](telegram-agent.md) |
+| Run the synthetic Telegram walkthrough | [Telegram demo](telegram-demo.md) |
+| Follow repository-specific coding patterns | [Engineering conventions](engineering-conventions.md) |
 
-## Fast orientation map
+## Specialist guides
+
+| Area | Guide |
+| --- | --- |
+| Browser-local to Supabase adapter boundary | [Supabase web repositories](supabase-web-repository-migration.md) |
+| Migrations, imports, backups, and incidents | [Supabase operations](supabase-operations.md) |
+| Transaction creation and read paths | [Transaction data flow](transaction-data-flow.md) |
+| Loan-readiness calculations and limitations | [Loan readiness](loan-readiness-implementation.md) |
+| e-Invoice preparation and approval | [e-Invoice preparation](e-invoice-preparation.md) |
+| MyInvois persistence and assembly | [Persistence and assembly](backend/05-e-invoice-persistence-and-assembly.md) |
+| UBL mapping and immutable payloads | [UBL payload snapshots](backend/06-e-invoice-ubl-payload-snapshots.md) |
+| MyInvois OAuth connections | [Taxpayer and intermediary authentication](backend/07-e-invoice-taxpayer-intermediary-authentication.md) |
+| Sandbox submission and reconciliation | [Sandbox submission](backend/08-e-invoice-sandbox-submission-status.md) |
+| Production activation and incident handling | [Production operations](backend/09-e-invoice-production-operations.md) |
+| Browser voice-agent setup | [ElevenLabs voice agent](voice-agent.md) |
+| MyInvois field coverage reference | [Invoice v1.0 field requirements](reference/myinvois-invoice-v1.0-fields.md) |
+
+## Repository map
 
 ```text
-src/app/                 Next.js routes and Route Handlers
-src/components/          UI grouped by product feature
-src/hooks/               React Query access to browser-local services
-src/services/            UI-facing application operations
-src/repositories/        repository contracts and browser-local adapters
-src/domain/              canonical financial/domain models (parallel migration layer)
-src/frontend/            canonical-to-UI view models and storage migration
-src/lib/                 focused infrastructure and pure utilities
-src/compliance/          MyInvois mapping, rules, fixtures, and reference data
-src/features/transaction-agent/  Telegram transaction use cases and state machine
-src/bot/                 grammY transport, messages, and keyboards
-src/data/demo/           deterministic demo fixtures and legacy adapters
+src/app/                          pages, layouts, and HTTP Route Handlers
+src/components/                   browser UI grouped by product feature
+src/hooks/                        React Query reads, mutations, and invalidation
+src/services/                     UI-facing business operations
+src/repositories/                 storage contracts plus local and Supabase adapters
+src/domain/                       canonical schemas, money rules, and calculations
+src/frontend/                     legacy/canonical view models and browser migrations
+src/application/e-invoices/       e-Invoice preparation, payload, and submission use cases
+src/compliance/myinvois/          reference data, validation, UBL mapping, and fixtures
+src/integrations/myinvois/        OAuth, secrets, and MyInvois HTTP transport
+src/features/transaction-agent/   Telegram state machine and bookkeeping use cases
+src/bot/                          grammY transport, messages, keyboards, and startup
+src/lib/                          focused provider clients and shared infrastructure
+supabase/migrations/              ordered database source of truth
+supabase/tests/database/          pgTAP/RLS database tests
+scripts/                          explicit imports and repeatable demo tooling
 ```
 
-## Non-negotiable product rules
+## Product boundaries
 
-- Keep financial extraction reviewable and require owner confirmation before
-  treating it as a confirmed record.
-- State demo/local-only limitations plainly. Do not imply live MyInvois,
-  banking, WhatsApp, lending, database, or compliance approval.
-- Preserve evidence/provenance where the model supports it, without exposing
-  provider internals as the primary user experience.
-- Protect secrets and raw evidence. Server-only credentials never enter client
-  components, browser storage, test fixtures, or logs.
-- Preserve existing browser-local contracts while the canonical domain
-  migration remains in progress; use adapters and versioned migrations.
+- A model extraction is a draft—not a financial record.
+- A person must review and confirm financial changes before they become authoritative.
+- MyInvois readiness and local validation do not prove acceptance by HASiL.
+- Loan readiness is an indicative calculation—not an offer or approval.
+- Demo mode is isolated to one browser and must never be presented as production storage.
+- The Telegram worker uses Supabase in deployment; its JSON adapter is only for local development and repeatable demos.
 
-## Working agreement for agents
+`PRODUCT.md` is the product source of truth. `AGENTS.md` is the engineering source of truth—read both before changing behavior.
 
-`AGENTS.md` is required reading and contains framework, security,
-accessibility, and verification rules. In particular, inspect the installed
-Next.js 16 documentation before changing framework behavior, preserve
-unrelated working-tree changes, and run the applicable checks before handoff.
+## Keeping the docs honest
+
+Update the relevant guide in the same change whenever a route, command, environment variable, persistence boundary, external provider, or deployment responsibility changes. Prefer present-tense descriptions of the code that exists. Plans and session notes do not belong in this documentation tree once their work has landed—keep durable decisions and operational instructions instead.

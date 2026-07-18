@@ -17,6 +17,8 @@ requirements.
 | Canonical-to-UI translation or browser migration | `src/frontend` |
 | Provider client, format/parser, validation, local utility | `src/lib` |
 | MyInvois rule/mapping/reference data | `src/compliance/myinvois` |
+| e-Invoice preparation or submission use case | `src/application/e-invoices` |
+| MyInvois OAuth, secrets, or HTTP transport | `src/integrations/myinvois` |
 | Telegram use case/state machine | `src/features/transaction-agent` |
 | Telegram transport, copy, keyboards, startup | `src/bot` |
 
@@ -47,12 +49,13 @@ financial calculations or direct persistence.
 - Derive render values during render. Effects are for external synchronization
   such as the existing frontend-storage migration or persisted-session hydrate.
 - Use React Query keys from `src/lib/query/query-keys.ts`; invalidate all
-  dependent views after a local mutation.
+  dependent views after a mutation.
 
-## Browser-local web persistence
+## Persistence adapters
 
-- Use repository contracts, services, and hooks instead of accessing
-  `localStorage` from components.
+- Supabase is the default live adapter. Browser-local repositories are available only when `NEXT_PUBLIC_AUTH_MODE=demo`.
+- Use repository contracts, services, and hooks instead of accessing `localStorage` or Supabase directly from components.
+- Never report a failed Supabase operation as a local success—there is no fallback between adapters.
 - Add storage keys only in `src/lib/storage/storage-keys.ts` (legacy) or
   `src/frontend/storage/migration.ts` (canonical migration collections).
 - Treat malformed local data as recoverable: parser/repository reads should
@@ -94,5 +97,4 @@ financial calculations or direct persistence.
 
 Update the relevant document in this folder when a change alters a boundary,
 storage contract, source-of-truth layer, supported user workflow, environment
-variable, or command. Keep README-level documentation user-facing; keep these
-guides factual and implementation-oriented.
+variable, command, or deployment responsibility. Keep the top-level README concise; keep these guides factual and implementation-oriented. Completed plans should be removed once their durable decisions have been recorded here.

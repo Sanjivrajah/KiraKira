@@ -1,6 +1,6 @@
 # Sandbox e-Invoice submission and status synchronisation
 
-Stage 5 proves submission with immutable, approved, unsigned MyInvois v1.0 JSON snapshots in the sandbox. Digital signatures are unavailable. Stage 6 adds separately gated production submission and controlled cancellation without changing the payload contract.
+The sandbox path submits immutable, approved, unsigned MyInvois v1.0 JSON snapshots. Digital signatures are unavailable. Production submission and controlled cancellation use a separate gate without changing the payload contract.
 
 ## Runtime boundaries
 
@@ -34,7 +34,7 @@ Do not prefix these values with `NEXT_PUBLIC_`. Do not log request bodies, unsig
 
 ## Manual sandbox checklist
 
-1. Apply migrations through `20260718010000_e_invoice_sandbox_submission_and_status.sql` and regenerate Supabase types from the applied schema.
+1. Apply every checked-in migration and regenerate Supabase types from the applied schema.
 2. Configure an enabled sandbox taxpayer or intermediary connection for a non-production test taxpayer and verify OAuth. Set its client secret references to the environment-variable names above; leave signing references empty.
 3. Prepare and approve a controlled invoice fixture, then use `Prepare sandbox payload` to generate its immutable unsigned v1.0 JSON snapshot.
 4. In `/e-invoices`, confirm the banner says `Sandbox environment`, the represented taxpayer is correct, and the displayed encoded size is below the limit.
@@ -45,7 +45,7 @@ Do not prefix these values with `NEXT_PUBLIC_`. Do not log request bodies, unsig
 9. Confirm `e_invoice_status_events` contains the transition history and that authenticated application roles cannot update or delete submission history.
 10. Inspect application and platform logs for the run. They must not contain unsigned payloads, base64 documents, tokens, or secret references.
 
-The Stage 6 handoff is not met until one controlled sandbox fixture completes this full lifecycle and its identifiers and events are inspected in the applied database.
+Production activation is not ready until one controlled sandbox fixture completes this full lifecycle and its identifiers and events are inspected in the applied database.
 
 ## Evidence status — 17 July 2026
 

@@ -1,175 +1,141 @@
 # Architecture
 
-## System shape
+NiagaAI is one product with two application runtimes. Vercel runs the browser application and its HTTP boundaries; Railway keeps the Telegram bot alive as a polling worker. Supabase is the shared identity and data plane in deployed environments.
 
-```text
-                        ┌────────────────────────┐
-                        │      PRODUCT.md         │
-                        │ product promises/scope  │
-                        └────────────┬───────────┘
-                                     │
-                 ┌──────────────────┴──────────────────┐
-                 │                                     │
-       ┌─────────▼─────────┐                 ┌─────────▼──────────┐
-       │ Next.js web app   │                 │ Telegram agent      │
-       │ App Router        │                 │ grammY long polling │
-       └─────────┬─────────┘                 └─────────┬──────────┘
-                 │                                     │
-     routes → components → hooks → services      bot → input processor
-                                  → repositories       → draft service
-                                  → browser storage    → local JSON stores
-                 │                                     │
-        canonical view models/storage migration   OpenAI extraction +
-                 │                                ElevenLabs transcription
-       src/domain + src/compliance
+## Deployment topology
+
+```mermaid
+flowchart TB
+    subgraph Clients
+        Browser["Web browser"]
+        TelegramUser["Telegram client"]
+    end
+
+    subgraph Vercel
+        Next["Next.js 16 App Router"]
+        Routes["Node.js Route Handlers"]
+        Next --- Routes
+    end
+
+    subgraph Railway
+        Bot["grammY long-polling worker"]
+    end
+
+    subgraph Supabase
+        Auth["Auth"]
+        Postgres["PostgreSQL + RLS + RPCs"]
+        Storage["Private Storage"]
+    end
+
+    Browser --> Next
+    TelegramUser --> Bot
+    Next --> Auth
+    Next --> Postgres
+    Routes --> Postgres
+    Routes --> Storage
+    Bot --> Postgres
+    Routes --> OpenAI["OpenAI extraction"]
+    Bot --> OpenAI
+    Routes --> ElevenLabs["ElevenLabs voice services"]
+    Bot --> ElevenLabs
+    Routes --> MyInvois["MyInvois API"]
+    Scheduler["External scheduler"] -->|"Bearer-authenticated status sync"| Routes
 ```
 
-The web app and Telegram agent intentionally have separate persistence and
-transaction contracts today. Do not silently join them or assume that a bot
-record is visible in the web dashboard.
+The web and Telegram runtimes share confirmed Supabase transactions only when the bot runs with `BOT_PERSISTENCE_MODE=supabase` and the Telegram account has been linked to an authenticated business. Local JSON bot data and browser demo data are separate by design.
 
-## Web application layers
+## Web request and data paths
 
-### Routes and UI
+The App Router lives in `src/app`. Pages are Server Components unless a browser API, interaction, or client state requires a smaller Client Component boundary. `src/proxy.ts` refreshes Supabase sessions; authentication and authorization are still repeated at the data or Route Handler boundary.
 
-`src/app` owns App Router pages, layouts, route-level loading/error states,
-and public HTTP boundaries under `src/app/api`. Pages are Server Components by
-default. Keep browser state, effects, handlers, local storage, and React Query
-inside the smallest suitable client component.
-
-`src/components` renders feature UI. Shared controls belong in
-`components/shared` or `components/forms`; feature-specific UI stays in its
-feature folder. Components should receive display-ready data and callbacks,
-not reach into browser storage directly.
-
-### Client data path
-
-For the current local-first web experience, use this path:
+The main browser data path is:
 
 ```text
-component → hook → service → repository contract → local repository → localStorage
+page → component → React Query hook → service → repository contract → adapter
+                                                                      ├── Supabase
+                                                                      └── localStorage demo
 ```
 
-- `src/hooks` is the React Query boundary. Mutations must invalidate every
-  affected query key (for example, transaction changes also affect dashboard
-  and loan-readiness data).
-- `src/services` coordinates IDs, timestamps, fixtures, and related
-  repositories. It is the UI-facing use-case layer.
-- `src/repositories/contracts` defines storage-independent interfaces.
-- `src/repositories/local` implements them against `KeyValueStorage` with
-  parsing, deduplication, and business scoping.
-- `src/lib/storage/storage-keys.ts` is the source of truth for legacy web
-  local-storage keys. Do not scatter string keys through UI code.
+- `src/components` owns rendering and interaction.
+- `src/hooks` owns React Query keys, mutations, and dependent-cache invalidation.
+- `src/services` coordinates use cases, IDs, dates, fixtures, and related repositories.
+- `src/repositories/contracts` keeps the UI independent from storage.
+- `src/repositories/supabase` is the default live adapter.
+- `src/repositories/local` is selected only when `NEXT_PUBLIC_AUTH_MODE=demo`.
 
-The `services` singleton is appropriate only for browser-local demo behavior.
-Server-owned persistence should be introduced behind server-only data access,
-not by importing browser-local services into server code.
+There is no silent fallback. A failed Supabase operation is shown as an error; it is never reported as success or redirected into browser storage.
 
-### Canonical domain migration
+## Domain and compatibility layers
 
-`src/domain` is the canonical financial model: Zod schemas, branded IDs,
-decimal-string money, audit metadata, calculations, and domain-specific types.
-It intentionally runs in parallel with the older UI contracts in `src/types`
-and browser-local repositories.
+The current screens still use some contracts from `src/types`. The canonical financial model lives under `src/domain` and uses Zod schemas, branded identifiers, audit metadata, and decimal-safe calculations. `src/frontend/view-models` translates between the two shapes while the UI migration remains incremental.
 
-`src/frontend/view-models` is the translation boundary between UI forms and
-canonical domain records. `src/frontend/storage/migration.ts` copies legacy
-browser records into versioned canonical collections. During this staged
-migration:
+Keep financial rules in the canonical domain or a focused application service—not in React components. The compatibility adapters are deliberate seams, not permission to create a second business model.
 
-- preserve existing legacy keys and UI behavior;
-- convert at adapters/view models rather than changing every consumer at once;
-- make migrations repeatable and report malformed legacy records rather than
-  crashing;
-- increment `FRONTEND_DATA_VERSION` only with a compatible migration path.
+## Transaction capture
 
-`src/compliance/myinvois` consumes canonical commercial-document models for
-validation, mapping, UBL output, and reference data. It is not proof of a live
-submission or official approval.
+Manual, receipt, voice, CSV, bank-statement, and Telegram inputs all end at the same product boundary: prepare a draft, show the owner what was understood, then require confirmation. Provider routes validate file type and size before making external calls. CSV parsing stays in the browser.
 
-### Loan-readiness boundary
+In Supabase mode, a web transaction travels through `LegacyTransactionRepositoryAdapter`, is converted into the canonical transaction shape, and is written by `SupabaseTransactionRepository`. Removing a transaction means voiding it—the audit trail is retained.
 
-The loan-readiness API is server-side and reads confirmed, non-voided Supabase
-transactions for the active business. It produces an indicative cash-flow
-assessment and does not mutate the transaction ledger. Future saved scenarios,
-reviewed inferred debt, and exports should pin the source snapshot and ruleset
-version before they are persisted. The browser-local dashboard score is not a
-production readiness source.
+The exact sequence is documented in [transaction-data-flow.md](transaction-data-flow.md).
 
-### Telegram orchestration boundary
+## Invoice and e-Invoice boundaries
 
-The Telegram transport normalizes supported inbound transaction updates into a
-small envelope and passes them to `TransactionOrchestrationService`. The
-service records redacted run and step metadata, enforces inbound-update
-idempotency, then invokes the existing transaction input or draft-confirmation
-service. It does not own user-facing copy, Telegram SDK behavior, or financial
-write rules. The existing explicit review and confirmation boundary remains the
-only route to a confirmed financial record.
+Billing invoices and MyInvois preparation are related but not interchangeable:
 
-### External extraction boundaries
+```text
+invoice draft → issued invoice → payment lifecycle
+       │
+       └── e-Invoice preparation revision
+             → owner/admin approval
+             → immutable unsigned v1.0 payload snapshot
+             → sandbox or gated production submission
+             → scheduled status reconciliation
+```
 
-Route Handlers validate raw input, call focused providers under `src/lib`, and
-return safe messages. They do not persist a financial record. Examples:
+`src/application/e-invoices` owns the use cases. `src/compliance/myinvois` owns field rules, reference codes, validation, and UBL mapping. `src/integrations/myinvois` owns OAuth, environment-scoped secret resolution, and HTTP transport. Supabase owns immutable revisions, payload hashes, submission history, leases, and operator events.
 
-- receipt images: `app/api/vision/receipts` → `lib/openai/receipt-extraction`;
-- voice transcription: `app/api/audio/transcribe` → ElevenLabs then OpenAI;
-- bank statements: `app/api/imports/bank-statement` → OpenAI extraction.
+Approval freezes the prepared document snapshot. Corrections create a new revision—they never rewrite a submitted payload.
 
-Validate file type, size, and request shape at the route boundary. Catch
-provider-specific errors there, log only safe operational details, and return
-user-facing errors without provider payloads, stack traces, or evidence.
+## Telegram worker
 
-## State and persistence boundaries
+`src/bot/index.ts` is the Railway process entry point. It loads and validates the environment, registers bot commands, starts long polling, and handles graceful shutdown. `src/bot/telegram-bot.ts` adapts Telegram updates into use cases under `src/features/transaction-agent`.
 
-| Surface | Storage | Owner | Important rule |
-| --- | --- | --- | --- |
-| Web demo session and records | Browser `localStorage` | Current browser | Not an auth/security boundary |
-| Canonical web migration data | Versioned browser keys | Current browser | Retain legacy data during migration |
-| Telegram drafts, records, conversation state | JSON files in `LOCAL_DATA_DIRECTORY` | Local bot process | Never auto-delete corrupt data |
-| Web voice text transcripts (Supabase mode) | `voice_conversations` + `voice_conversation_turns` | Signed-in speaker and active business | Private per user, no raw audio, 90-day retention target |
-| API credentials | `.env.local` / runtime env | Server/process | Never expose or commit |
-| Supabase evidence (prepared Session 4 boundary) | Private Storage + `evidence_files` metadata | Active business membership | Server-only orchestration; browser-local capture remains active until Session 5 |
-| E-Invoice preparation | Supabase `e_invoice_documents` | Active business membership | Separate from payment status; approved canonical and party snapshots are immutable |
+In Supabase mode, a private-chat link code connects a Telegram identity to an authenticated business member. The worker uses a service-role client, so every operation must resolve that link and active membership before reading or writing. The service role is transport authority—not user authorization.
 
-## Private evidence storage boundary
+Inbound updates receive an idempotency key and a redacted orchestration trace. Drafts, clarification state, duplicate checks, confirmation, and undo remain isolated by Telegram user and chat.
 
-`src/services/evidence/evidence-upload-service.ts` is the server-only path for
-new Supabase evidence. It verifies the authenticated member and entity owner,
-normalizes an allowed MIME/extension, hashes the bytes, generates a server
-controlled `<business>/<entity>/<entity-id>/<uuid>.<ext>` object path, and
-writes matching metadata. Buckets are private and their policies derive access
-from the first path segment plus business membership; no public URL is issued.
+## Voice boundaries
 
-The current receipt UI is intentionally not switched to this service until the
-web repository migration. Evidence extraction remains queued/reviewable, never
-becomes a confirmed transaction automatically, and provider payload retention
-is not a reason to retain raw evidence forever. MIME/type checks are not
-malware scanning; a scanning worker can be attached to the queue before moving
-files from `queued` to `processing`. Deletion requests are soft-marked as
-`delete_pending` for a scheduled cleanup worker, avoiding unaudited object
-removal and orphaned metadata.
+There are two voice paths:
 
-## Voice transcript storage boundary
+- Uploaded or recorded transaction audio is transcribed by ElevenLabs Scribe, then structured by OpenAI into a reviewable transaction draft.
+- The `/voice` experience uses an ElevenLabs Conversational AI agent. Vercel mints a short-lived token, while browser client tools stage and confirm application actions.
 
-The live web voice assistant keeps captions in browser memory for immediate
-feedback. In Supabase mode, `app/api/voice/conversations` also writes the
-signed-in speaker's text turns to `voice_conversations` and
-`voice_conversation_turns`. RLS requires both the transcript owner and an
-active membership in the selected business; coworkers cannot read one
-another's transcripts merely because they share a business.
+In Supabase mode, text turns can be stored in `voice_conversations` and `voice_conversation_turns` for the signed-in owner. Raw call audio is not stored by this application path. Rows carry a 90-day deletion target, but a scheduler must perform the deletion before the product can claim automatic expiry.
 
-The app stores no call audio in this path. Provider conversation identifiers
-are operational metadata, not user-facing content. Turns are upserted by their
-session-local index because the voice provider can send progressively fuller
-text for the same turn. Users can inspect and delete their recent history from
-the voice page. Rows carry a 90-day `retention_delete_after` timestamp; a
-deployment must run a scheduled cleanup job before claiming automatic expiry.
-Transcript persistence never bypasses the existing explicit confirmation
-boundary for transactions or invoices.
+## State ownership
 
-## Testing topology
+| State | Owner | Notes |
+| --- | --- | --- |
+| Supabase Auth session | Supabase cookie session | Refreshed at the request boundary |
+| Business and financial records | Supabase PostgreSQL | Tenant-scoped through membership and RLS |
+| Demo user and records | Browser `localStorage` | Explicit demo mode only |
+| React Query data | Browser memory | Cache—not a source of truth |
+| Temporary UI and draft navigation | Zustand and component state | Reset on sign-out as appropriate |
+| Telegram drafts and conversations | Supabase in deployment; JSON locally | Never mix the two adapters |
+| e-Invoice payloads and history | Supabase immutable records | Server-controlled revisions and events |
+| Provider credentials | Vercel or Railway environment | Never stored in client bundles or logs |
 
-Keep tests next to the seam they protect: pure domain/lib tests, repository and
-service tests, component tests with accessible queries, route tests at HTTP
-boundaries, and Telegram flow tests in `src/features/transaction-agent` and
-`src/bot`. Mock providers at their boundaries, not inside business rules.
+## Trust boundaries
+
+- Browser input, uploaded files, provider output, Telegram updates, and URL parameters are untrusted.
+- Supabase publishable keys may reach the browser; service-role, provider, Telegram, and MyInvois secrets may not.
+- RLS is a second line of defence—not a substitute for checking the user, membership, role, and business at each operation.
+- Model output can suggest fields but cannot confirm a financial record.
+- MyInvois HTTP 202 means submitted—not valid or accepted.
+- Logs may include safe identifiers and error codes, but not tokens, evidence contents, transcripts, unsigned payloads, or raw provider responses.
+
+## Tests by seam
+
+Pure domain and integration rules are tested near their modules. Repository and service tests protect storage behavior, component tests use accessible UI queries, Route Handler tests exercise HTTP boundaries, and Telegram tests cover user/chat isolation and repeated callbacks. Database migrations and RLS have pgTAP tests under `supabase/tests/database`.

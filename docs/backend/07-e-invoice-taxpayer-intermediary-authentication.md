@@ -4,7 +4,7 @@ NiagaAI authenticates unsigned Invoice v1.0 operations with server-only OAuth. A
 
 The active application stores only OAuth and represented-taxpayer connection metadata. Client IDs and secrets are indirect secret references resolved on the server. The browser receives neither their values nor historical certificate/signing columns.
 
-`POST /api/e-invoices/connections` supports `test_connection` only. The route verifies membership and administrative permission, loads the connection through the tenant boundary, obtains a token, confirms the represented identity, and records verification. Sandbox and production verification are independent.
+`POST /api/e-invoices/connections` can configure sandbox connection metadata or test an existing sandbox/production connection. The route verifies membership and administrative permission, loads the connection through the tenant boundary, obtains a token, confirms the represented identity, and records verification. Sandbox and production verification are independent.
 
 Tokens are cached by environment, credential set, represented taxpayer, and scope, refreshed before expiry, and shared across concurrent requests. Logs and returned errors redact tokens, secrets, authorization headers, and raw provider data.
 

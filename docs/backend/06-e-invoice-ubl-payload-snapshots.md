@@ -1,6 +1,6 @@
 # e-Invoice UBL mapping and payload snapshots
 
-Stage 3 turns one active approved preparation revision into deterministic,
+The payload-snapshot service turns one active approved preparation revision into deterministic,
 unsigned MyInvois Invoice v1.0 UBL JSON. It does not authenticate or submit,
 or claim that MyInvois has accepted the document.
 
@@ -39,7 +39,7 @@ revision and a new payload snapshot.
 The offline catalog version is `myinvois-sdk-2026-07-17`, retrieved on
 2026-07-17. It contains 3,854 normalized codes from all nine official JSON
 downloads. `npm run data:import:myinvois` is the explicit build-time import
-boundary. Stage 7 Session 1 writes only `*.candidate.json` files and validates
+boundary. The import command writes only `*.candidate.json` files and validates
 strict source-specific row shapes, non-empty tables, duplicate codes, bounded
 HTTPS responses, raw-file SHA-256 checksums, deterministic ordering, and an
 aggregate checksum before any later review or promotion step. Runtime code
@@ -62,7 +62,7 @@ The refresh command cannot write a reviewed artifact filename. As observed on
 same description and category. The hardened importer rejects that duplicate
 instead of silently collapsing it, so the checked-in 17 July catalog remains
 the last known good runtime artifact pending an upstream correction and the
-Stage 7 semantic review/promotion session.
+required semantic review and promotion.
 
 Primary references:
 
@@ -77,5 +77,5 @@ requires a new mapper version so older hashes remain reproducible.
 
 ## Downstream handoff
 
-Stage 5 consumes the exact v1.0 `unsigned_payload` and `unsigned_payload_hash`
+The submission service consumes the exact v1.0 `unsigned_payload` and `unsigned_payload_hash`
 as immutable inputs. Historical v1.1 or signed rows cannot enter this path.

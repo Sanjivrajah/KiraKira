@@ -1,4 +1,4 @@
-# Reference: MyInvois Invoice v1.0 field requirements
+# MyInvois Invoice v1.0 field requirements
 
 ## Status and authority
 
@@ -109,7 +109,7 @@ Fields 28–37 may occur per invoice line. Fields identified as invoice-level al
 
 ## SDK expansions that are not separate rows in the 55-field appendix
 
-Codex must model these implementation details even though the business guideline groups them into broader fields.
+The implementation must model these details even though the business guideline groups them into broader fields.
 
 ### Address structure
 
@@ -172,11 +172,11 @@ The tables above are the standard Invoice v1.0 baseline. Production initially en
 - Import/export of goods.
 - Shipping recipient different from buyer.
 
-An overlay may prescribe placeholder TIN, registration, address, contact, state, or classification values. Such values must come from current official guidance; Codex must not invent them or generalise a value from one scenario to another.
+An overlay may prescribe placeholder TIN, registration, address, contact, state, or classification values. Such values must come from current official guidance—the implementation must not invent them or generalise a value from one scenario to another.
 
-## Codex implementation contract
+## Implementation contract
 
-Stage 1 must turn this reference into a typed field registry or equivalent source of truth with:
+The typed field registry must preserve this reference shape:
 
 ```text
 key
@@ -204,4 +204,4 @@ Readiness rules, preparation UI, persistence, and the UBL mapper must consume or
 - Line classification, unit, tax type, rate, discounts, and charges are partly persisted, but the assembled canonical document must be round-trip tested.
 - Billing, billing period, prepayment, shipping, trade, customs, tariff, origin, discounts, and charges must remain covered by preparation/readiness and v1.0 mapper tests; applicable values may not be silently dropped.
 - The native Invoice v1.0 mapper and immutable unsigned snapshots are active. Invoice v1.1 and signing application code are absent.
-- A real standard Malaysian B2B sandbox lifecycle and Stage 6 operational evidence are still required before the roadmap may be marked complete.
+- A real standard Malaysian B2B sandbox lifecycle and reviewed operational evidence are required before production activation.

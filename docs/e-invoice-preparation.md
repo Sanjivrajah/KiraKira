@@ -22,7 +22,7 @@ The Submitted view is read-only and reflects persisted sandbox submission histor
 
 ## Unsigned payload generation
 
-An active approved revision can be passed to the server-side Stage 3 payload
+An active approved revision can be passed to the server-side payload
 service. The service re-runs readiness against pinned reference data, maps unsigned
 UBL Invoice v1.0 JSON, checks the 300 KB limit, hashes the exact minified UTF-8
 bytes, and stores an immutable payload snapshot. Superseded approvals cannot
@@ -34,9 +34,8 @@ Invoice v1.0 is the only active path. Certificate, private-key, signing-service,
 and signed-snapshot application interfaces are intentionally absent. OAuth
 taxpayer/intermediary credentials remain server-only.
 
-Approved unsigned v1.0 snapshots can be submitted only to the MyInvois sandbox
-in Stage 5. The submission surface shows exact encoded size, represented taxpayer,
+Approved unsigned v1.0 snapshots can be submitted to the MyInvois sandbox or through the separately gated production path. The submission surface shows exact encoded size, represented taxpayer,
 synchronous accepted/rejected outcomes, and reconciled per-document status.
 HTTP 202 remains `Submitted`; it is never presented as official validity. Manual
 refresh and the protected scheduled worker share one reconciliation service.
-See [sandbox submission and status synchronisation](backend/08-e-invoice-sandbox-submission-status.md).
+See [sandbox submission and status synchronisation](backend/08-e-invoice-sandbox-submission-status.md) and [production operations](backend/09-e-invoice-production-operations.md).

@@ -44,3 +44,4 @@ next-env.d.ts
 
 # Local Telegram-agent development data
 data/*.json
+outputs/
