@@ -158,6 +158,24 @@ export function describePath(pathname: string): string {
   return match?.key ?? "the app";
 }
 
+/**
+ * Prevents a voice command for the page already on screen from refreshing a
+ * dynamic route. Query parameters are compared independent of their order so
+ * equivalent deep links are also treated as the same destination.
+ */
+export function isCurrentVoiceDestination(currentHref: string, destinationHref: string): boolean {
+  const base = "http://niaga.local";
+  const current = new URL(currentHref, base);
+  const destination = new URL(destinationHref, current);
+  if (current.origin !== destination.origin || current.pathname !== destination.pathname || current.hash !== destination.hash) {
+    return false;
+  }
+
+  current.searchParams.sort();
+  destination.searchParams.sort();
+  return current.search === destination.search;
+}
+
 /** Exposed so page components validate their own URL params against one list. */
 export const EINVOICE_STAGES = ["prepare", "submit", "history"] as const;
 export const EINVOICE_VIEWS = ["needs_information", "ready", "approved"] as const;

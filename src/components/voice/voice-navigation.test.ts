@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describePath, resolveDestination } from "./voice-navigation";
+import { describePath, isCurrentVoiceDestination, resolveDestination } from "./voice-navigation";
 
 describe("resolveDestination", () => {
   it("resolves canonical destinations to their route", () => {
@@ -83,5 +83,26 @@ describe("describePath", () => {
 
   it("falls back for unknown paths", () => {
     expect(describePath("/nowhere")).toBe("the app");
+  });
+});
+
+describe("isCurrentVoiceDestination", () => {
+  it("recognizes a command for the route already on screen", () => {
+    expect(isCurrentVoiceDestination("http://localhost:3000/dashboard", "/dashboard")).toBe(true);
+  });
+
+  it("recognizes equivalent deep links regardless of query order", () => {
+    expect(isCurrentVoiceDestination(
+      "http://localhost:3000/e-invoices?view=ready&stage=prepare",
+      "/e-invoices?stage=prepare&view=ready",
+    )).toBe(true);
+  });
+
+  it("allows real route and query changes", () => {
+    expect(isCurrentVoiceDestination("http://localhost:3000/voice", "/dashboard")).toBe(false);
+    expect(isCurrentVoiceDestination(
+      "http://localhost:3000/e-invoices?stage=prepare",
+      "/e-invoices?stage=submit",
+    )).toBe(false);
   });
 });

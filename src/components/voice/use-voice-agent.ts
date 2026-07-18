@@ -12,6 +12,7 @@ import { useBusiness } from "@/hooks/use-business";
 import { createVoiceClientTools, type VoiceDraftController } from "./client-tools";
 import { createVoiceCustomerResolver } from "./voice-customers";
 import { kualaLumpurToday } from "./voice-finance";
+import { isCurrentVoiceDestination } from "./voice-navigation";
 import { useVoiceDraftStore } from "./voice-draft-store";
 import { useVoiceUiBus } from "./voice-ui-bus";
 import { appendTranscriptTurn, type TranscriptTurn } from "./voice-transcript";
@@ -290,7 +291,13 @@ export function useVoiceAgent(): UseVoiceAgentResult {
             hasRegistrationNumber: filled(active.registrationNumber),
           };
         },
-        navigate: (href) => router.push(href),
+        navigate: (href) => {
+          // A same-route push refreshes dynamic pages such as the dashboard.
+          // Keep the current document and live voice connection untouched when
+          // the requested destination is already on screen.
+          if (isCurrentVoiceDestination(window.location.href, href)) return;
+          router.push(href);
+        },
         getContext: () => ({ pathname: pathnameRef.current, businessName: businessNameRef.current }),
         dispatchUiCommand: (command) => {
           console.info("[voice-tool] dispatchUiCommand", command.type);
