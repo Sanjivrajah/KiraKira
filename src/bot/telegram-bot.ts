@@ -462,6 +462,7 @@ export function createTelegramBot(environment: BotEnvironment, draftService?: Tr
       await conversations.expire(activeState);
       await service.act({ action: "cancel", draftId: draft.id, telegramUserId: userId }).catch(() => undefined);
       await clearKeyboard(context);
+      await conversations.clearByUser(userId, chatId);
       return context.reply(text.workflowExpired);
     }
 
