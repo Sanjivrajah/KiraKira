@@ -6,6 +6,8 @@ The repository contains two deployable runtimes—a Next.js web application host
 
 ## Platform at a glance
 
+![NiagaAI system architecture](docs/assets/niagaai-system-architecture.png)
+
 ```mermaid
 flowchart LR
     Browser["Owner in a browser"] --> Web["Next.js web app<br/>Vercel"]
@@ -24,6 +26,11 @@ flowchart LR
 | Web application and HTTP API | Vercel | `src/app` | Next.js 16 App Router and Node.js Route Handlers |
 | Telegram transaction agent | Railway | `src/bot/index.ts` | One persistent Node.js process using grammY long polling |
 | Primary data and authentication | Supabase | `supabase/migrations` | PostgreSQL, Auth, RLS, RPCs, and private Storage |
+
+A detailed layered view of the runtimes, domain, services, and persistence is available as a
+diagram:
+
+![NiagaAI architecture layers](docs/assets/niagaai-architecture.svg)
 
 The full system description is in [docs/architecture.md](docs/architecture.md). Deployment ownership and environment-variable placement are in [docs/deployment.md](docs/deployment.md).
 
