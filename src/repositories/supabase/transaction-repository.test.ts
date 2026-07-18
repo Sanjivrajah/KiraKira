@@ -85,4 +85,20 @@ describe("Supabase transaction repository", () => {
     expect("id" in row).toBe(false);
     expect("version" in row).toBe(false);
   });
+
+  it("loads every transaction page instead of stopping at 100 records", async () => {
+    const repository = new SupabaseTransactionRepository();
+    const transaction = toDomainTransaction(DEMO_TRANSACTIONS[0]);
+    const firstPage = Array.from({ length: 100 }, () => transaction);
+    const secondPage = Array.from({ length: 35 }, () => transaction);
+    const listPage = vi.spyOn(repository, "listPage")
+      .mockResolvedValueOnce({ items: firstPage, nextCursor: "older-records" })
+      .mockResolvedValueOnce({ items: secondPage, nextCursor: null });
+
+    const result = await repository.list(transaction.businessId);
+
+    expect(result).toHaveLength(135);
+    expect(listPage).toHaveBeenNthCalledWith(1, transaction.businessId, { cursor: undefined, limit: 100 });
+    expect(listPage).toHaveBeenNthCalledWith(2, transaction.businessId, { cursor: "older-records", limit: 100 });
+  });
 });

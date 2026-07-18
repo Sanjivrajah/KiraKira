@@ -17,6 +17,24 @@ export type TransactionListOptions = {
   search?: string;
 };
 
+type TransactionCursor = { id: string; transactionDate: string };
+
+function encodeCursor(transaction: TransactionCursor): string {
+  return JSON.stringify([transaction.transactionDate, transaction.id]);
+}
+
+function decodeCursor(cursor: string): TransactionCursor | null {
+  try {
+    const value: unknown = JSON.parse(cursor);
+    if (!Array.isArray(value) || value.length !== 2 || typeof value[0] !== "string" || typeof value[1] !== "string") {
+      return null;
+    }
+    return { transactionDate: value[0], id: value[1] };
+  } catch {
+    return null;
+  }
+}
+
 const transactionColumns = "id,business_id,direction,lifecycle,transaction_date,accounting_date,counterparty_id,counterparty_name_snapshot,source_links,description,category_code,currency,exchange_rate_to_myr,subtotal_minor,discount_minor,tax_minor,total_minor,lines,totals,payment_status,payment_method_code,e_invoice_treatment,confidence_score,confirmation,void_metadata,confirmed_at,confirmed_by,voided_at,voided_by,void_reason,created_at,updated_at,created_by,updated_by,version";
 type TransactionRow = Pick<Database["public"]["Tables"]["transactions"]["Row"],
   "id" | "business_id" | "direction" | "lifecycle" | "transaction_date" | "accounting_date" |
@@ -94,22 +112,36 @@ export class SupabaseTransactionRepository {
       .from("transactions")
       .select(transactionColumns)
       .eq("business_id", businessId)
-      .order("transaction_date", { ascending: false });
+      .order("transaction_date", { ascending: false })
+      .order("id", { ascending: false });
     if (options.lifecycle) query = query.eq("lifecycle", options.lifecycle);
     if (options.direction) query = query.eq("direction", options.direction);
     if (options.search?.trim()) query = query.ilike("description", `%${options.search.trim().replaceAll("%", "\\%").replaceAll("_", "\\_")}%`);
-    if (options.cursor) query = query.lt("transaction_date", options.cursor);
+    if (options.cursor) {
+      const cursor = decodeCursor(options.cursor);
+      if (cursor) {
+        query = query.or(`transaction_date.lt.${cursor.transactionDate},and(transaction_date.eq.${cursor.transactionDate},id.lt.${cursor.id})`);
+      }
+    }
     const { data, error } = await query.limit(limit + 1);
 
     if (error) throw toRepositoryError(error, "read");
     const rows = data ?? [];
     const items = rows.slice(0, limit).map((row) => this.mapFromDatabase(row));
-    return { items, nextCursor: rows.length > limit ? items.at(-1)?.transactionDate ?? null : null };
+    return { items, nextCursor: rows.length > limit && items.length > 0 ? encodeCursor(items.at(-1)!) : null };
   }
 
   async list(businessId: string): Promise<FinancialTransaction[]> {
-    const page = await this.listPage(businessId, { limit: 100 });
-    return page.items;
+    const transactions: FinancialTransaction[] = [];
+    let cursor: string | undefined;
+
+    do {
+      const page = await this.listPage(businessId, { cursor, limit: 100 });
+      transactions.push(...page.items);
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+
+    return transactions;
   }
 
   async getById(businessId: string, transactionId: string): Promise<FinancialTransaction | null> {
