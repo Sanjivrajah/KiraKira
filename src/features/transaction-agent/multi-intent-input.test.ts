@@ -16,7 +16,7 @@ describe("multi-intent input mapping", () => {
     const result = splitMultiIntentTransactions(extraction([
       { actionIndex: 2, capability: "transaction_capture", transaction: tx({ description: "Purchase of chicken", type: "expense" }), evidenceSummary: "beli ayam", uncertainty: "none", missingFields: [] },
       { actionIndex: 1, capability: "transaction_capture", transaction: tx({ description: "Sale of nasi lemak" }), evidenceSummary: "sold nasi lemak", uncertainty: "none", missingFields: [] },
-      { actionIndex: 3, capability: "receivable_capture", evidenceSummary: "Ahmad owes RM40", uncertainty: "unsupported", missingFields: [] },
+      { actionIndex: 3, capability: "receivable_capture", transaction: null, evidenceSummary: "Ahmad owes RM40", uncertainty: "unsupported", missingFields: [] },
     ]));
 
     expect(result.map((item) => item.description)).toEqual(["Sale of nasi lemak", "Purchase of chicken"]);
@@ -25,8 +25,8 @@ describe("multi-intent input mapping", () => {
   it("summarises skipped receivable and unsupported actions without dropping them silently", () => {
     const notes = buildMultiIntentNotes(extraction([
       { actionIndex: 1, capability: "transaction_capture", transaction: tx({}), evidenceSummary: "sold", uncertainty: "none", missingFields: [] },
-      { actionIndex: 2, capability: "receivable_capture", evidenceSummary: "owes", uncertainty: "unsupported", missingFields: [] },
-      { actionIndex: 3, capability: "unsupported", evidenceSummary: "invoice please", uncertainty: "unsupported", missingFields: [] },
+      { actionIndex: 2, capability: "receivable_capture", transaction: null, evidenceSummary: "owes", uncertainty: "unsupported", missingFields: [] },
+      { actionIndex: 3, capability: "unsupported", transaction: null, evidenceSummary: "invoice please", uncertainty: "unsupported", missingFields: [] },
     ]));
 
     expect(notes).toHaveLength(2);
@@ -36,7 +36,7 @@ describe("multi-intent input mapping", () => {
 
   it("localises notes to Bahasa Melayu", () => {
     const notes = buildMultiIntentNotes(extraction([
-      { actionIndex: 1, capability: "receivable_capture", evidenceSummary: "owes", uncertainty: "unsupported", missingFields: [] },
+      { actionIndex: 1, capability: "receivable_capture", transaction: null, evidenceSummary: "owes", uncertainty: "unsupported", missingFields: [] },
     ]), "ms");
 
     expect(notes[0]).toMatch(/belum terima/i);

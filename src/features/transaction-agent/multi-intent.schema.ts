@@ -12,10 +12,12 @@ const evidenceSummarySchema = z.string().trim().min(1).max(160);
 export const multiIntentActionSchema = z.object({
   actionIndex: z.number().int().min(1).max(MAX_MULTI_INTENT_ACTIONS),
   capability: supportedCapabilitySchema,
-  /** Only transaction_capture is executable in this session. */
-  transaction: transactionExtractionSchema.optional(),
+  // Only transaction_capture is executable in this session. This is null for other
+  // capabilities. OpenAI structured outputs require every field present, so this must be
+  // nullable rather than optional, and `uncertainty` cannot carry a client-side default.
+  transaction: transactionExtractionSchema.nullable(),
   evidenceSummary: evidenceSummarySchema,
-  uncertainty: z.enum(["none", "needs_review", "unsupported"]).default("none"),
+  uncertainty: z.enum(["none", "needs_review", "unsupported"]),
   missingFields: z.array(transactionExtractionSchema.shape.missingFields.element).max(7),
 });
 

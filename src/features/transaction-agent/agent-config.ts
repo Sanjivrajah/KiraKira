@@ -12,7 +12,9 @@ export const LOW_CONFIDENCE_REVIEW_THRESHOLD = 0.5;
 /** Recent owner replies retained on conversation state to give re-extraction cross-turn context. */
 export const MAX_CONVERSATION_HISTORY_TURNS = 6;
 export const MAX_PROVIDER_CALLS_PER_RUN = 2;
-export const PROVIDER_TIMEOUT_MS = 20_000;
+// gpt-5.x reasoning extractions run longer than gpt-4o-mini did; keep headroom so a normal
+// multi-intent call does not trip the request timeout under load.
+export const PROVIDER_TIMEOUT_MS = 45_000;
 export const PROVIDER_RETRY_COUNT = 1;
 /** Per Telegram user/chat window for calls that can consume external provider quota. */
 export const PROVIDER_RATE_LIMIT_WINDOW_MS = 60_000;
