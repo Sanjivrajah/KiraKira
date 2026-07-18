@@ -8,7 +8,7 @@ default; demo persistence is enabled only by its explicit toggle:
 
 ## Persistence inventory
 
-| Area | Classification | Session 5 decision |
+| Area | Classification | Active behavior |
 | --- | --- | --- |
 | `Local*Repository` and `STORAGE_KEYS` business/transaction records | Server-persisted domain data in production | Kept only behind the explicit demo adapter. |
 | `FRONTEND_STORAGE_KEYS` canonical migration collections | Compatibility/demo migration data | Retained during the parallel domain migration; do not use as a Supabase fallback. |

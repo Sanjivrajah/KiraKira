@@ -2,7 +2,7 @@
   {
     "type": "client",
     "name": "create_transaction_draft",
-    "description": "Stage a new income or expense the owner just described. Does NOT save it \u2014 it appears in the on-screen review queue. Always read the parsed summary back and ask the owner to confirm before calling confirm_transaction.",
+    "description": "Stage a new income or expense the owner just described. It does not save the record—it appears in the on-screen review queue. Always read the parsed summary back and ask the owner to confirm before calling confirm_transaction.",
     "expects_response": true,
     "response_timeout_secs": 10,
     "dynamic_variables": {

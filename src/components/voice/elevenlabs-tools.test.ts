@@ -13,7 +13,7 @@ interface ElevenLabsTool {
 }
 
 const toolsJson = JSON.parse(
-  readFileSync(resolve(process.cwd(), "plan/voice/elevenlabs-tools.json"), "utf8"),
+  readFileSync(resolve(process.cwd(), "docs/reference/elevenlabs-tools.json"), "utf8"),
 ) as ElevenLabsTool[];
 
 const noopController: VoiceDraftController = {

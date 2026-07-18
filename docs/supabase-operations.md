@@ -1,7 +1,7 @@
 # Supabase operations runbook
 
-This runbook covers the Session 8 migration and deployment boundary. SQL in
-`supabase/migrations/` is the only schema source of truth: never repair a
+This runbook covers local and hosted database operations. SQL in
+`supabase/migrations/` is the only schema source of truth—never repair a
 hosted schema by editing the dashboard or an already-applied migration.
 
 ## Local verification
@@ -54,7 +54,7 @@ mapped account and its active business membership for each row, and reports
 individual failures. It imports only confirmed/voided records and keeps the
 original source ID in migration metadata and the deterministic external key.
 
-## Hosted deployment
+## Hosted Supabase
 
 The human release owner must create/select the intended hosted project and
 authenticate the CLI. Do not put any hosted secret in this repository.

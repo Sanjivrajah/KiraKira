@@ -1,6 +1,6 @@
 # MyInvois v1.0 production operations
 
-Stage 6 hardens the existing exact-byte unsigned MyInvois v1.0 flow. It does not promote the v1.1 signing experiment. NiagaAI currently has no organisation signing certificate, and the production gate therefore requires OAuth credentials and a proven sandbox lifecycle—not certificate material.
+The production path hardens the exact-byte unsigned MyInvois v1.0 flow. It does not promote the historical v1.1 signing experiment. NiagaAI currently has no organisation signing certificate, and the production gate therefore requires OAuth credentials and a proven sandbox lifecycle—not certificate material.
 
 Official sources were rechecked on 17 July 2026:
 
