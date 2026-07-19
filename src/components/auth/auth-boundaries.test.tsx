@@ -21,6 +21,7 @@ class TestAuthService implements AuthService {
   getSession() { return this.pending ?? Promise.resolve(this.session); }
   async signIn(input: SignInInput) { return this.publish({ user: { id: "test-user", email: input.email, name: "Test User" } }); }
   async signUp(input: SignUpInput) { return this.publish({ user: { id: "test-user", email: input.email, name: input.name } }); }
+  async signInWithGoogle() {}
   async signOut() { this.publish(null); }
   async reset() { this.publish(null); }
   subscribe(listener: (session: AuthSession | null) => void) { this.listeners.add(listener); return () => this.listeners.delete(listener); }

@@ -13,6 +13,17 @@ Configuration is split by runtime. Vercel receives web and server-route values; 
 
 Do not use the service-role key as proof that an actor is allowed to perform an operation. The Railway worker resolves the linked Telegram account and active business membership before it uses trusted database functions.
 
+### Google account authentication
+
+Google sign-up and sign-in use Supabase Auth's PKCE flow. The application does not receive or store the Google OAuth client secret. Configure the external systems before expecting the button to complete in a hosted environment:
+
+1. In Google Auth Platform, create a **Web application** OAuth client. Add each application origin, such as `http://localhost:3000` and the production web origin, under Authorized JavaScript origins.
+2. Add the Supabase provider callback shown on **Supabase Dashboard → Authentication → Providers → Google** as an Authorized redirect URI in Google. Hosted projects normally use `https://<project-ref>.supabase.co/auth/v1/callback`; local Supabase uses `http://127.0.0.1:54321/auth/v1/callback`.
+3. Enable Google in the Supabase provider settings and enter the Google client ID and secret there.
+4. In **Supabase Dashboard → Authentication → URL Configuration**, add the application callback URL `https://<app-domain>/auth/callback` to the redirect allow list. Local development uses `http://localhost:3000/auth/callback`.
+
+The Google client secret belongs in Google/Supabase provider configuration, not in Vercel browser variables or this repository. Request only the default `openid`, email, and profile scopes unless a separately reviewed feature needs access to Google data.
+
 ## OpenAI
 
 | Variable | Required | Runtime | Purpose |

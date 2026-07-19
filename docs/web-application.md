@@ -7,8 +7,9 @@ The web application is a Next.js 16 App Router project. Vercel runs the pages an
 | Route | Purpose | Status |
 | --- | --- | --- |
 | `/` | Public product entry | Available in both modes |
-| `/login` | Supabase or demo sign-in | Available |
-| `/signup` | Account creation | Available |
+| `/login` | Supabase password/Google sign-in or demo sign-in | Available |
+| `/signup` | Password or Google account creation | Available |
+| `/auth/callback` | Server-side Supabase PKCE code exchange | Supabase mode |
 | `/onboarding` | Business setup and review | Available |
 | `/dashboard` | Cash summary, recent records, insights, and quick actions | Available |
 | `/transactions` | Search, filter, inspect, edit, and void records | Available |
@@ -38,7 +39,7 @@ Protected pages use `AuthGate`. In Supabase mode, the active business is selecte
 
 ### Supabase
 
-Supabase is the default whenever `NEXT_PUBLIC_AUTH_MODE` is omitted or set to `supabase`. The browser uses the publishable key. Server routes derive the caller from the cookie-backed Supabase session. Transactions, invoices, payments, reminders, business profiles, voice transcripts, and e-Invoice records are persisted to Supabase.
+Supabase is the default whenever `NEXT_PUBLIC_AUTH_MODE` is omitted or set to `supabase`. The browser uses the publishable key. Users can authenticate with email/password or the configured Google provider. Google OAuth returns through `/auth/callback`, where the server exchanges the PKCE code and stores the session in the existing cookie boundary. Server routes derive the caller from that cookie-backed Supabase session. Transactions, invoices, payments, reminders, business profiles, voice transcripts, and e-Invoice records are persisted to Supabase.
 
 ### Demo
 

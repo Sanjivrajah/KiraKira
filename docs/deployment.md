@@ -40,7 +40,8 @@ Add provider and MyInvois values only for enabled features. `SUPABASE_SERVICE_RO
 After the first production domain exists:
 
 - set the Supabase Auth site URL to the canonical Vercel or custom domain;
-- add exact preview or callback URLs that are intentionally supported;
+- add the exact production `/auth/callback` URL to the Supabase redirect allow list;
+- if Google authentication is enabled, configure its Web OAuth client and Supabase provider as described in [configuration.md](configuration.md#google-account-authentication);
 - keep production and preview Supabase projects separate when preview writes must not touch production data;
 - verify that `/api/health/supabase` returns 404 in production—it is intentionally a development health route.
 
@@ -98,7 +99,7 @@ No scheduler is checked into this repository. Configure a Vercel Cron job or ano
 
 ## Post-deployment smoke test
 
-1. Create a disposable Supabase user and business through the Vercel app.
+1. Create a disposable Supabase user and business through the Vercel app; when Google is enabled, repeat with a disposable Google account and verify both new-user onboarding and returning-user sign-in.
 2. Confirm a second account cannot read that business.
 3. Create, edit, and void a transaction; refresh and confirm persistence.
 4. Create and issue an invoice, then check reminders and dashboard totals.

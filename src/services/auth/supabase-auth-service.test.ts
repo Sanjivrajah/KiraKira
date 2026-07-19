@@ -67,6 +67,41 @@ describe("SupabaseAuthService", () => {
     });
   });
 
+  it("starts Google OAuth with a PKCE callback and safe destination", async () => {
+    const signInWithOAuth = vi.fn().mockResolvedValue({ data: { provider: "google", url: "https://accounts.google.com" }, error: null });
+    const service = new SupabaseAuthService(() => makeClient({ signInWithOAuth }));
+
+    await service.signInWithGoogle({ authPage: "signup", next: "/transactions?filter=attention" });
+
+    expect(signInWithOAuth).toHaveBeenCalledWith({
+      provider: "google",
+      options: {
+        redirectTo: "http://localhost:3000/auth/callback?next=%2Ftransactions%3Ffilter%3Dattention&authPage=signup",
+      },
+    });
+  });
+
+  it("does not pass an external post-authentication destination to Google OAuth", async () => {
+    const signInWithOAuth = vi.fn().mockResolvedValue({ data: { provider: "google", url: "https://accounts.google.com" }, error: null });
+    const service = new SupabaseAuthService(() => makeClient({ signInWithOAuth }));
+
+    await service.signInWithGoogle({ authPage: "login", next: "https://example.com" });
+
+    expect(signInWithOAuth).toHaveBeenCalledWith(expect.objectContaining({
+      options: { redirectTo: "http://localhost:3000/auth/callback?next=%2Fdashboard&authPage=login" },
+    }));
+  });
+
+  it("returns a safe error when Google OAuth cannot start", async () => {
+    const service = new SupabaseAuthService(() => makeClient({
+      signInWithOAuth: vi.fn().mockResolvedValue({ data: {}, error: { message: "provider details" } }),
+    }));
+
+    await expect(service.signInWithGoogle({ authPage: "signup" })).rejects.toEqual(
+      new AuthServiceError("Google sign-in is temporarily unavailable. Please try again."),
+    );
+  });
+
   it("returns safe auth errors from Supabase failures", async () => {
     const service = new SupabaseAuthService(() => makeClient({
       signInWithPassword: vi.fn().mockResolvedValue({ data: { session: null }, error: { message: "Invalid login credentials" } }),

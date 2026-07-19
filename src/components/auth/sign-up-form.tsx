@@ -9,6 +9,7 @@ import { FormField } from "@/components/forms/form-field";
 import { signUpSchema, type SignUpValues } from "@/lib/validation/auth";
 import { AuthServiceError } from "@/services/auth";
 import { useAuth } from "./auth-provider";
+import { GoogleAuthButton } from "./google-auth-button";
 import { PasswordField } from "./password-field";
 
 export function SignUpForm() {
@@ -33,6 +34,7 @@ export function SignUpForm() {
 
   return (
     <form className="auth-form" noValidate onSubmit={submit}>
+      <GoogleAuthButton authPage="signup" />
       <FormField autoComplete="name" error={errors.name?.message} label="Your name" maxLength={80} {...register("name")} />
       <FormField autoComplete="email" error={errors.email?.message} label="Email address" maxLength={254} type="email" {...register("email")} />
       <PasswordField

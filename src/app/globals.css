@@ -2335,6 +2335,32 @@ li {
   gap: 18px;
 }
 
+.google-auth {
+  display: grid;
+  gap: 16px;
+}
+
+.google-auth-button svg {
+  flex: 0 0 auto;
+}
+
+.auth-divider {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  color: var(--ink-500);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  height: 1px;
+  background: var(--line);
+  content: "";
+}
+
 .form-field {
   min-width: 0;
 }

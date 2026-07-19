@@ -52,6 +52,10 @@ export class MockAuthService implements AuthService {
     return this.persistSession({ user, expiresAt: null });
   }
 
+  async signInWithGoogle() {
+    throw new MockAuthError("Google sign-in is available only for the Supabase workspace.");
+  }
+
   async signOut() {
     this.storage.remove(STORAGE_KEYS.authSession);
     this.emit(null);

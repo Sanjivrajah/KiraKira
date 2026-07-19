@@ -1,11 +1,13 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import { safeAppPath } from "@/lib/auth/safe-redirect";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser-client";
-import type { AuthService, AuthSession, SignInInput, SignUpInput } from "@/types";
+import type { AuthService, AuthSession, GoogleSignInInput, SignInInput, SignUpInput } from "@/types";
 import { AuthServiceError } from "./auth-service-error";
 
 function toAuthSession(session: Session | null): AuthSession | null {
   if (!session) return null;
-  const name = typeof session.user.user_metadata.name === "string" ? session.user.user_metadata.name : null;
+  const metadataName = session.user.user_metadata.name ?? session.user.user_metadata.full_name;
+  const name = typeof metadataName === "string" ? metadataName : null;
   return {
     user: {
       id: session.user.id,
@@ -55,6 +57,18 @@ export class SupabaseAuthService implements AuthService {
     if (!session) throw toAuthError("Account created. Check your email to confirm it before signing in.");
     this.emit(session);
     return session;
+  }
+
+  async signInWithGoogle(input: GoogleSignInInput) {
+    const callbackUrl = new URL("/auth/callback", window.location.origin);
+    callbackUrl.searchParams.set("next", safeAppPath(input.next, "/dashboard"));
+    callbackUrl.searchParams.set("authPage", input.authPage);
+
+    const { error } = await this.getClient().auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: callbackUrl.toString() },
+    });
+    if (error) throw new AuthServiceError("Google sign-in is temporarily unavailable. Please try again.");
   }
 
   async signOut() {

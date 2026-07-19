@@ -6,7 +6,7 @@ import { clearQueryCache } from "@/lib/query/query-client";
 import { services } from "@/services";
 import { authMode, authService, type AuthMode } from "@/services/auth";
 import { useNiagaStore } from "@/store/use-niaga-store";
-import type { AuthService, AuthSession, SignInInput, SignUpInput } from "@/types";
+import type { AuthService, AuthSession, GoogleSignInInput, SignInInput, SignUpInput } from "@/types";
 
 export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
@@ -18,6 +18,7 @@ interface AuthContextValue {
   setActiveBusinessId(businessId: string | null): void;
   signIn(input: SignInInput): Promise<void>;
   signUp(input: SignUpInput): Promise<void>;
+  signInWithGoogle(input: GoogleSignInInput): Promise<void>;
   signOut(): Promise<void>;
   resetDemo(): Promise<void>;
 }
@@ -52,6 +53,7 @@ export function AuthProvider({ children, service = authService, mode = authMode 
 
   const signIn = useCallback(async (input: SignInInput) => { await service.signIn(input); }, [service]);
   const signUp = useCallback(async (input: SignUpInput) => { await service.signUp(input); }, [service]);
+  const signInWithGoogle = useCallback(async (input: GoogleSignInInput) => { await service.signInWithGoogle(input); }, [service]);
   const signOut = useCallback(async () => {
     clearQueryCache(queryClient);
     resetTemporaryUi();
@@ -65,7 +67,7 @@ export function AuthProvider({ children, service = authService, mode = authMode 
     else await service.signOut();
   }, [queryClient, resetTemporaryUi, service]);
 
-  const value = useMemo(() => ({ status, mode, session, activeBusinessId, setActiveBusinessId, signIn, signUp, signOut, resetDemo }), [activeBusinessId, mode, resetDemo, session, signIn, signOut, signUp, status]);
+  const value = useMemo(() => ({ status, mode, session, activeBusinessId, setActiveBusinessId, signIn, signUp, signInWithGoogle, signOut, resetDemo }), [activeBusinessId, mode, resetDemo, session, signIn, signInWithGoogle, signOut, signUp, status]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

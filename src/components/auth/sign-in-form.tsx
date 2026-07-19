@@ -8,6 +8,7 @@ import { FormField } from "@/components/forms/form-field";
 import { signInSchema, type SignInValues } from "@/lib/validation/auth";
 import { AuthServiceError } from "@/services/auth";
 import { useAuth } from "./auth-provider";
+import { GoogleAuthButton } from "./google-auth-button";
 import { PasswordField } from "./password-field";
 
 export function SignInForm() {
@@ -30,6 +31,7 @@ export function SignInForm() {
 
   return (
     <form className="auth-form" noValidate onSubmit={submit}>
+      <GoogleAuthButton authPage="login" />
       <FormField
         autoComplete="email"
         error={errors.email?.message}
