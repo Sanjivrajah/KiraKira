@@ -1,18 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import type HCaptcha from "@hcaptcha/react-hcaptcha";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { FormField } from "@/components/forms/form-field";
 import { signInSchema, type SignInValues } from "@/lib/validation/auth";
 import { AuthServiceError } from "@/services/auth";
 import { useAuth } from "./auth-provider";
+import { CaptchaField } from "./captcha-field";
 import { GoogleAuthButton } from "./google-auth-button";
 import { PasswordField } from "./password-field";
 
 export function SignInForm() {
   const { mode, signIn } = useAuth();
+  const captchaRef = useRef<HCaptcha>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "error" | "success"; text: string } | null>(null);
   const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
@@ -21,11 +25,21 @@ export function SignInForm() {
 
   const submit = handleSubmit(async (values) => {
     setMessage(null);
+    if (mode === "supabase" && !captchaToken) {
+      setMessage({ tone: "error", text: "Complete the bot protection check before signing in." });
+      return;
+    }
+
     try {
-      await signIn(values);
+      await signIn({ ...values, captchaToken: captchaToken ?? undefined });
       setMessage({ tone: "success", text: "Signed in. Opening your workspace…" });
     } catch (error) {
       setMessage({ tone: "error", text: error instanceof AuthServiceError ? error.message : "We could not sign in. Check the details and try again." });
+    } finally {
+      if (mode === "supabase") {
+        captchaRef.current?.resetCaptcha();
+        setCaptchaToken(null);
+      }
     }
   });
 
@@ -48,6 +62,7 @@ export function SignInForm() {
         maxLength={128}
         {...register("password")}
       />
+      {mode === "supabase" ? <CaptchaField ref={captchaRef} onTokenChange={setCaptchaToken} /> : null}
       {message ? <p className={`form-message ${message.tone}`} aria-live="polite">{message.text}</p> : null}
       <button className="button button-primary button-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? "Signing in…" : "Sign in"}

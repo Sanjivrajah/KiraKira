@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@elevenlabs/react": "^1.10.0",
+    "@hcaptcha/react-hcaptcha": "^2.0.2",
     "@hookform/resolvers": "^5.4.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "2.80.0",

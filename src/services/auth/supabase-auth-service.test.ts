@@ -47,10 +47,14 @@ describe("SupabaseAuthService", () => {
     }));
 
     const unsubscribe = service.subscribe(listener);
-    await service.signIn({ email: " Lina@Example.com ", password: "secret123" });
+    await service.signIn({ email: " Lina@Example.com ", password: "secret123", captchaToken: "sign-in-captcha" });
     unsubscribe();
 
-    expect(signInWithPassword).toHaveBeenCalledWith({ email: "lina@example.com", password: "secret123" });
+    expect(signInWithPassword).toHaveBeenCalledWith({
+      email: "lina@example.com",
+      password: "secret123",
+      options: { captchaToken: "sign-in-captcha" },
+    });
     expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ user: expect.objectContaining({ id: "supabase-user" }) }));
   });
 
@@ -58,12 +62,15 @@ describe("SupabaseAuthService", () => {
     const signUp = vi.fn().mockResolvedValue({ data: { session: makeSession() }, error: null });
     const service = new SupabaseAuthService(() => makeClient({ signUp }));
 
-    await service.signUp({ name: " Lina Hassan ", email: "Lina@Example.com", password: "secret123" });
+    await service.signUp({ name: " Lina Hassan ", email: "Lina@Example.com", password: "secret123", captchaToken: "sign-up-captcha" });
 
     expect(signUp).toHaveBeenCalledWith({
       email: "lina@example.com",
       password: "secret123",
-      options: { data: { name: "Lina Hassan", full_name: "Lina Hassan" } },
+      options: {
+        captchaToken: "sign-up-captcha",
+        data: { name: "Lina Hassan", full_name: "Lina Hassan" },
+      },
     });
   });
 

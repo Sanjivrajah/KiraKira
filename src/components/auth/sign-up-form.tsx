@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import type HCaptcha from "@hcaptcha/react-hcaptcha";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { FieldError } from "@/components/forms/field-error";
@@ -9,11 +10,14 @@ import { FormField } from "@/components/forms/form-field";
 import { signUpSchema, type SignUpValues } from "@/lib/validation/auth";
 import { AuthServiceError } from "@/services/auth";
 import { useAuth } from "./auth-provider";
+import { CaptchaField } from "./captcha-field";
 import { GoogleAuthButton } from "./google-auth-button";
 import { PasswordField } from "./password-field";
 
 export function SignUpForm() {
   const { mode, signUp } = useAuth();
+  const captchaRef = useRef<HCaptcha>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "error" | "success"; text: string } | null>(null);
   const { register, handleSubmit, resetField, formState: { errors, isSubmitting } } = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
@@ -22,13 +26,23 @@ export function SignUpForm() {
 
   const submit = handleSubmit(async (values) => {
     setMessage(null);
+    if (mode === "supabase" && !captchaToken) {
+      setMessage({ tone: "error", text: "Complete the bot protection check before creating your account." });
+      return;
+    }
+
     try {
-      await signUp({ name: values.name, email: values.email, password: values.password });
+      await signUp({ name: values.name, email: values.email, password: values.password, captchaToken: captchaToken ?? undefined });
       resetField("password");
       resetField("confirmPassword");
       setMessage({ tone: "success", text: mode === "supabase" ? "Account created. Opening your workspace…" : "Account created. Let’s set up your business…" });
     } catch (error) {
       setMessage({ tone: "error", text: error instanceof AuthServiceError ? error.message : "We could not create the account. Check the details and try again." });
+    } finally {
+      if (mode === "supabase") {
+        captchaRef.current?.resetCaptcha();
+        setCaptchaToken(null);
+      }
     }
   });
 
@@ -46,6 +60,7 @@ export function SignUpForm() {
         {...register("password")}
       />
       <PasswordField autoComplete="new-password" error={errors.confirmPassword?.message} label="Confirm password" maxLength={128} {...register("confirmPassword")} />
+      {mode === "supabase" ? <CaptchaField ref={captchaRef} onTokenChange={setCaptchaToken} /> : null}
       <div className="checkbox-field">
         <input aria-describedby={errors.terms ? "terms-error" : undefined} aria-invalid={errors.terms ? true : undefined} id="terms" type="checkbox" {...register("terms")} />
         <label htmlFor="terms">{mode === "supabase" ? "I understand this account is for the NiagaAI prototype workspace." : "I understand this is a browser-only demo and does not create a real account."}</label>

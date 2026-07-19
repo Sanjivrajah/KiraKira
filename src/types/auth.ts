@@ -12,6 +12,7 @@ export interface AuthSession {
 export interface SignInInput {
   email: string;
   password: string;
+  captchaToken?: string;
 }
 
 export interface SignUpInput extends SignInInput {

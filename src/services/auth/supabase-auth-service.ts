@@ -37,6 +37,7 @@ export class SupabaseAuthService implements AuthService {
     const { data, error } = await this.getClient().auth.signInWithPassword({
       email: input.email.trim().toLowerCase(),
       password: input.password,
+      options: { captchaToken: input.captchaToken },
     });
     if (error) throw toAuthError(error.message);
     const session = toAuthSession(data.session);
@@ -50,7 +51,10 @@ export class SupabaseAuthService implements AuthService {
     const { data, error } = await this.getClient().auth.signUp({
       email: input.email.trim().toLowerCase(),
       password: input.password,
-      options: { data: { name, full_name: name } },
+      options: {
+        captchaToken: input.captchaToken,
+        data: { name, full_name: name },
+      },
     });
     if (error) throw toAuthError(error.message);
     const session = toAuthSession(data.session);

@@ -2448,6 +2448,23 @@ li {
   color: var(--ink-700);
 }
 
+.captcha-field {
+  display: grid;
+  max-width: 100%;
+  justify-items: start;
+  gap: 7px;
+}
+
+.captcha-field > p {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.captcha-field .field-hint {
+  margin: 0;
+}
+
 .field-error {
   color: var(--danger);
   font-weight: 600;

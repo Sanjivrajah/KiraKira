@@ -9,9 +9,16 @@ Configuration is split by runtime. Vercel receives web and server-route values; 
 | `NEXT_PUBLIC_AUTH_MODE` | Recommended | Browser and server | `supabase` by default; `demo` enables the explicit browser-local adapter |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase mode | Vercel and Railway | Supabase project API URL—the name is public, but Railway also uses it server-side |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase mode | Vercel | Browser-safe Supabase publishable or anon key |
+| `NEXT_PUBLIC_HCAPTCHA_SITE_KEY` | Supabase mode with CAPTCHA enabled | Vercel | Browser-safe site key used by the email/password sign-up and sign-in challenges |
 | `SUPABASE_SERVICE_ROLE_KEY` | Trusted jobs and Supabase bot mode | Vercel and Railway | Bypasses RLS; restricted to trusted server and worker code |
 
 Do not use the service-role key as proof that an actor is allowed to perform an operation. The Railway worker resolves the linked Telegram account and active business membership before it uses trusted database functions.
+
+### hCaptcha bot protection
+
+Supabase Auth verifies hCaptcha tokens for email/password sign-up and sign-in. Configure the hCaptcha secret only under **Supabase Dashboard → Authentication → Bot and Abuse Protection**. Add the matching public site key to `NEXT_PUBLIC_HCAPTCHA_SITE_KEY` in the web environment and allow the deployed web hostname in the hCaptcha site settings. The application sends each short-lived token through `options.captchaToken`; it does not receive the hCaptcha secret or call `siteverify` directly.
+
+hCaptcha does not accept `localhost` or `127.0.0.1` as hostnames. For local challenge testing, use a hostname mapped to `127.0.0.1` in the system hosts file and add that hostname to the hCaptcha site configuration.
 
 ### Google account authentication
 
