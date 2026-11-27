@@ -41,7 +41,7 @@ The full system description is in [docs/architecture.md](docs/architecture.md). 
 - Reviewed transaction history, dashboard summaries, cash-flow views, reminders, and indicative loan-readiness calculations
 - Invoice drafting, lifecycle updates, payment tracking, and immutable e-Invoice preparation revisions
 - Unsigned MyInvois Invoice v1.0 mapping, payload snapshots, sandbox submission, status reconciliation, and gated production operations
-- A browser voice assistant backed by ElevenLabs Conversational AI, with owner-visible transcript history in Supabase
+- A browser voice assistant on the OpenAI Live API, with owner-visible transcript history in Supabase
 - A Telegram agent for English, Bahasa Melayu, and Manglish transaction capture, clarification, review, confirmation, duplicate protection, insights, search, and CSV export
 
 Inventory remains a placeholder. Loan readiness is an indicative cash-flow assessment—not a lending decision. Extracted values are proposals until the owner confirms them, and MyInvois readiness is not the same as authority acceptance.
@@ -139,10 +139,10 @@ A standalone SVG of this diagram for slides lives at
 ## Live voice agent orchestration
 
 The browser voice assistant is a second, real-time agent. Unlike the Telegram agent—which runs
-its own OpenAI extraction in-process—the voice agent's brain (speech, reasoning, and tool
-schemas) is **hosted by ElevenLabs** and reached over WebRTC. This app never exposes the API
-key: a server route mints a short-lived session token, and the agent's tool calls are executed
-locally against **36 Zod-validated client tools**. The same stage-then-confirm safety applies—
+its own OpenAI extraction in-process—the voice agent's realtime speech loop is **OpenAI Live** (`gpt-live-1.1`) reached over
+WebRTC, with a delegated Responses model choosing tools. This app never exposes the API key: a
+server route exchanges the browser's SDP offer for an answer, and the agent's tool calls are
+executed locally against **36 Zod-validated client tools**. The same stage-then-confirm safety applies—
 drafts are staged in the browser and nothing is written to Supabase until the owner triggers a
 `confirm_*` tool.
 
@@ -157,17 +157,20 @@ flowchart TD
 
     subgraph SESSION["🔑 Session bootstrap · server-only"]
       ROUTE["POST /api/voice/session"]
-      ROUTE -->|"agent_id + API key<br/>never sent to browser"| ELMINT["ElevenLabs token endpoint"]
-      ELMINT -->|"short-lived WebRTC token"| ROUTE
+      ROUTE -->|"SDP offer + instructions + tools<br/>API key never sent to browser"| LIVEAPI["OpenAI POST /v1/live/sessions"]
+      LIVEAPI -->|"SDP answer + session id"| ROUTE
     end
-    MIC -->|"start session"| ROUTE
-    ROUTE -->|"token + dynamicVariables<br/>business · owner · today · MYR"| AGENT
+    MIC -->|"SDP offer + business name"| ROUTE
+    ROUTE -->|"SDP answer"| MIC
 
-    subgraph EL["🧠 ElevenLabs Conversational AI · hosted"]
-      AGENT["Realtime agent<br/>STT · LLM · TTS"]
+    subgraph EL["🧠 OpenAI Live · hosted"]
+      AGENT["gpt-live-1.1<br/>speech in · speech out"]
+      DELEGATE["Delegated Responses model<br/>chooses function tools"]
+      AGENT --> DELEGATE
     end
     MIC <-->|"WebRTC audio"| AGENT
-    AGENT -->|"tool calls · JSON"| TOOLS
+    DELEGATE -->|"function_call · oai-events channel"| TOOLS
+    TOOLS -->|"function_call_output"| DELEGATE
 
     subgraph TOOLS["🛠️ Client tools · per-tool Zod validation"]
       READ["Read<br/>query_finances · find_transactions<br/>list_invoices · get_business_snapshot"]
@@ -192,25 +195,24 @@ flowchart TD
     classDef confirm fill:#f0fdf4,stroke:#22c55e,color:#14532b;
     classDef stage fill:#fffbeb,stroke:#f59e0b,color:#78350f;
     classDef server fill:#fef2f2,stroke:#ef4444,color:#7f1d1d;
-    class AGENT el;
+    class AGENT,DELEGATE el;
     class CONFIRM,SVC,SUPA confirm;
     class STAGE,STORE stage;
-    class ROUTE,ELMINT server;
+    class ROUTE,LIVEAPI server;
 ```
 
 What makes it robust:
 
-- **Hosted brain, local hands** — ElevenLabs owns the realtime loop; the app owns tool
+- **Hosted brain, local hands** — OpenAI Live owns the realtime loop; the app owns tool
   execution, so untrusted tool arguments are re-validated with Zod before anything runs.
 - **Stage-then-confirm** — read and stage tools never write; only `confirm_*` tools reach
   services and Supabase, then invalidate the React Query cache so the UI updates instantly.
-- **Live context** — `dynamicVariables` seed business/owner/date/currency at session start, and
+- **Live context** — server-built instructions seed business/owner/date/currency at session start, and
   `get_current_context` lets long-lived tools read the current page without restarting.
 - **Deliberate UI reach** — a small typed command bus (`navigate`, add line item, fill/approve/
   submit e-Invoice) instead of a generic "run any action" hatch.
 
-A standalone SVG for slides lives at
-[docs/assets/voice-agent-orchestration.svg](docs/assets/voice-agent-orchestration.svg). The
+The prompt, tool schemas, and data-channel contract are in [docs/voice-agent.md](docs/voice-agent.md). The
 browser voice feature is documented alongside the workspace in [docs/architecture.md](docs/architecture.md).
 
 ## Local setup

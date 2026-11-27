@@ -87,7 +87,7 @@ export interface VoiceClientToolDeps {
   getBusinessContext?(): VoiceBusinessContext | null;
 }
 
-/** ElevenLabs delivers tool parameters as untrusted JSON, so every tool validates first. */
+/** The Live model delivers tool parameters as untrusted JSON, so every tool validates first. */
 type ClientTool = (parameters: Record<string, unknown>) => Promise<string> | string;
 
 const periodKeys: FinancePeriodKey[] = [
@@ -100,7 +100,7 @@ const periodKeys: FinancePeriodKey[] = [
   "all",
 ];
 
-// ElevenLabs may send booleans as strings ("true"/"yes"); interpret them leniently.
+// Models sometimes send booleans as strings ("true"/"yes"); interpret them leniently.
 const booleanish = z.preprocess((value) => {
   if (typeof value === "boolean") return value;
   if (typeof value === "string") return /^(true|yes|1|inclusive|incl|including|inc)$/i.test(value.trim());
@@ -157,8 +157,8 @@ function toVoiceInvoiceLine(item: z.infer<typeof invoiceLineSchema>): VoiceInvoi
   };
 }
 
-// ElevenLabs client tools cannot reliably describe an array-of-objects parameter,
-// so the agent sends `items` as a JSON string. Accept either that string or a real
+// The voice tool schemas only declare flat string/number/boolean parameters,
+// so the model sends `items` as a JSON string. Accept either that string or a real
 // array (tests, or a future richer schema) and validate to the same shape.
 const invoiceItemsSchema = z.preprocess((value) => {
   if (typeof value === "string") {
@@ -333,7 +333,7 @@ function describeTransaction(draft: VoiceTransactionDraft): string {
 }
 
 /**
- * Builds the ElevenLabs client-tool map. Pure aside from the injected deps, so it
+ * Builds the voice tool map the Live session calls. Pure aside from the injected deps, so it
  * can be unit-tested with fakes. Write tools stage drafts; confirm tools persist.
  * Every tool returns a short spoken-friendly string the agent reads back.
  */

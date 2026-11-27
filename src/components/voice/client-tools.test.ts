@@ -144,7 +144,7 @@ describe("createVoiceClientTools", () => {
     expect(message).toContain("INV-1024");
   });
 
-  it("accepts invoice items as a JSON string (the ElevenLabs shape)", async () => {
+  it("accepts invoice items as a JSON string (the flat tool-schema shape)", async () => {
     const message = await harness.tools.create_invoice_draft({
       customerName: "Ali Trading",
       items: '[{"description":"Kraf bag","quantity":3,"unitPrice":30}]',

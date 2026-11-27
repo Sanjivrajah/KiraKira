@@ -15,7 +15,7 @@ The HTTP surface is implemented with Next.js Route Handlers under `src/app/api`.
 | `POST /api/loan-readiness` | Signed-in business member | Run a non-persisted loan-term simulation |
 | `GET /api/telegram/link-code` | Signed-in eligible member | List businesses that can be linked to Telegram |
 | `POST /api/telegram/link-code` | Signed-in eligible member | Issue a short-lived one-time link code; only its digest is stored |
-| `GET /api/voice/session` | Signed in for Supabase mode; demo token otherwise | Mint a short-lived ElevenLabs conversation token |
+| `POST /api/voice/session` | Signed in for Supabase mode; open in demo mode | Exchange the browser's WebRTC SDP offer for an OpenAI Live answer (`{ sdp, businessName, ownerName? }` → `{ sdp, sessionId, ownerName? }`) |
 | `GET /api/voice/conversations` | Transcript owner in Supabase mode | List recent private transcript history for one business |
 | `POST /api/voice/conversations` | Signed-in business member | Start a transcript record |
 | `PUT /api/voice/conversations` | Transcript owner through RLS | Upsert one progressively streamed text turn |

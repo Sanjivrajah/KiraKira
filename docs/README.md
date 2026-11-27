@@ -31,7 +31,7 @@ Use this directory as the repository map. The short guides explain how the runni
 | MyInvois OAuth connections | [Taxpayer and intermediary authentication](backend/07-e-invoice-taxpayer-intermediary-authentication.md) |
 | Sandbox submission and reconciliation | [Sandbox submission](backend/08-e-invoice-sandbox-submission-status.md) |
 | Production activation and incident handling | [Production operations](backend/09-e-invoice-production-operations.md) |
-| Browser voice-agent setup | [ElevenLabs voice agent](voice-agent.md) |
+| Browser voice-agent setup | [OpenAI Live voice agent](voice-agent.md) |
 | MyInvois field coverage reference | [Invoice v1.0 field requirements](reference/myinvois-invoice-v1.0-fields.md) |
 
 ## Repository map

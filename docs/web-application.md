@@ -20,7 +20,7 @@ The web application is a Next.js 16 App Router project. Vercel runs the pages an
 | `/invoices/[id]` | Invoice detail | Available |
 | `/invoices/[id]/edit` | Draft invoice editing | Available |
 | `/e-invoices` | Prepare, approve, submit, and reconcile MyInvois documents | Supabase mode |
-| `/voice` | ElevenLabs conversational assistant and transcript history | Provider configuration required |
+| `/voice` | OpenAI Live voice assistant and transcript history | Provider configuration required |
 | `/cash-flow` | Cash movement workspace | Available |
 | `/loan-readiness` | Indicative assessment and loan-term simulation | Supabase mode |
 | `/reminders` | Payment reminder queue and history | Available |
@@ -78,9 +78,9 @@ Components should not call repositories or `localStorage` directly.
 
 ## Voice assistant
 
-The browser fetches a short-lived conversation token from `/api/voice/session`, then registers the client tools in `src/components/voice/client-tools.ts`. Sensitive tools stage a draft or pending action first; confirmation tools perform the write only after the owner agrees.
+The browser opens a WebRTC connection to an OpenAI Live session (`src/components/voice/live-client.ts`), exchanging its SDP offer through `/api/voice/session`. Delegated function calls arrive on the `oai-events` data channel and run the client tools in `src/components/voice/client-tools.ts`. Sensitive tools stage a draft or pending action first; confirmation tools perform the write only after the owner agrees.
 
-The matching ElevenLabs agent prompt and tool export are maintained in [voice-agent.md](voice-agent.md). A test verifies that the exported tool names exactly match the runtime tool map.
+The session prompt and tool schemas are described in [voice-agent.md](voice-agent.md). A test verifies that the declared tool names exactly match the runtime tool map.
 
 ## Errors and route states
 

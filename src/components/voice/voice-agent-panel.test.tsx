@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VOICE_PHASE_COPY, type VoicePhase } from "./use-voice-agent";
@@ -8,9 +7,6 @@ const mocks = vi.hoisted(() => ({
   history: vi.fn(),
 }));
 
-vi.mock("@elevenlabs/react", () => ({
-  ConversationProvider: ({ children }: { children: ReactNode }) => children,
-}));
 vi.mock("@/hooks/use-business", () => ({
   useBusiness: () => ({ data: { id: "business-1", name: "Kedai Murni" }, isLoading: false }),
 }));

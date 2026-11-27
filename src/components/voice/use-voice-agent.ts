@@ -1,21 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useConversation } from "@elevenlabs/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/query-keys";
-import { resolveVoiceOwnerName } from "@/lib/voice/owner-name";
 import { services } from "@/services";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useBusiness } from "@/hooks/use-business";
 import { createVoiceClientTools, type VoiceDraftController } from "./client-tools";
 import { createVoiceCustomerResolver } from "./voice-customers";
-import { kualaLumpurToday } from "./voice-finance";
 import { isCurrentVoiceDestination } from "./voice-navigation";
 import { useVoiceDraftStore } from "./voice-draft-store";
 import { useVoiceUiBus } from "./voice-ui-bus";
-import { appendTranscriptTurn, type TranscriptTurn } from "./voice-transcript";
+import { appendTranscriptDelta, type TranscriptTurn } from "./voice-transcript";
+import { connectLiveVoice, type LiveVoiceConnection } from "./live-client";
+import { runToolCalls, toolResultEvents, type LiveToolCall, type LiveToolHandler, type LiveVoiceEvent } from "./live-protocol";
 import {
   finishStoredVoiceConversation,
   saveStoredVoiceTurn,
@@ -44,7 +43,7 @@ const draftController: VoiceDraftController = {
 };
 
 /**
- * The single "emotion" the UI renders. Derived from the raw SDK flags so the
+ * The single "emotion" the UI renders. Derived from the connection state so the
  * orb and status label never juggle overlapping booleans.
  */
 export type VoicePhase =
@@ -106,6 +105,9 @@ export function useVoiceAgent(): UseVoiceAgentResult {
   // Best-effort "thinking" signal: the user's turn has landed but the assistant
   // has not started speaking yet. Cleared once the assistant replies (below).
   const [awaitingReply, setAwaitingReply] = useState(false);
+  const [status, setStatus] = useState<UseVoiceAgentResult["status"]>("disconnected");
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
 
   // Read live inside long-lived tool closures without re-creating the session.
   const businessName = business?.name ?? "your business";
@@ -119,6 +121,11 @@ export function useVoiceAgent(): UseVoiceAgentResult {
   const storageQueueRef = useRef<Promise<void>>(Promise.resolve());
   const connectInFlightRef = useRef(false);
   const endInFlightRef = useRef(false);
+  const connectionRef = useRef<LiveVoiceConnection | null>(null);
+  const toolsRef = useRef<Record<string, LiveToolHandler>>({});
+  const pendingCallsRef = useRef(new Map<string, LiveToolCall[]>());
+  const toolQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const speakingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
   useEffect(() => { businessNameRef.current = businessName; }, [businessName]);
   useEffect(() => { businessIdRef.current = business?.id ?? null; }, [business?.id]);
@@ -152,54 +159,111 @@ export function useVoiceAgent(): UseVoiceAgentResult {
     }, () => setTranscriptStorage("error"));
   }, []);
 
-  const conversation = useConversation({
-    onMessage: ({ message, source }) => {
-      const previous = transcriptRef.current;
-      const next = appendTranscriptTurn(previous, { message, source });
-      transcriptRef.current = next;
-      setTranscript(next);
-      const latest = next[next.length - 1];
-      if (latest && next !== previous) queueTranscriptTurn(latest);
-      // A user turn opens the "thinking" gap; an assistant turn closes it.
-      setAwaitingReply(source === "user");
-    },
-    onError: (message, context) => {
-      console.error("[voice] error", message, context);
-      setError(typeof message === "string" && message ? message : "The voice assistant hit a problem.");
-    },
-    onDisconnect: (details) => {
-      finishTranscriptStorage(details.reason === "error" || details.reason === "agent" ? "failed" : "completed");
-      if (details.reason === "error") {
-        console.error("[voice] disconnected", details);
-        setError(details.message || details.closeReason || "The voice session ended unexpectedly.");
-      } else if (details.reason === "agent") {
-        console.warn("[voice] agent ended session", details);
-        setError(details.closeReason || details.context?.reason || "The assistant ended the session. Check the agent configuration in ElevenLabs.");
-      } else {
-        // User-initiated stop (or a clean close). Not an error — log quietly so
-        // the Next.js dev overlay doesn't surface it.
-        console.info("[voice] session ended", details);
+
+  const clearSpeaking = useCallback(() => {
+    if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
+    speakingTimerRef.current = null;
+    setIsSpeaking(false);
+  }, []);
+
+  /** Saves the newest caption turn (if any) and closes the stored conversation. */
+  const endTranscript = useCallback((outcome: "completed" | "failed") => {
+    const latest = transcriptRef.current[transcriptRef.current.length - 1];
+    if (latest) queueTranscriptTurn(latest);
+    finishTranscriptStorage(outcome);
+  }, [finishTranscriptStorage, queueTranscriptTurn]);
+
+  /** Tears down local session state after the connection is gone. */
+  const settleDisconnected = useCallback(() => {
+    connectionRef.current = null;
+    pendingCallsRef.current.clear();
+    clearSpeaking();
+    setAwaitingReply(false);
+    setIsMuted(false);
+    setStatus("disconnected");
+  }, [clearSpeaking]);
+
+  const runPendingTools = useCallback((groupId: string) => {
+    const calls = pendingCallsRef.current.get(groupId);
+    pendingCallsRef.current.delete(groupId);
+    if (!calls?.length) return;
+    const owner = connectionRef.current;
+    // Serialize batches so staged drafts are applied in the order the model asked.
+    toolQueueRef.current = toolQueueRef.current.then(async () => {
+      const results = await runToolCalls(calls, toolsRef.current);
+      // The owner may have stopped the session while tools were running.
+      if (!owner || connectionRef.current !== owner || endInFlightRef.current) return;
+      for (const event of toolResultEvents(results)) owner.send(event);
+    }).catch(() => undefined);
+  }, []);
+
+  const handleEvent = useCallback((event: LiveVoiceEvent) => {
+    switch (event.kind) {
+      case "started": {
+        const currentBusinessId = businessIdRef.current;
+        if (authModeRef.current !== "supabase" || !currentBusinessId) return;
+        setTranscriptStorage("saving");
+        const stored = startStoredVoiceConversation(currentBusinessId, event.sessionId);
+        storageSessionRef.current = stored;
+        void stored.then(
+          (storedId) => setTranscriptStorage(storedId ? "saved" : "disabled"),
+          () => setTranscriptStorage("error"),
+        );
+        return;
       }
-    },
-    onConnect: ({ conversationId }) => {
-      const currentBusinessId = businessIdRef.current;
-      if (authModeRef.current !== "supabase" || !currentBusinessId) return;
-      setTranscriptStorage("saving");
-      const session = startStoredVoiceConversation(currentBusinessId, conversationId);
-      storageSessionRef.current = session;
-      void session.then(
-        (storedId) => setTranscriptStorage(storedId ? "saved" : "disabled"),
-        () => setTranscriptStorage("error"),
-      );
-    },
-  });
+      case "transcript": {
+        const previous = transcriptRef.current;
+        const next = appendTranscriptDelta(previous, event.role, event.delta);
+        if (next === previous) return;
+        transcriptRef.current = next;
+        setTranscript(next);
+        // A speaker change finalizes the previous turn, so persist it once.
+        const finished = previous[previous.length - 1];
+        const latest = next[next.length - 1];
+        if (finished && latest && finished.id !== latest.id) queueTranscriptTurn(finished);
+        if (event.role === "user") {
+          setAwaitingReply(true);
+          clearSpeaking();
+        } else {
+          setAwaitingReply(false);
+          setIsSpeaking(true);
+          // Live sends no "done speaking" event; treat a short pause in deltas as the end.
+          if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
+          speakingTimerRef.current = setTimeout(() => setIsSpeaking(false), 700);
+        }
+        return;
+      }
+      case "function_call": {
+        const calls = pendingCallsRef.current.get(event.groupId) ?? [];
+        pendingCallsRef.current.set(event.groupId, [...calls, { callId: event.callId, name: event.name, arguments: event.arguments }]);
+        return;
+      }
+      case "response_done":
+        if (event.completed) {
+          runPendingTools(event.groupId);
+        } else {
+          // A failed or truncated response may carry half-formed intent (e.g. a
+          // confirm call the owner never approved); discard rather than act on it.
+          pendingCallsRef.current.delete(event.groupId);
+        }
+        return;
+      case "closed":
+        // Server-initiated endings arrive through `onEnded`, which owns teardown.
+        return;
+      case "error":
+        // Error events do not end a Live session; `session.closed` does. Log the
+        // classification only and keep the conversation usable.
+        console.warn("[voice] session error", { fatal: event.fatal });
+        return;
+    }
+  }, [clearSpeaking, queueTranscriptTurn, runPendingTools]);
 
   const businessId = business?.id ?? null;
   const createdBy = session?.user.id ?? "";
-  const canConnect = Boolean(businessId) && conversation.status === "disconnected";
+  const canConnect = Boolean(businessId) && status === "disconnected";
 
   const connect = useCallback(async () => {
-    if (connectInFlightRef.current) return;
+    if (connectInFlightRef.current || connectionRef.current) return;
     if (!businessId) {
       setError("Set up your business before using the voice assistant.");
       return;
@@ -207,28 +271,16 @@ export function useVoiceAgent(): UseVoiceAgentResult {
     connectInFlightRef.current = true;
     setError(null);
     setConnecting(true);
+    setStatus("connecting");
     setTranscript([]);
     transcriptRef.current = [];
     setAwaitingReply(false);
+    setIsMuted(false);
     setTranscriptStorage(mode === "supabase" ? "idle" : "disabled");
     storageSessionRef.current = null;
     storageQueueRef.current = Promise.resolve();
+    pendingCallsRef.current.clear();
     try {
-      const response = await fetch("/api/voice/session", { headers: { Accept: "application/json" } });
-      if (!response.ok) {
-        setError(response.status === 503
-          ? "The voice assistant isn't configured yet."
-          : response.status === 401
-            ? "Sign in again to use the voice assistant."
-            : "Couldn't start the voice assistant. Please try again.");
-        return;
-      }
-      const { token, ownerName } = (await response.json()) as { token?: string; ownerName?: string };
-      if (!token) {
-        setError("The voice assistant returned no session. Please try again.");
-        return;
-      }
-
       const invalidateTransactions = () => Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.transactions.list(businessId) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(businessId) }),
@@ -299,90 +351,91 @@ export function useVoiceAgent(): UseVoiceAgentResult {
           router.push(href);
         },
         getContext: () => ({ pathname: pathnameRef.current, businessName: businessNameRef.current }),
-        dispatchUiCommand: (command) => {
-          console.info("[voice-tool] dispatchUiCommand", command.type);
-          useVoiceUiBus.getState().dispatch(command);
-        },
+        dispatchUiCommand: (command) => useVoiceUiBus.getState().dispatch(command),
       });
 
-      // Diagnostic wrapper: logs each tool call and its spoken result (not raw
-      // params, to avoid logging amounts/PII) so runtime failures are visible in
-      // the browser console. Safe to remove once the agent flows are confirmed.
-      const loggedTools: typeof clientTools = Object.fromEntries(
-        Object.entries(clientTools).map(([name, fn]) => [
+      // Log tool names and outcomes only — never parameters, which hold amounts and names.
+      toolsRef.current = Object.fromEntries(
+        Object.entries(clientTools).map(([name, tool]) => [
           name,
-          async (params: Record<string, unknown>) => {
+          async (parameters: Record<string, unknown>) => {
             try {
-              const result = await fn(params);
-              console.info(`[voice-tool] ${name} →`, result);
-              return result;
+              return await tool(parameters);
             } catch (error) {
-              console.error(`[voice-tool] ${name} threw`, error);
+              console.error(`[voice-tool] ${name} failed`);
               throw error;
             }
           },
         ]),
       );
 
-      conversation.startSession({
-        conversationToken: token,
-        connectionType: "webrtc",
-        dynamicVariables: {
-          business_name: businessNameRef.current,
-          owner_name: resolveVoiceOwnerName(ownerName, session?.user.name),
-          today: kualaLumpurToday(),
-          currency: "MYR",
+      const ownerName = session?.user.name?.trim();
+      const connection = await connectLiveVoice({
+        requestAnswer: async (sdp) => {
+          const response = await fetch("/api/voice/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            body: JSON.stringify({ sdp, businessName: businessNameRef.current, ...(ownerName ? { ownerName } : {}) }),
+          });
+          if (!response.ok) throw new VoiceSessionRequestError(response.status);
+          const body = (await response.json()) as { sdp?: unknown; sessionId?: unknown };
+          if (typeof body.sdp !== "string" || typeof body.sessionId !== "string") throw new VoiceSessionRequestError(502);
+          return { sdp: body.sdp, sessionId: body.sessionId };
         },
-        clientTools: loggedTools,
+        onEvent: handleEvent,
+        onEnded: (reason) => {
+          if (endInFlightRef.current) return;
+          const message = CLOSE_REASON_COPY[reason];
+          if (message) setError(message);
+          endTranscript(reason === "connection_lost" || reason === "content" ? "failed" : "completed");
+          settleDisconnected();
+        },
       });
-    } catch {
-      setError("Couldn't reach the microphone or the voice assistant. Check permissions and try again.");
+      connectionRef.current = connection;
+      setStatus("connected");
+    } catch (error) {
+      setStatus("disconnected");
+      setError(connectErrorMessage(error));
     } finally {
       connectInFlightRef.current = false;
       setConnecting(false);
     }
-  }, [businessId, createdBy, conversation, mode, queryClient, router, session]);
+  }, [businessId, createdBy, endTranscript, handleEvent, mode, queryClient, router, session, settleDisconnected]);
 
   const disconnect = useCallback(() => {
-    if (endInFlightRef.current) return;
+    const connection = connectionRef.current;
+    if (!connection || endInFlightRef.current) return;
     endInFlightRef.current = true;
-    conversation.endSession();
-  }, [conversation]);
-
-  useEffect(() => {
-    if (conversation.status === "disconnected") endInFlightRef.current = false;
-  }, [conversation.status]);
+    void connection.close().finally(() => {
+      endInFlightRef.current = false;
+      endTranscript("completed");
+      settleDisconnected();
+    });
+  }, [endTranscript, settleDisconnected]);
 
   const toggleMute = useCallback(() => {
-    conversation.setMuted(!conversation.isMuted);
-  }, [conversation]);
+    const connection = connectionRef.current;
+    if (!connection) return;
+    const next = !isMuted;
+    connection.setMuted(next);
+    setIsMuted(next);
+  }, [isMuted]);
 
-  // `useConversation()` returns a fresh object every render, so keep the latest
-  // endSession in a ref and only invoke it on unmount — depending on
-  // `conversation` here would tear the session down on every re-render.
-  const endSessionRef = useRef(conversation.endSession);
-  useEffect(() => { endSessionRef.current = conversation.endSession; });
+  // Leaving the app shell ends the session and releases the microphone.
   useEffect(() => () => {
-    endSessionRef.current();
-    finishTranscriptStorage("completed");
-  }, [finishTranscriptStorage]);
+    const connection = connectionRef.current;
+    connectionRef.current = null;
+    if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
+    if (!connection) return;
+    endInFlightRef.current = true;
+    void connection.close();
+    endTranscript("completed");
+  }, [endTranscript]);
 
-  // Volume getters change identity every render too; expose stable wrappers so
-  // the orb's animation loop isn't torn down and rebuilt on each re-render.
-  const getInputVolumeRef = useRef(conversation.getInputVolume);
-  const getOutputVolumeRef = useRef(conversation.getOutputVolume);
-  useEffect(() => {
-    getInputVolumeRef.current = conversation.getInputVolume;
-    getOutputVolumeRef.current = conversation.getOutputVolume;
-  });
-  const getInputVolume = useCallback(() => {
-    try { return getInputVolumeRef.current(); } catch { return 0; }
-  }, []);
-  const getOutputVolume = useCallback(() => {
-    try { return getOutputVolumeRef.current(); } catch { return 0; }
-  }, []);
+  const getInputVolume = useCallback(() => connectionRef.current?.getInputVolume() ?? 0, []);
+  const getOutputVolume = useCallback(() => connectionRef.current?.getOutputVolume() ?? 0, []);
 
-  const { status, isSpeaking, isListening, isMuted } = conversation;
+  const isListening = status === "connected" && !isMuted && !isSpeaking;
   const phase: VoicePhase = error
     ? "error"
     : status === "connecting" || connecting
@@ -417,4 +470,31 @@ export function useVoiceAgent(): UseVoiceAgentResult {
     disconnect,
     toggleMute,
   };
+}
+
+/** Why the session ended, in words the owner can act on. `close_requested` is a normal stop. */
+const CLOSE_REASON_COPY: Partial<Record<string, string>> = {
+  expired: "The voice session timed out. Start again when you're ready.",
+  content: "The assistant ended the session. Please start again.",
+  connection_lost: "The voice connection dropped. Check your network and try again.",
+};
+
+class VoiceSessionRequestError extends Error {
+  constructor(readonly status: number) {
+    super("Voice session request failed.");
+    this.name = "VoiceSessionRequestError";
+  }
+}
+
+function connectErrorMessage(error: unknown) {
+  if (error instanceof VoiceSessionRequestError) {
+    if (error.status === 503) return "The voice assistant isn't configured yet.";
+    if (error.status === 401) return "Sign in again to use the voice assistant.";
+    if (error.status === 429) return "The voice assistant is busy. Try again in a moment.";
+    return "Couldn't start the voice assistant. Please try again.";
+  }
+  if (error instanceof DOMException && error.name === "NotAllowedError") {
+    return "Microphone access was blocked. Allow it in your browser settings and try again.";
+  }
+  return "Couldn't reach the microphone or the voice assistant. Check permissions and try again.";
 }

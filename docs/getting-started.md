@@ -84,10 +84,9 @@ Add only the credentials needed for the path you are testing:
 ```text
 OPENAI_API_KEY=<server key>
 ELEVENLABS_API_KEY=<server key>
-ELEVENLABS_AGENT_ID=<private conversational agent id>
 ```
 
-The model variables in `.env.example` already carry development defaults. Receipt and bank-statement extraction need OpenAI. Transaction voice notes need ElevenLabs transcription and OpenAI structuring. The live `/voice` assistant needs both `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID`.
+The model variables in `.env.example` already carry development defaults. Receipt and bank-statement extraction need OpenAI. Transaction voice notes need ElevenLabs transcription and OpenAI structuring. The live `/voice` assistant needs `OPENAI_API_KEY` and a browser with microphone access.
 
 Provider secrets are read by server routes—never add `NEXT_PUBLIC_` to them.
 
@@ -153,7 +152,7 @@ git diff --exit-code -- src/lib/supabase/database.types.ts
 | The bot exits before polling | Check the four required bot/provider values and the selected persistence mode |
 | The bot says the account must be linked | Generate a fresh web link code and use it in a private Telegram chat |
 | Receipt or statement extraction returns 503 | Configure `OPENAI_API_KEY` and the relevant model value |
-| Voice assistant returns 503 | Configure both ElevenLabs values used by `/api/voice/session` |
+| Voice assistant returns 503 | Configure `OPENAI_API_KEY` for `/api/voice/session` |
 | Hosted schema and generated types disagree | Verify the linked project, migration list, and regenerate types from that schema |
 
 See [configuration.md](configuration.md) for the complete variable matrix and [supabase-operations.md](supabase-operations.md) for hosted migration work.

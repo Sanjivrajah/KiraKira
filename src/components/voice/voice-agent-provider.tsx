@@ -1,6 +1,5 @@
 "use client";
 
-import { ConversationProvider } from "@elevenlabs/react";
 import { createContext, useContext, type ReactNode } from "react";
 import { useVoiceAgent, type UseVoiceAgentResult } from "./use-voice-agent";
 
@@ -13,7 +12,7 @@ function VoiceAgentSession({ children }: { children: ReactNode }) {
 
 /** Keeps one voice connection alive while users move between workspace routes. */
 export function VoiceAgentProvider({ children }: { children: ReactNode }) {
-  return <ConversationProvider><VoiceAgentSession>{children}</VoiceAgentSession></ConversationProvider>;
+  return <VoiceAgentSession>{children}</VoiceAgentSession>;
 }
 
 export function usePersistentVoiceAgent() {

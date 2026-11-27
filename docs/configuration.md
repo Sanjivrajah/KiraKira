@@ -40,19 +40,18 @@ The Google client secret belongs in Google/Supabase provider configuration, not 
 | `OPENAI_DOCUMENT_MODEL` | Optional | Vercel | PDF bank-statement extraction; falls back to the vision model |
 | `OPENAI_TEXT_MODEL` | Optional | Vercel | Structures a transaction after web voice transcription |
 | `OPENAI_TRANSACTION_MODEL` | Telegram worker | Railway | Telegram text and transcript extraction; the example uses `gpt-4o-mini` |
+| `OPENAI_LIVE_MODEL` | Optional | Vercel | Browser voice assistant Live model; defaults to `gpt-live-1.1` |
+| `OPENAI_LIVE_DELEGATION_MODEL` | Optional | Vercel | Responses model that chooses voice tools; defaults to `gpt-5.6-terra` |
 
-OpenAI extraction returns proposals. It never owns confirmation or persistence.
+OpenAI extraction returns proposals. It never owns confirmation or persistence. The browser voice assistant receives only the Live SDP answer and session id—never the API key.
 
 ## ElevenLabs
 
 | Variable | Required | Runtime | Purpose |
 | --- | --- | --- | --- |
-| `ELEVENLABS_API_KEY` | For voice features | Vercel and Railway | Speech-to-text and browser conversational token requests |
+| `ELEVENLABS_API_KEY` | For voice notes | Vercel and Railway | Speech-to-text for recorded transaction audio and Telegram voice notes |
 | `ELEVENLABS_STT_MODEL` | Optional | Vercel and Railway | Transcription model; defaults to `scribe_v2` |
-| `ELEVENLABS_AGENT_ID` | Browser voice assistant | Vercel | Private Conversational AI agent used by `/api/voice/session` |
 | `MAX_VOICE_FILE_BYTES` | Optional | Railway | Telegram voice-note limit; defaults to 20 MiB |
-
-The browser receives a short-lived ElevenLabs conversation token—not the API key or agent secret configuration.
 
 ## Telegram worker
 

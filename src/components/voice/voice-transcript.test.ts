@@ -1,54 +1,44 @@
 import { describe, expect, it } from "vitest";
-import { appendTranscriptTurn, MAX_TRANSCRIPT_TURNS, type TranscriptTurn } from "./voice-transcript";
+import { appendTranscriptDelta, MAX_TRANSCRIPT_TURNS, type TranscriptTurn } from "./voice-transcript";
 
-describe("appendTranscriptTurn", () => {
-  it("adds the first turn with id 1", () => {
-    const result = appendTranscriptTurn([], { message: "Hello there", source: "ai" });
-    expect(result).toEqual([{ id: 1, role: "assistant", text: "Hello there" }]);
+describe("appendTranscriptDelta", () => {
+  it("starts the first turn with id 1", () => {
+    expect(appendTranscriptDelta([], "assistant", "Hello")).toEqual([{ id: 1, role: "assistant", text: "Hello" }]);
   });
 
-  it("maps source 'user' to the user role and 'ai' to assistant", () => {
-    const result = appendTranscriptTurn([], { message: "I spent RM45", source: "user" });
-    expect(result[0].role).toBe("user");
+  it("concatenates streamed deltas from the same speaker without inserting spaces", () => {
+    const first = appendTranscriptDelta([], "user", "Hel");
+    const second = appendTranscriptDelta(first, "user", "lo");
+    const third = appendTranscriptDelta(second, "user", " there");
+    expect(third).toEqual([{ id: 1, role: "user", text: "Hello there" }]);
   });
 
-  it("ignores blank or whitespace-only messages", () => {
+  it("opens a new turn when the speaker changes", () => {
+    const turns = appendTranscriptDelta(appendTranscriptDelta([], "user", "I spent RM45"), "assistant", "Got it");
+    expect(turns.map((turn) => [turn.id, turn.role])).toEqual([[1, "user"], [2, "assistant"]]);
+  });
+
+  it("ignores empty deltas and whitespace that would open a turn", () => {
     const seed: TranscriptTurn[] = [{ id: 1, role: "user", text: "Hi" }];
-    expect(appendTranscriptTurn(seed, { message: "   ", source: "ai" })).toBe(seed);
-    expect(appendTranscriptTurn([], { message: "", source: "ai" })).toEqual([]);
+    expect(appendTranscriptDelta(seed, "user", "")).toBe(seed);
+    expect(appendTranscriptDelta(seed, "assistant", "   ")).toBe(seed);
   });
 
-  it("coalesces consecutive same-role turns, preferring the longer transcript", () => {
-    let turns = appendTranscriptTurn([], { message: "How much", source: "ai" });
-    turns = appendTranscriptTurn(turns, { message: "How much profit this month", source: "ai" });
-    expect(turns).toHaveLength(1);
-    expect(turns[0].text).toBe("How much profit this month");
-    expect(turns[0].id).toBe(1);
+  it("trims leading whitespace when a new turn starts", () => {
+    expect(appendTranscriptDelta([], "assistant", "  Okay")[0].text).toBe("Okay");
   });
 
-  it("joins same-role text when the new message is not an extension", () => {
-    let turns = appendTranscriptTurn([], { message: "Longer first sentence.", source: "user" });
-    turns = appendTranscriptTurn(turns, { message: "Next.", source: "user" });
-    expect(turns).toHaveLength(1);
-    expect(turns[0].text).toBe("Longer first sentence. Next.");
+  it("keeps Malay and emoji text intact", () => {
+    expect(appendTranscriptDelta([], "user", "semalam 😀")[0].text).toBe("semalam 😀");
   });
 
-  it("starts a new turn when the speaker changes and increments the id", () => {
-    let turns = appendTranscriptTurn([], { message: "Hi", source: "user" });
-    turns = appendTranscriptTurn(turns, { message: "Hello, how can I help?", source: "ai" });
-    expect(turns).toHaveLength(2);
-    expect(turns[1]).toEqual({ id: 2, role: "assistant", text: "Hello, how can I help?" });
-  });
-
-  it("caps the transcript at MAX_TRANSCRIPT_TURNS, dropping the oldest", () => {
+  it("caps the transcript at MAX_TRANSCRIPT_TURNS, keeping the newest turns", () => {
     let turns: TranscriptTurn[] = [];
-    for (let i = 0; i < MAX_TRANSCRIPT_TURNS + 5; i += 1) {
-      const source = i % 2 === 0 ? "user" : "ai";
-      turns = appendTranscriptTurn(turns, { message: `line ${i}`, source });
+    for (let index = 0; index < MAX_TRANSCRIPT_TURNS + 1; index += 1) {
+      turns = appendTranscriptDelta(turns, index % 2 === 0 ? "user" : "assistant", `turn ${index}`);
     }
     expect(turns).toHaveLength(MAX_TRANSCRIPT_TURNS);
-    expect(turns[turns.length - 1].text).toBe(`line ${MAX_TRANSCRIPT_TURNS + 4}`);
-    // Oldest turns were trimmed off the front.
-    expect(turns[0].text).not.toBe("line 0");
+    expect(turns[turns.length - 1].text).toBe(`turn ${MAX_TRANSCRIPT_TURNS}`);
+    expect(turns[0].id).toBe(2);
   });
 });

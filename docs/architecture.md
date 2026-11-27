@@ -110,7 +110,7 @@ Inbound updates receive an idempotency key and a redacted orchestration trace. D
 There are two voice paths:
 
 - Uploaded or recorded transaction audio is transcribed by ElevenLabs Scribe, then structured by OpenAI into a reviewable transaction draft.
-- The `/voice` experience uses an ElevenLabs Conversational AI agent. Vercel mints a short-lived token, while browser client tools stage and confirm application actions.
+- The `/voice` experience uses the OpenAI Live API over WebRTC. Vercel exchanges the browser's SDP offer for an answer with the server-held key, while browser client tools stage and confirm application actions.
 
 In Supabase mode, text turns can be stored in `voice_conversations` and `voice_conversation_turns` for the signed-in owner. Raw call audio is not stored by this application path. Rows carry a 90-day deletion target, but a scheduler must perform the deletion before the product can claim automatic expiry.
 
